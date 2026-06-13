@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/client/components/ui/card";
-import { APITester } from "../APITester";
+import { APITester } from "./APITester";
 import "./index.css";
 
 import logo from "../assets/logo.svg";
