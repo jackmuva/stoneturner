@@ -3,7 +3,7 @@ import { IntegrationCard } from "./integration-card";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from '@/components/ui/breadcrumb';
 import { SupportedIntegrations } from '@/integrations/registry';
 import type { IntegrationCredential, SyncTaskSelect } from '@/core/db/schema/schema';
-import type { IntegrationConfig } from '@/core/models/models';
+import type { Integration, IntegrationConfig } from '@/core/models/models';
 
 export const KnowledgeBasePage = () => {
   const { data: integrations, mutate: integrationsMutate, isLoading: integrationsIsLoading } = useSWR<IntegrationCredential[]>(`integrations`, async (): Promise<IntegrationCredential[]> => {
@@ -37,13 +37,13 @@ export const KnowledgeBasePage = () => {
         </BreadcrumbList>
       </Breadcrumb>
       <div className="animate-appear grid grid-cols-1 md:grid-cols-3">
-        {SupportedIntegrations.map((intConfig: IntegrationConfig) => {
-          return <IntegrationCard key={intConfig.integration}
-            intConfig={intConfig}
+        {SupportedIntegrations.map((intConfig: Integration) => {
+          return <IntegrationCard key={intConfig.config.integration}
+            intConfig={intConfig.config}
             integrations={integrations ?? []}
             integrationsMutate={integrationsMutate}
             syncing={syncTasks ? syncTasks.filter((task) => {
-              return task.integration === intConfig.integration
+              return task.integration === intConfig.config.integration
             }).length > 0 : false}
             syncTaskMutate={syncTaskMutate}
           />

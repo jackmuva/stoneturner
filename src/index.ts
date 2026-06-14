@@ -3,7 +3,7 @@ import index from "./client/index.html";
 import { handleGetIntegrations, handleGetRecentSyncTasks, handleNewIntegrationCredential } from "./core/handlers/handler";
 import { withCors } from "./core/middleware/middleware";
 import { handleMcp } from "./core/handlers/mcp-handler";
-import { handleGongSync } from "./integrations/gong/handlers/handler";
+import { SupportedIntegrations } from "./integrations/registry";
 
 const server = serve({
   routes: {
@@ -25,11 +25,12 @@ const server = serve({
     },
     "/api/sync/:integration": {
       POST: withCors(async (req) => {
-        if (req.params.integration === "gong") {
-          return handleGongSync(req);
-        } else {
-          return Response.json(null, { status: 400 });
+        if (req.params.integration) {
+          const index = SupportedIntegrations.map((integ) => integ.config.integration).indexOf(req.params.integration);
+          if (index === -1) return Response.json(null, { status: 400 });
+          SupportedIntegrations[index]!.sync();
         }
+        return Response.json(null, { status: 400 });
       }),
     },
     "/api/syncTasks/recent": {

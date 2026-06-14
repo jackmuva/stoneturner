@@ -1,6 +1,6 @@
-import type { IntegrationConfig } from "@/core/models/models";
-import { gongConfig } from "@/integrations/gong/config";
+import type { Integration } from "@/core/models/models";
+import { gongIntegration } from "./gong/integration";
 
-export const SupportedIntegrations: IntegrationConfig[] = [
-  gongConfig,
+export const SupportedIntegrations: Integration[] = [
+  gongIntegration,
 ];

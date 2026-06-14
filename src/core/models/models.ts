@@ -9,12 +9,7 @@ export type IntegrationConfig = {
   }[],
 };
 
-export type VectorDbMetadata = {
-  integrationArtifactId: string,
-  integration: string,
-  artifactDate: number,
-  updateDate: number,
-  entities: string[],
-};
-
-
+export type Integration = {
+  config: IntegrationConfig,
+  sync: () => void,
+}
