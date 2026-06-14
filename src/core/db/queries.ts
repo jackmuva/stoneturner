@@ -1,11 +1,7 @@
 import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact } from '@/core/db/schema';
 import { and, eq, gte, like, lte, gt } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
-import { Database } from 'bun:sqlite';
-import { drizzle } from 'drizzle-orm/bun-sqlite';
-
-const sqlite = new Database('stoneturner.db');
-export const db = drizzle({ client: sqlite });
+import {db} from '@/core/db/db';
 
 export const getIntegrationCredentials= async (): Promise<IntegrationCredential[]> => {
   return await db.select().from(integrationCredential);

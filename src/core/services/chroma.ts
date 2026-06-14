@@ -1,4 +1,4 @@
-import { CloudClient, type Collection, type Metadata, type QueryResult, type Where } from "chromadb";
+import { ChromaClient, type Collection, type Metadata, type QueryResult, type Where } from "chromadb";
 import { VercelEmbeddingFunction } from "./embedding";
 import type { VectorDbMetadata } from "@/core/models/models";
 
@@ -10,7 +10,13 @@ export interface ChromaDoc {
   metadatas: Metadata[];
 }
 
-export const chromaClient = new CloudClient();
+const chromaClient = new ChromaClient({
+  ssl: false,
+  host: "localhost",
+  port: 9000, 
+  database: "stoneturner-db",
+  headers: {},
+});
 
 let collection: Collection | null = null;
 let qaCollection: Collection | null = null;
@@ -61,25 +67,23 @@ export const getKeyPointsCollection = async () => {
 export const queryVectorRecords = async (
   collection: Collection,
   queryEmbeddings: number[][],
-  state: {
-    filter: {
-      startDate?: string,
-      endDate?: string,
-      keywords?: string[],
-      sources?: string[],
-    }
+  filter: {
+    startDate?: string,
+    endDate?: string,
+    keywords?: string[],
+    sources?: string[],
   },
   limit: number,
 ): Promise<QueryResult<VectorDbMetadata>> => {
   const whereArray: Where[] = [];
-  if (state.filter.sources?.length) {
-    whereArray.push({ integration: { $in: state.filter.sources } });
+  if (filter.sources?.length) {
+    whereArray.push({ integration: { $in: filter.sources } });
   }
-  if (state.filter.startDate) {
-    whereArray.push({ artifactDate: { $gte: new Date(state.filter.startDate).getTime() } });
+  if (filter.startDate) {
+    whereArray.push({ artifactDate: { $gte: new Date(filter.startDate).getTime() } });
   }
-  if (state.filter.endDate) {
-    whereArray.push({ artifactDate: { $lte: new Date(state.filter.endDate).getTime() } });
+  if (filter.endDate) {
+    whereArray.push({ artifactDate: { $lte: new Date(filter.endDate).getTime() } });
   }
 
   const queryArgs: Record<string, unknown> = {
@@ -88,9 +92,9 @@ export const queryVectorRecords = async (
     where: { $and: whereArray },
   };
 
-  if (state.filter.keywords?.length) {
+  if (filter.keywords?.length) {
     queryArgs.whereDocument = {
-      $or: state.filter.keywords.map((keyword) => ({ $contains: keyword })),
+      $or: filter.keywords.map((keyword) => ({ $contains: keyword })),
     };
   }
 
