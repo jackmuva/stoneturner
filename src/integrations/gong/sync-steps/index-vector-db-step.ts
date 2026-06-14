@@ -1,10 +1,15 @@
-import { getMdArtifactByIntegrationAndUserId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries";
-import type { MdArtifactSelect } from "@/core/db/schema";
-import { getChromaCollection, getKeyPointsCollection, getQuestionsAnsweredCollection } from "@/core/services/chroma";
-import { PAGE_SIZE, MAX_WORKERS} from "@/lib/constants";
+import { getMdArtifactByIntegrationAndUserId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
+import type { MdArtifactSelect } from "@/core/db/schema/schema";
+import {
+  upsertContentEmbedding,
+  upsertKeyPointsEmbedding,
+  upsertQuestionsAnsweredEmbedding,
+} from "@/core/db/queries/vector-queries";
+import { embedTexts } from "@/core/services/embedding";
+import { PAGE_SIZE, MAX_WORKERS } from "@/lib/constants";
 import { retry } from "@/lib/utils";
 
-export const indexVectorDbStep= async (offset: number = 0) => {
+export const indexVectorDbStep = async (offset: number = 0) => {
   let curOffset: number = offset;
   let artifactLengths: number[] = [];
 
@@ -47,49 +52,47 @@ export const chunkMd = async (artifacts: MdArtifactSelect[], curOffset: number) 
 
       if (chunks.length === 0) continue;
 
-      const chromaCollection = await getChromaCollection();
-      const qaCollection = await getQuestionsAnsweredCollection();
-      const kpCollection = await getKeyPointsCollection();
+      const keyPoints = (artifact.keyPoints || []).filter((kp) => kp.trim() !== "");
+      const questionsAnswered = (artifact.questionsAnswered || []).filter((qa) => qa.trim() !== "");
 
       await Promise.all([
-        retry(async () => await chromaCollection.upsert({
-          ids: chunks.map((c) => `${artifact.id}-lines-${c.startLine}-${c.endLine}`),
-          documents: chunks.map((c) => c.text),
-          metadatas: chunks.map(() => ({
+        retry(async () => {
+          const embeddings = await embedTexts(chunks.map((c) => c.text));
+          await Promise.all(chunks.map((c, i) => upsertContentEmbedding({
+            id: `${artifact.id}-lines-${c.startLine}-${c.endLine}`,
             integrationArtifactId: artifact.integrationArtifactId,
             integration: artifact.integration,
-            artifactDate: (new Date(artifact.artifactDate!)).getTime(),
-            updateDate: (new Date(artifact.updateDate)).getTime(),
+            artifactDate: artifact.artifactDate,
+            content: c.text,
             entities: artifact.entities,
-          })),
-        }), 3, 1),
-        retry(async () => {
-          if (!artifact.questionsAnswered || artifact.questionsAnswered.length === 0) return;
-          await qaCollection.upsert({
-            ids: (artifact.questionsAnswered || []).map((_, i) => `${artifact.id}-${i}`),
-            documents: artifact.questionsAnswered || [],
-            metadatas: (artifact.questionsAnswered || []).map(() => ({
-              integrationArtifactId: artifact.integrationArtifactId,
-              integration: artifact.integration,
-              artifactDate: (new Date(artifact.artifactDate!)).getTime(),
-              updateDate: (new Date(artifact.updateDate)).getTime(),
-              entities: artifact.entities,
-            }))
-          })
+            embedding: embeddings[i]!,
+          })));
         }, 3, 1),
         retry(async () => {
-          if (!artifact.keyPoints || artifact.keyPoints.length === 0) return;
-          await kpCollection.upsert({
-            ids: (artifact.keyPoints || []).map((_, i) => `${artifact.id}-${i}`),
-            documents: artifact.keyPoints || [],
-            metadatas: (artifact.keyPoints || []).map(() => ({
-              integrationArtifactId: artifact.integrationArtifactId,
-              integration: artifact.integration,
-              artifactDate: (new Date(artifact.artifactDate!)).getTime(),
-              updateDate: (new Date(artifact.updateDate)).getTime(),
-              entities: artifact.entities,
-            })),
-          })
+          if (keyPoints.length === 0) return;
+          const embeddings = await embedTexts(keyPoints);
+          await Promise.all(keyPoints.map((kp, i) => upsertKeyPointsEmbedding({
+            id: `${artifact.id}-kp-${i}`,
+            integrationArtifactId: artifact.integrationArtifactId,
+            integration: artifact.integration,
+            artifactDate: artifact.artifactDate,
+            content: kp,
+            entities: artifact.entities,
+            embedding: embeddings[i]!,
+          })));
+        }, 3, 1),
+        retry(async () => {
+          if (questionsAnswered.length === 0) return;
+          const embeddings = await embedTexts(questionsAnswered);
+          await Promise.all(questionsAnswered.map((qa, i) => upsertQuestionsAnsweredEmbedding({
+            id: `${artifact.id}-qa-${i}`,
+            integrationArtifactId: artifact.integrationArtifactId,
+            integration: artifact.integration,
+            artifactDate: artifact.artifactDate,
+            content: qa,
+            entities: artifact.entities,
+            embedding: embeddings[i]!,
+          })));
         }, 3, 1),
       ]);
 

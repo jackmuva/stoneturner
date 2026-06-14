@@ -2,7 +2,7 @@ import useSWR from 'swr'
 import { IntegrationCard } from "./integration-card";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from '@/components/ui/breadcrumb';
 import { SupportedIntegrations } from '@/lib/constants';
-import type { IntegrationCredential, SyncTaskSelect } from '@/core/db/schema';
+import type { IntegrationCredential, SyncTaskSelect } from '@/core/db/schema/schema';
 import type { IntegrationConfig } from '@/core/models/models';
 
 export const KnowledgeBasePage = () => {
@@ -11,11 +11,11 @@ export const KnowledgeBasePage = () => {
       method: "GET",
     });
     const body = await res.json();
-    return body.integrations;
+    return body.integrations ?? [];
   });
 
   const { data: syncTasks, mutate: syncTaskMutate, isLoading: syncsIsLoading } = useSWR<SyncTaskSelect[]>(`syncTasks`, async () => {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/syncTasks/recent`, {
+    const res = await fetch(`${process.env.BACKEND_BASE_URL}/api/syncTasks/recent`, {
       method: "GET",
       credentials: "include"
     });
@@ -37,10 +37,10 @@ export const KnowledgeBasePage = () => {
         </BreadcrumbList>
       </Breadcrumb>
       <div className="animate-appear grid grid-cols-1 md:grid-cols-3">
-        {!integrationsIsLoading && integrations && !syncsIsLoading && SupportedIntegrations.map((intConfig: IntegrationConfig) => {
+        {SupportedIntegrations.map((intConfig: IntegrationConfig) => {
           return <IntegrationCard key={intConfig.integration}
             intConfig={intConfig}
-            integrations={integrations}
+            integrations={integrations ?? []}
             integrationsMutate={integrationsMutate}
             syncing={syncTasks ? syncTasks.filter((task) => {
               return task.integration === intConfig.integration

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { IntegrationDialog } from "./integration-dialog";
 import { BoltIcon } from "lucide-react";
-import type { IntegrationCredential } from "@/core/db/schema";
+import type { IntegrationCredential } from "@/core/db/schema/schema";
 import { useNavigate } from "react-router-dom";
 
 //TODO:Button for incremental syncs
@@ -56,11 +56,14 @@ export const IntegrationCard = ({
           <div className="flex flex-col gap-2 w-full">
             <Button variant={"default"} className="w-full"
               onClick={async () => {
-                // router.push(`/app/knowledge/${intConfig.integration.toLowerCase()} `)
-                await fetch(`${process.env.BACKEND_BASE_URL}/api/sync/gong`, {
-                  method: "POST",
-                  credentials: "include",
-                });
+                if (!syncing) {
+                  await fetch(`${process.env.BACKEND_BASE_URL}/api/sync/gong`, {
+                    method: "POST",
+                    credentials: "include",
+                  });
+                } else {
+                  navigate("/knowledge/" + intConfig.integration);
+                }
               }}>
               <BoltIcon size={16} />
               Configure
