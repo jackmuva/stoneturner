@@ -1,3 +1,5 @@
-import { connect } from "@tursodatabase/database";
+import { drizzle } from 'drizzle-orm/tursodatabase/database';
+import { Database } from '@tursodatabase/database';
 
-const db = await connect("stoneturner.db");
+const client = new Database('stoneturner.db');
+export const db = drizzle({ client });
