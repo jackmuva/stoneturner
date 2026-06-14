@@ -23,10 +23,14 @@ const server = serve({
         return await handleNewIntegrationCredential(req)
       }),
     },
-    "/api/sync/gong": {
-      POST: withCors(async (req) =>
-        handleGongSync(req)
-      ),
+    "/api/sync/:integration": {
+      POST: withCors(async (req) => {
+        if (req.params.integration === "gong") {
+          return handleGongSync(req);
+        } else {
+          return Response.json(null, { status: 400 });
+        }
+      }),
     },
     "/api/syncTasks/recent": {
       GET: withCors(async (req) =>

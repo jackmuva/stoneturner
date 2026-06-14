@@ -9,7 +9,7 @@ import { embedTexts } from "@/core/services/embedding";
 import { PAGE_SIZE, MAX_WORKERS } from "@/lib/constants";
 import { retry } from "@/lib/utils";
 
-export const indexVectorDbStep = async (offset: number = 0) => {
+export const indexVectorDbStep = async (integration: string, offset: number = 0) => {
   let curOffset: number = offset;
   let artifactLengths: number[] = [];
 
@@ -20,7 +20,7 @@ export const indexVectorDbStep = async (offset: number = 0) => {
     }
 
     const artifactsList = await Promise.allSettled(
-      offsets.map((offset) => getMdArtifacts(offset))
+      offsets.map((offset) => getMdArtifacts(integration, offset))
     );
 
     await Promise.allSettled(
@@ -38,8 +38,8 @@ export const indexVectorDbStep = async (offset: number = 0) => {
   }
 }
 
-export const getMdArtifacts = async (offset: number): Promise<MdArtifactSelect[]> => {
-  return await getMdArtifactByIntegration("Gong", offset)
+export const getMdArtifacts = async (integration: string, offset: number): Promise<MdArtifactSelect[]> => {
+  return await getMdArtifactByIntegration(integration, offset)
 }
 
 export const chunkMd = async (artifacts: MdArtifactSelect[], curOffset: number) => {
