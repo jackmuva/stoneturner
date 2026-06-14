@@ -59,7 +59,6 @@ export const IntegrationCard = ({
                 if (!syncing) {
                   await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/gong`, {
                     method: "POST",
-                    credentials: "include",
                   });
                 } else {
                   navigate("/knowledge/" + intConfig.integration);
