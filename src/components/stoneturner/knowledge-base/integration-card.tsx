@@ -57,7 +57,7 @@ export const IntegrationCard = ({
             <Button variant={"default"} className="w-full"
               onClick={async () => {
                 if (!syncing) {
-                  await fetch(`${process.env.BACKEND_BASE_URL}/api/sync/gong`, {
+                  await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/gong`, {
                     method: "POST",
                     credentials: "include",
                   });

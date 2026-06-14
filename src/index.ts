@@ -3,7 +3,7 @@ import index from "./client/index.html";
 import { handleGetIntegrations, handleGetRecentSyncTasks, handleNewIntegrationCredential } from "./core/handlers/handler";
 import { withCors } from "./core/middleware/middleware";
 import { handleMcp } from "./core/handlers/mcp-handler";
-import { SupportedIntegrations } from "./integrations/registry";
+import { supportedIntegrations } from "./integrations/sync-registry";
 
 const server = serve({
   routes: {
@@ -26,9 +26,9 @@ const server = serve({
     "/api/sync/:integration": {
       POST: withCors(async (req) => {
         if (req.params.integration) {
-          const index = SupportedIntegrations.map((integ) => integ.config.integration).indexOf(req.params.integration);
+          const index = supportedIntegrations.map((integ) => integ.config.integration).indexOf(req.params.integration);
           if (index === -1) return Response.json(null, { status: 400 });
-          SupportedIntegrations[index]!.sync();
+          supportedIntegrations[index]!.sync();
         }
         return Response.json(null, { status: 400 });
       }),
@@ -47,7 +47,7 @@ const server = serve({
       DELETE: handleMcp,
     },
   },
-
+  port: 9000,
   development: process.env.NODE_ENV !== "production" && {
     // Enable browser hot reloading in development
     hmr: true,

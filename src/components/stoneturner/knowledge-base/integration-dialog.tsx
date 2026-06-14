@@ -37,7 +37,7 @@ export const IntegrationDialog = ({
         baseUrl: intInputs["baseUrl"]?? null,
       }
 
-      await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/integrations`, {
+      await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/integrations`, {
         method: "POST",
         body: JSON.stringify(integrationConfig),
         credentials: "include",

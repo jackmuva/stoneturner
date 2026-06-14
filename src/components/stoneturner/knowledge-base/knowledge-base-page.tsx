@@ -1,13 +1,13 @@
 import useSWR from 'swr'
 import { IntegrationCard } from "./integration-card";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from '@/components/ui/breadcrumb';
-import { SupportedIntegrations } from '@/integrations/registry';
+import { configRegistry } from '@/integrations/config-registry';
 import type { IntegrationCredential, SyncTaskSelect } from '@/core/db/schema/schema';
-import type { Integration, IntegrationConfig } from '@/core/models/models';
+import type { IntegrationConfig } from '@/core/models/models';
 
 export const KnowledgeBasePage = () => {
   const { data: integrations, mutate: integrationsMutate, isLoading: integrationsIsLoading } = useSWR<IntegrationCredential[]>(`integrations`, async (): Promise<IntegrationCredential[]> => {
-    const res = await fetch(`${process.env.BACKEND_BASE_URL}/api/integrations`, {
+    const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/integrations`, {
       method: "GET",
     });
     const body = await res.json();
@@ -15,7 +15,7 @@ export const KnowledgeBasePage = () => {
   });
 
   const { data: syncTasks, mutate: syncTaskMutate, isLoading: syncsIsLoading } = useSWR<SyncTaskSelect[]>(`syncTasks`, async () => {
-    const res = await fetch(`${process.env.BACKEND_BASE_URL}/api/syncTasks/recent`, {
+    const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/syncTasks/recent`, {
       method: "GET",
       credentials: "include"
     });
@@ -37,13 +37,13 @@ export const KnowledgeBasePage = () => {
         </BreadcrumbList>
       </Breadcrumb>
       <div className="animate-appear grid grid-cols-1 md:grid-cols-3">
-        {SupportedIntegrations.map((intConfig: Integration) => {
-          return <IntegrationCard key={intConfig.config.integration}
-            intConfig={intConfig.config}
+        {configRegistry.map((intConfig: IntegrationConfig) => {
+          return <IntegrationCard key={intConfig.integration}
+            intConfig={intConfig}
             integrations={integrations ?? []}
             integrationsMutate={integrationsMutate}
             syncing={syncTasks ? syncTasks.filter((task) => {
-              return task.integration === intConfig.config.integration
+              return task.integration === intConfig.integration
             }).length > 0 : false}
             syncTaskMutate={syncTaskMutate}
           />
