@@ -6,7 +6,7 @@ import { PAGE_SIZE, SUMMARIZATION_MODEL, MAX_WORKERS } from "@/lib/constants";
 import { generateText, Output } from "ai";
 import * as z from "zod";
 
-export const parseGongStep= async (offset: number = 0) => {
+export const parseGongStep = async (offset: number = 0) => {
   let curOffset: number = offset;
   let transcriptLengths: number[] = [];
 

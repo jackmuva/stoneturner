@@ -1,4 +1,4 @@
-import { getMdArtifactByIntegrationAndUserId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
+import { getMdArtifactByIntegration, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
 import type { MdArtifactSelect } from "@/core/db/schema/schema";
 import {
   upsertContentEmbedding,
@@ -39,7 +39,7 @@ export const indexVectorDbStep = async (offset: number = 0) => {
 }
 
 export const getMdArtifacts = async (offset: number): Promise<MdArtifactSelect[]> => {
-  return await getMdArtifactByIntegrationAndUserId("Gong", offset)
+  return await getMdArtifactByIntegration("Gong", offset)
 }
 
 export const chunkMd = async (artifacts: MdArtifactSelect[], curOffset: number) => {

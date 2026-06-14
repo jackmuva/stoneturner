@@ -4,9 +4,8 @@ export type IntegrationConfig = {
   integrationType: "BASIC_TOKEN" | "OAUTH" | "API_KEY",
   docs: string,
   inputs: {
-    input: string,
+    input: "accessToken" | "refreshToken" | "accessKey" | "secretKey" | "baseUrl",
     label: string,
-    type: "text"
   }[],
 };
 

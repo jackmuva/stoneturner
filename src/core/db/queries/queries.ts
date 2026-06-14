@@ -1,9 +1,9 @@
 import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact } from '@/core/db/schema/schema';
 import { and, eq, gte, like, lte, gt } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
-import {db} from '@/core/db/db';
+import { db } from '@/core/db/db';
 
-export const getIntegrationCredentials= async (): Promise<IntegrationCredential[]> => {
+export const getIntegrationCredentials = async (): Promise<IntegrationCredential[]> => {
   return await db.select().from(integrationCredential);
 }
 
@@ -29,7 +29,7 @@ export const upsertIntegrationCredential = async (integrationData: IntegrationCr
   }
 }
 
-export const getSyncTaskByIntegration= async (integration: string ): Promise<SyncTaskSelect[] | undefined> => {
+export const getSyncTaskByIntegration = async (integration: string): Promise<SyncTaskSelect[] | undefined> => {
   return await db.select().from(syncTask).where(and(eq(syncTask.integration, integration)));
 }
 
@@ -65,7 +65,7 @@ export const getMdArtifactById = async (id: string): Promise<MdArtifactSelect[]>
   return await db.select().from(mdArtifact).where(eq(mdArtifact.id, id));
 }
 
-export const getMdArtifactByIntegrationAndUserId = async (integration: string, offset?: number): Promise<MdArtifactSelect[]> => {
+export const getMdArtifactByIntegration = async (integration: string, offset?: number): Promise<MdArtifactSelect[]> => {
   const query = db.select().from(mdArtifact).where(eq(mdArtifact.integration, integration));
   if (offset !== undefined) {
     return await query.limit(PAGE_SIZE).offset(offset);

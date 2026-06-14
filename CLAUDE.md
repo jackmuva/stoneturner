@@ -28,7 +28,7 @@ There is no lint/typecheck script wired up; run `bunx tsc --noEmit` for a type c
 
 - `src/core/` — integration-agnostic plumbing: DB client + shared tables (`db/`), HTTP handlers (`handlers/`), CORS middleware (`middlware/` — note spelling), the embedding service (`services/`), shared types (`models/`).
 - `src/integrations/<name>/` — one folder per integration, mirroring the core layout (`db/`, `handlers/`, `models/`, `sync-steps/`, `sync.ts`). Gong is the only one today and is the template for adding more.
-- To add an integration: create the folder structure, register it in `SupportedIntegrations` in `src/lib/constants.ts` (drives the frontend's connect UI), add its sync route in `src/index.ts`, and write a `sync.ts` pipeline.
+- To add an integration: create the folder structure, export an `IntegrationConfig` from the integration's `config.ts` and register it in `SupportedIntegrations` in `src/integrations/registry.ts` (drives the frontend's connect UI), add its sync route in `src/index.ts`, and write a `sync.ts` pipeline.
 
 ### The sync pipeline (Gong)
 
