@@ -62,7 +62,6 @@ export const queryVectorRecords = async (
   collection: Collection,
   queryEmbeddings: number[][],
   state: {
-    userId: string,
     filter: {
       startDate?: string,
       endDate?: string,
@@ -73,8 +72,6 @@ export const queryVectorRecords = async (
   limit: number,
 ): Promise<QueryResult<VectorDbMetadata>> => {
   const whereArray: Where[] = [];
-  whereArray.push({ userId: { $eq: state.userId } })
-
   if (state.filter.sources?.length) {
     whereArray.push({ integration: { $in: state.filter.sources } });
   }

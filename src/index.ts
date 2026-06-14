@@ -16,7 +16,7 @@ const server = serve({
         return await handleNewIntegrationCredential(req)
       }),
     },
-    "/api/workflow/sync/gong": {
+    "/api/sync/gong": {
       POST: withCors(async (req) =>
         handleGongSync(req)
       ),
