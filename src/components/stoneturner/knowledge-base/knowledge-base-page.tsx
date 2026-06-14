@@ -1,26 +1,20 @@
-"use client";
-
 import useSWR from 'swr'
-import { Integration, IntegrationConfig, SyncTaskSelect } from "@/models/integration-models";
 import { IntegrationCard } from "./integration-card";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from '@/components/ui/breadcrumb';
 import { SupportedIntegrations } from '@/lib/constants';
+import type { IntegrationCredential, SyncTaskSelect } from '@/core/db/schema';
+import type { IntegrationConfig } from '@/core/models/models';
 
-export const KnowledgeBasePage = ({
-  userId,
-}: {
-  userId: string,
-}) => {
-  const { data: integrations, mutate: integrationsMutate, isLoading: integrationsIsLoading } = useSWR<Integration[]>(`integrations/${userId}`, async (): Promise<Integration[]> => {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/integrations`, {
+export const KnowledgeBasePage = () => {
+  const { data: integrations, mutate: integrationsMutate, isLoading: integrationsIsLoading } = useSWR<IntegrationCredential[]>(`integrations`, async (): Promise<IntegrationCredential[]> => {
+    const res = await fetch(`${process.env.BACKEND_BASE_URL}/api/integrations`, {
       method: "GET",
-      credentials: "include"
     });
     const body = await res.json();
     return body.integrations;
   });
 
-  const { data: syncTasks, mutate: syncTaskMutate, isLoading: syncsIsLoading } = useSWR<SyncTaskSelect[]>(`syncTasks/${userId}`, async () => {
+  const { data: syncTasks, mutate: syncTaskMutate, isLoading: syncsIsLoading } = useSWR<SyncTaskSelect[]>(`syncTasks`, async () => {
     const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/syncTasks/recent`, {
       method: "GET",
       credentials: "include"
@@ -46,7 +40,6 @@ export const KnowledgeBasePage = ({
         {!integrationsIsLoading && integrations && !syncsIsLoading && SupportedIntegrations.map((intConfig: IntegrationConfig) => {
           return <IntegrationCard key={intConfig.integration}
             intConfig={intConfig}
-            userId={userId}
             integrations={integrations}
             integrationsMutate={integrationsMutate}
             syncing={syncTasks ? syncTasks.filter((task) => {

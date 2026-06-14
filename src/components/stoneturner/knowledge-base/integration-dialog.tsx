@@ -1,41 +1,40 @@
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../../ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DatabaseZapIcon } from "lucide-react";
-import { Integration, IntegrationConfig } from "@/models/integration-models";
+import type { IntegrationConfig } from "@/core/models/models";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { toast } from "sonner";
+import type { IntegrationCredential } from "@/core/db/schema";
 
 export const IntegrationDialog = ({
   intConfig,
-  userId,
   integrationsMutate,
   syncTaskMutate,
 }: {
   intConfig: IntegrationConfig,
-  userId: string,
   integrationsMutate: () => void,
   syncTaskMutate: () => void,
 }) => {
   const [open, setOpen] = useState(false);
   const [intInputs, setIntInputs] = useState<Record<string, string>>({});
   const allFieldsFilled = intConfig.inputs.every(
-    (input) => intInputs[input.input]?.trim().length > 0
+    (input) => (intInputs[input.input]?.trim().length ?? 0) > 0
   );
 
   const upsertIntegrationCreds = async (intConfig: IntegrationConfig) => {
     if (!allFieldsFilled) return;
     if (intConfig.integrationType === "BASIC_TOKEN") {
-      const integrationConfig: Integration = {
+      const integrationConfig: IntegrationCredential= {
         id: crypto.randomUUID(),
         integration: intConfig.integration,
         integrationType: intConfig.integrationType,
         apiKey: null, accessToken: null, refreshToken: null,
-        accessKey: intInputs["accessKey"],
-        secretKey: intInputs["secretKey"],
-        baseUrl: intInputs["baseUrl"],
-        userId: userId,
+        accessKey: intInputs["accessKey"]!,
+        secretKey: intInputs["secretKey"]!,
+        baseUrl: intInputs["baseUrl"]!,
       }
+
       await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/integrations`, {
         method: "POST",
         body: JSON.stringify(integrationConfig),

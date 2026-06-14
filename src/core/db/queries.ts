@@ -1,15 +1,11 @@
-import { drizzle } from 'drizzle-orm/libsql';
-import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact } from '../schema;
+import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact } from '@/core/db/schema';
 import { and, eq, gte, like, lte, gt } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
+import { Database } from 'bun:sqlite';
+import { drizzle } from 'drizzle-orm/bun-sqlite';
 
-
-export const db = drizzle({
-  connection: {
-    url: process.env.TURSO_URL!,
-    authToken: process.env.TURSO_API_KEY
-  }
-});
+const sqlite = new Database('stoneturner.db');
+export const db = drizzle({ client: sqlite });
 
 export const getIntegrationCredentials= async (): Promise<IntegrationCredential[]> => {
   return await db.select().from(integrationCredential);
@@ -65,8 +61,8 @@ export const getPendingSyncTasks = async (): Promise<SyncTaskSelect[] | undefine
   return await db.select().from(syncTask).where(eq(syncTask.status, "PENDING"));
 }
 
-export const getSyncTasksByUpdateDateAfter = async (updateDate: string): Promise<SyncTaskSelect[]> => {
-  return await db.select().from(syncTask).where(gt(syncTask.updateDate, updateDate));
+export const getSyncTasksByIntegrationAndUpdateDateAfter = async (integration:string, updateDate: string): Promise<SyncTaskSelect[]> => {
+  return await db.select().from(syncTask).where(and(gt(syncTask.updateDate, updateDate), eq(syncTask.integration, integration)));
 }
 
 export const getMdArtifactById = async (id: string): Promise<MdArtifactSelect[]> => {

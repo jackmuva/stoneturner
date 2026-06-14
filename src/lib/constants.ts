@@ -7,7 +7,7 @@ export const SUMMARIZATION_MODEL: string = "zai/glm-5";
 export const SupportedIntegrations: IntegrationConfig[] = [
   {
     integration: "Gong",
-    icon: "/gong.png",
+    icon: "@/assets/gong.png",
     integrationType: "BASIC_TOKEN",
     docs: "https://help.gong.io/docs/receive-access-to-the-api",
     inputs: [

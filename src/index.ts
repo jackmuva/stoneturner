@@ -1,31 +1,30 @@
 import { serve } from "bun";
 import index from "./client/index.html";
+import { handleGetIntegrations, handleGetRecentSyncTasks, handleNewIntegrationCredential } from "./core/handlers/handler";
+import { withCors } from "./core/middlware/middleware";
+import { handleGongSync } from "./integrations/gong/handlers/handler";
 
 const server = serve({
   routes: {
     // Serve index.html for all unmatched routes.
     "/*": index,
-
-    "/api/hello": {
-      async GET(req) {
-        return Response.json({
-          message: "Hello, world!",
-          method: "GET",
-        });
-      },
-      async PUT(req) {
-        return Response.json({
-          message: "Hello, world!",
-          method: "PUT",
-        });
-      },
+    "/api/integrations": {
+      GET: withCors(async (req) => {
+        return await handleGetIntegrations(req)
+      }),
+      POST: withCors(async (req) => {
+        return await handleNewIntegrationCredential(req)
+      }),
     },
-
-    "/api/hello/:name": async req => {
-      const name = req.params.name;
-      return Response.json({
-        message: `Hello, ${name}!`,
-      });
+    "/api/workflow/sync/gong": {
+      POST: withCors(async (req) =>
+        handleGongSync(req)
+      ),
+    },
+    "/api/syncTasks/recent": {
+      GET: withCors(async (req) =>
+        handleGetRecentSyncTasks(req)
+      ),
     },
   },
 

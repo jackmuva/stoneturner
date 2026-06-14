@@ -3,7 +3,7 @@ import { syncGongTranscriptsStep } from "./sync-steps/sync-transcripts-step";
 import { parseGongStep } from "./sync-steps/parse-step";
 import { indexVectorDbStep } from "./sync-steps/index-vector-db-step";
 
-export const gongPipelineStep = async () => {
+export const syncGongPipeline = async () => {
   await Promise.all([
     syncGongCallsStep(true),
     syncGongTranscriptsStep(true)
