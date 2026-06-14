@@ -1,7 +1,7 @@
 import { serve } from "bun";
 import index from "./client/index.html";
 import { handleGetIntegrations, handleGetRecentSyncTasks, handleNewIntegrationCredential } from "./core/handlers/handler";
-import { withCors } from "./core/middlware/middleware";
+import { withCors } from "./core/middleware/middleware";
 import { handleGongSync } from "./integrations/gong/handlers/handler";
 
 const server = serve({
