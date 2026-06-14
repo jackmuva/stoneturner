@@ -1,5 +1,5 @@
-import { getMdArtifactByIntegrationAndUserId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries";
-import type { MdArtifactSelect } from "@/core/db/schema";
+import { getMdArtifactByIntegrationAndUserId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
+import type { MdArtifactSelect } from "@/core/db/schema/schema";
 import { getChromaCollection, getKeyPointsCollection, getQuestionsAnsweredCollection } from "@/core/services/chroma";
 import { PAGE_SIZE, MAX_WORKERS} from "@/lib/constants";
 import { retry } from "@/lib/utils";

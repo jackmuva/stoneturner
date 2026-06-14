@@ -1,4 +1,4 @@
-import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact } from '@/core/db/schema';
+import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact } from '@/core/db/schema/schema';
 import { and, eq, gte, like, lte, gt } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import {db} from '@/core/db/db';

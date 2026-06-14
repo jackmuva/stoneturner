@@ -5,7 +5,7 @@ import type { IntegrationConfig } from "@/core/models/models";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { toast } from "sonner";
-import type { IntegrationCredential } from "@/core/db/schema";
+import type { IntegrationCredential } from "@/core/db/schema/schema";
 
 export const IntegrationDialog = ({
   intConfig,

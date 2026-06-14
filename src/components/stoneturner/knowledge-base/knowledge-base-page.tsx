@@ -2,7 +2,7 @@ import useSWR from 'swr'
 import { IntegrationCard } from "./integration-card";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from '@/components/ui/breadcrumb';
 import { SupportedIntegrations } from '@/lib/constants';
-import type { IntegrationCredential, SyncTaskSelect } from '@/core/db/schema';
+import type { IntegrationCredential, SyncTaskSelect } from '@/core/db/schema/schema';
 import type { IntegrationConfig } from '@/core/models/models';
 
 export const KnowledgeBasePage = () => {

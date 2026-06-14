@@ -1,6 +1,6 @@
 import type { BunRequest } from "bun";
-import { getIntegrationCredentials, getSyncTasksByIntegrationAndUpdateDateAfter, upsertIntegrationCredential } from "../db/queries";
-import type { IntegrationCredential } from "../db/schema";
+import { getIntegrationCredentials, getSyncTasksByIntegrationAndUpdateDateAfter, upsertIntegrationCredential } from "../db/queries/queries";
+import type { IntegrationCredential } from "../db/schema/schema";
 
 export async function handleGetIntegrations(req: BunRequest): Promise<Response> {
   const integrations = await getIntegrationCredentials();

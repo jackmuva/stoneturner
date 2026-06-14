@@ -1,5 +1,5 @@
-import { getIntegrationCredentialByIntegration, upsertSyncTask } from "@/core/db/queries";
-import type { IntegrationCredential } from "@/core/db/schema";
+import { getIntegrationCredentialByIntegration, upsertSyncTask } from "@/core/db/queries/queries";
+import type { IntegrationCredential } from "@/core/db/schema/schema";
 import { retry } from "@/lib/utils";
 import { batchInsertGongCall, getLatestGongCall } from "../db/queries";
 import type { GongCallResponse } from "../models/models";

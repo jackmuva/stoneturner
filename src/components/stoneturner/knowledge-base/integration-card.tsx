@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { IntegrationDialog } from "./integration-dialog";
 import { BoltIcon } from "lucide-react";
-import type { IntegrationCredential } from "@/core/db/schema";
+import type { IntegrationCredential } from "@/core/db/schema/schema";
 import { useNavigate } from "react-router-dom";
 
 //TODO:Button for incremental syncs

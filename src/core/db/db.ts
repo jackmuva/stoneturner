@@ -1,5 +1,3 @@
-import { Database } from 'bun:sqlite';
-import { drizzle } from 'drizzle-orm/bun-sqlite';
+import { connect } from "@tursodatabase/database";
 
-const sqlite = new Database('stoneturner.db');
-export const db = drizzle({ client: sqlite });
+const db = await connect("stoneturner.db");

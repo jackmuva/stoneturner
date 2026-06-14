@@ -1,4 +1,4 @@
-import { upsertSyncTask } from "@/core/db/queries";
+import { upsertSyncTask } from "@/core/db/queries/queries";
 import { retry } from "@/lib/utils";
 import { batchInsertGongTranscript, getLatestGongCall } from "../db/queries";
 import type { GongTranscriptResponse } from "../models/models";
