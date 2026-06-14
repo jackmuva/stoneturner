@@ -2,6 +2,7 @@ import { serve } from "bun";
 import index from "./client/index.html";
 import { handleGetIntegrations, handleGetRecentSyncTasks, handleNewIntegrationCredential } from "./core/handlers/handler";
 import { withCors } from "./core/middleware/middleware";
+import { handleMcp } from "./core/handlers/mcp-handler";
 import { handleGongSync } from "./integrations/gong/handlers/handler";
 
 const server = serve({
@@ -31,6 +32,14 @@ const server = serve({
       GET: withCors(async (req) =>
         handleGetRecentSyncTasks(req)
       ),
+    },
+
+    // Streamable HTTP MCP endpoint (stateless JSON-RPC). Not wrapped in withCors:
+    // MCP desktop/CLI clients call it server-side and don't need browser CORS.
+    "/mcp": {
+      POST: handleMcp,
+      GET: handleMcp,
+      DELETE: handleMcp,
     },
   },
 
