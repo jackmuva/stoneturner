@@ -56,11 +56,14 @@ export const IntegrationCard = ({
           <div className="flex flex-col gap-2 w-full">
             <Button variant={"default"} className="w-full"
               onClick={async () => {
-                // router.push(`/app/knowledge/${intConfig.integration.toLowerCase()} `)
-                await fetch(`${process.env.BACKEND_BASE_URL}/api/sync/gong`, {
-                  method: "POST",
-                  credentials: "include",
-                });
+                if (!syncing) {
+                  await fetch(`${process.env.BACKEND_BASE_URL}/api/sync/gong`, {
+                    method: "POST",
+                    credentials: "include",
+                  });
+                } else {
+                  navigate("/knowledge/" + intConfig.integration);
+                }
               }}>
               <BoltIcon size={16} />
               Configure

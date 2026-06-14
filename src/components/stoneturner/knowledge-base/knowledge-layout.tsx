@@ -2,12 +2,12 @@ import { Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/stoneturner/app-sidebar";
 
-export function Layout() {
+export function KnowledgeLayout() {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <main className="flex-1 min-h-screen">
-        <SidebarTrigger className="m-2" />
+      <main className="flex-1 min-h-screen flex">
+        <SidebarTrigger className="" />
         <Outlet />
       </main>
     </SidebarProvider>

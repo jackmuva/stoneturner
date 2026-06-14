@@ -11,11 +11,11 @@ export const KnowledgeBasePage = () => {
       method: "GET",
     });
     const body = await res.json();
-    return body.integrations;
+    return body.integrations ?? [];
   });
 
   const { data: syncTasks, mutate: syncTaskMutate, isLoading: syncsIsLoading } = useSWR<SyncTaskSelect[]>(`syncTasks`, async () => {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/syncTasks/recent`, {
+    const res = await fetch(`${process.env.BACKEND_BASE_URL}/api/syncTasks/recent`, {
       method: "GET",
       credentials: "include"
     });
@@ -37,10 +37,10 @@ export const KnowledgeBasePage = () => {
         </BreadcrumbList>
       </Breadcrumb>
       <div className="animate-appear grid grid-cols-1 md:grid-cols-3">
-        {!integrationsIsLoading && integrations && !syncsIsLoading && SupportedIntegrations.map((intConfig: IntegrationConfig) => {
+        {SupportedIntegrations.map((intConfig: IntegrationConfig) => {
           return <IntegrationCard key={intConfig.integration}
             intConfig={intConfig}
-            integrations={integrations}
+            integrations={integrations ?? []}
             integrationsMutate={integrationsMutate}
             syncing={syncTasks ? syncTasks.filter((task) => {
               return task.integration === intConfig.integration

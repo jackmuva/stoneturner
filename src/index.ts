@@ -6,6 +6,12 @@ import { handleGongSync } from "./integrations/gong/handlers/handler";
 
 const server = serve({
   routes: {
+    // Serve static assets (integration icons, etc.) from src/assets, including subdirectories.
+    "/assets/*": (req) => {
+      const path = new URL(req.url).pathname.slice("/assets/".length);
+      return new Response(Bun.file(`src/assets/${path}`));
+    },
+
     // Serve index.html for all unmatched routes.
     "/*": index,
     "/api/integrations": {

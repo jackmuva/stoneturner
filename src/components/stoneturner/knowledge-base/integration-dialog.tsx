@@ -29,10 +29,12 @@ export const IntegrationDialog = ({
         id: crypto.randomUUID(),
         integration: intConfig.integration,
         integrationType: intConfig.integrationType,
-        apiKey: null, accessToken: null, refreshToken: null,
-        accessKey: intInputs["accessKey"]!,
-        secretKey: intInputs["secretKey"]!,
-        baseUrl: intInputs["baseUrl"]!,
+        apiKey: intInputs["apiKey"] ?? null,
+        accessToken: intInputs['accessToken'] ?? null,
+        refreshToken: intInputs['refreshToken'] ?? null,
+        accessKey: intInputs["accessKey"] ?? null,
+        secretKey: intInputs["secretKey"] ?? null,
+        baseUrl: intInputs["baseUrl"]?? null,
       }
 
       await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/integrations`, {

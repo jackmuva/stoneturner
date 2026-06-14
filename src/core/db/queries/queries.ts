@@ -57,8 +57,8 @@ export const getPendingSyncTasks = async (): Promise<SyncTaskSelect[] | undefine
   return await db.select().from(syncTask).where(eq(syncTask.status, "PENDING"));
 }
 
-export const getSyncTasksByIntegrationAndUpdateDateAfter = async (integration:string, updateDate: string): Promise<SyncTaskSelect[]> => {
-  return await db.select().from(syncTask).where(and(gt(syncTask.updateDate, updateDate), eq(syncTask.integration, integration)));
+export const getSyncTasksByUpdateDateAfter = async (updateDate: string): Promise<SyncTaskSelect[]> => {
+  return await db.select().from(syncTask).where(gt(syncTask.updateDate, updateDate));
 }
 
 export const getMdArtifactById = async (id: string): Promise<MdArtifactSelect[]> => {
