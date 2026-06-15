@@ -17,7 +17,6 @@ export const KnowledgeBasePage = () => {
   const { data: syncTasks, mutate: syncTaskMutate, isLoading: syncsIsLoading } = useSWR<SyncTaskSelect[]>(`syncTasks`, async () => {
     const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/syncTasks/recent`, {
       method: "GET",
-      credentials: "include"
     });
     const body = await res.json();
     return body.syncTasks;

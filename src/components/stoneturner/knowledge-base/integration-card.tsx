@@ -6,7 +6,6 @@ import { BoltIcon } from "lucide-react";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import { useNavigate } from "react-router-dom";
 
-//TODO:Button for incremental syncs
 export const IntegrationCard = ({
   intConfig,
   integrations,
@@ -56,12 +55,12 @@ export const IntegrationCard = ({
           <div className="flex flex-col gap-2 w-full">
             <Button variant={"default"} className="w-full"
               onClick={async () => {
+                navigate("/data/" + intConfig.integration);
+                return;
                 if (!syncing) {
                   await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/gong`, {
                     method: "POST",
                   });
-                } else {
-                  navigate("/knowledge/" + intConfig.integration);
                 }
               }}>
               <BoltIcon size={16} />
