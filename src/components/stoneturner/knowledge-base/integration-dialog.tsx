@@ -59,7 +59,7 @@ export const IntegrationDialog = ({
           <div>Connect</div>
         </Button>
       </DialogTrigger>
-      <DialogContent className="font-mono">
+      <DialogContent className="font-sans">
         <DialogHeader>
           <DialogTitle className="text-lg">
             Connect your {intConfig.integration}

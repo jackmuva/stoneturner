@@ -15,9 +15,9 @@ export function AppSidebar() {
   const { pathname } = useLocation();
 
   return (
-    <Sidebar className="font-mono">
+    <Sidebar className="font-sans">
       <SidebarHeader>
-        <div className="text-lg italic h-full font-semibold font-mono flex items-center gap-1">
+        <div className="text-lg italic h-full font-semibold font-sans flex items-center gap-1">
           <img src={stoneturnerLogo} alt="stoneturner-logo" className="animate-rotate" width={25} height={25} />
           <h1>StoneTurner</h1>
         </div>

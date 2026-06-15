@@ -1,6 +1,6 @@
 import { serve } from "bun";
 import index from "./client/index.html";
-import { handleGetIntegrations, handleGetRecentSyncTasks, handleNewIntegrationCredential } from "./core/handlers/handler";
+import { handleGetArtifacts, handleGetIntegrations, handleGetRecentSyncTasks, handleGetSyncTasks, handleNewIntegrationCredential } from "./core/handlers/handler";
 import { withCors } from "./core/middleware/middleware";
 import { handleMcp } from "./core/handlers/mcp-handler";
 import { supportedIntegrations } from "./integrations/sync-registry";
@@ -37,6 +37,16 @@ const server = serve({
       GET: withCors(async (req) =>
         handleGetRecentSyncTasks(req)
       ),
+    },
+    "/api/syncTasks/:integration/:page": {
+      GET: withCors(async (req) =>
+        handleGetSyncTasks(req)
+      )
+    },
+    "/api/artifacts/:integration/:page": {
+      GET: withCors(async (req) =>
+        handleGetArtifacts(req)
+      )
     },
 
     // Streamable HTTP MCP endpoint (stateless JSON-RPC). Not wrapped in withCors:

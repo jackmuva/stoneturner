@@ -42,6 +42,9 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --color-brand-cream: #E4DDC8;
+  --color-brand-purple: #898ED3;
+  --color-brand-grey: #636363;
   --animate-rotate: rotate 3s;
   @keyframes rotate {
     0% {
@@ -49,6 +52,36 @@
     }
     100% {
       transform: rotate(720deg);
+    }
+  };
+  --animate-roll: roll 8s linear infinite;
+  @keyframes roll {
+    0% {
+      transform: rotate(0);
+    }
+    25% {
+      transform: rotate(360);
+    }
+    50% {
+      transform: rotate(720deg);
+    }
+    75% {
+      transform: rotate(180deg);
+    }
+    100% {
+      transform: rotate(-360deg);
+    }
+  };
+  --animate-left-right: left-right 8s linear infinite;
+  @keyframes left-right {
+    0% {
+      transform: translateX(0);
+    }
+   50% {
+      transform: translateX(150px);
+    }
+    100% {
+      transform: translateX(0);
     }
   };
 }

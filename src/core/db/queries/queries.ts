@@ -29,8 +29,12 @@ export const upsertIntegrationCredential = async (integrationData: IntegrationCr
   }
 }
 
-export const getSyncTaskByIntegration = async (integration: string): Promise<SyncTaskSelect[] | undefined> => {
-  return await db.select().from(syncTask).where(and(eq(syncTask.integration, integration)));
+export const getSyncTasksByIntegration = async (integration: string, offset?: number): Promise<SyncTaskSelect[] | undefined> => {
+  const query = db.select().from(syncTask).where(and(eq(syncTask.integration, integration)));
+  if (offset !== undefined) {
+    return await query.limit(PAGE_SIZE).offset(offset);
+  }
+  return await query.limit(PAGE_SIZE);
 }
 
 export const upsertSyncTask = async (syncTaskData: SyncTaskInsert): Promise<void> => {
@@ -65,7 +69,7 @@ export const getMdArtifactById = async (id: string): Promise<MdArtifactSelect[]>
   return await db.select().from(mdArtifact).where(eq(mdArtifact.id, id));
 }
 
-export const getMdArtifactByIntegration = async (integration: string, offset?: number): Promise<MdArtifactSelect[]> => {
+export const getMdArtifactsByIntegration = async (integration: string, offset?: number): Promise<MdArtifactSelect[]> => {
   const query = db.select().from(mdArtifact).where(eq(mdArtifact.integration, integration));
   if (offset !== undefined) {
     return await query.limit(PAGE_SIZE).offset(offset);

@@ -25,7 +25,7 @@ export const KnowledgeBasePage = () => {
   });
 
   return (
-    <div className="w-full h-full flex flex-col gap-4 p-4 font-mono">
+    <div className="w-full h-full flex flex-col gap-4 p-4 font-sans">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
