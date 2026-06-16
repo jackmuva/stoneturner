@@ -5,13 +5,16 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { ButtonGroup, ButtonGroupSeparator } from "@/components/ui/button-group";
 import { Button } from "@/components/ui/button";
 import { ArrowBigDownDashIcon, RefreshCwIcon, Trash2Icon } from "lucide-react";
+import { useState } from "react";
+import { ArtifactTable } from "./artifact-table";
 
 
 export const IntegrationDataPage = () => {
   let { integration } = useParams();
+  const [page, setPage] = useState<number>(0);
 
-  const { data: artifacts, mutate: artifactMutate, isLoading: artifactsIsLoading } = useSWR<MdArtifactSelect[]>(`artifacts`, async (): Promise<MdArtifactSelect[]> => {
-    const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/artifact/${integration}`, {
+  const { data: artifacts, isLoading: artifactsIsLoading } = useSWR<MdArtifactSelect[]>(`artifacts/${integration}/${page}`, async (): Promise<MdArtifactSelect[]> => {
+    const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/artifacts/${integration}/${page}`, {
       method: "GET",
     });
     const body = await res.json();
@@ -58,6 +61,7 @@ export const IntegrationDataPage = () => {
           Delete Synced Data
         </Button>
       </ButtonGroup>
+      <ArtifactTable setPage={setPage} artifacts={artifacts ?? []} isLoading={artifactsIsLoading}/>
     </div>
   );
 }
