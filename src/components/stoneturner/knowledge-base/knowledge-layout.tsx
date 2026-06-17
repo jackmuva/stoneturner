@@ -6,7 +6,7 @@ export function KnowledgeLayout() {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <main className="flex-1 min-h-screen flex">
+      <main className="flex-1 min-w-0 h-screen flex">
         <SidebarTrigger className="" />
         <Outlet />
       </main>

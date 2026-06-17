@@ -8,7 +8,6 @@ import { ArrowBigDownDashIcon, RefreshCwIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { ArtifactTable } from "./artifact-table";
 
-
 export const IntegrationDataPage = () => {
   let { integration } = useParams();
   const [page, setPage] = useState<number>(0);
@@ -32,7 +31,7 @@ export const IntegrationDataPage = () => {
   });
 
   return (
-    <div className="w-full h-full flex flex-col gap-4 p-4 font-sans">
+    <div className="w-full h-full min-w-0 min-h-0 flex flex-col gap-4 p-4 font-sans">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
