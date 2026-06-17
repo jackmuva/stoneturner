@@ -2,17 +2,42 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { MdArtifactSelect } from "@/core/db/schema/schema"
 import { PAGE_SIZE } from "@/lib/constants";
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, ChevronsUpDownIcon, ChevronUpIcon, ChevronDownIcon } from "lucide-react";
+import type { ArtifactSortField, SortOrder } from "./integration-data-page";
 
 export const ArtifactTable = ({
   setPage,
   artifacts,
   isLoading,
+  sortBy,
+  sortOrder,
+  onSort,
 }: {
   setPage: React.Dispatch<React.SetStateAction<number>>
   artifacts: MdArtifactSelect[],
   isLoading: boolean,
+  sortBy: ArtifactSortField,
+  sortOrder: SortOrder,
+  onSort: (field: ArtifactSortField) => void,
 }) => {
+  const SortIcon = ({ field }: { field: ArtifactSortField }) => {
+    if (sortBy !== field) return <ChevronsUpDownIcon size={12} className="opacity-50" />;
+    return sortOrder === "asc" ? <ChevronUpIcon size={12} /> : <ChevronDownIcon size={12} />;
+  };
+
+  const SortableHead = ({ field, children }: { field: ArtifactSortField, children: React.ReactNode }) => (
+    <TableHead>
+      <button
+        type="button"
+        onClick={() => onSort(field)}
+        className="flex items-center gap-1 hover:text-foreground"
+      >
+        {children}
+        <SortIcon field={field} />
+      </button>
+    </TableHead>
+  );
+
   return (
     <Table className="w-full" containerClassName="h-full max-h-full overflow-auto no-scrollbar">
       <TableHeader className="sticky top-0 bg-background">
@@ -20,12 +45,12 @@ export const ArtifactTable = ({
           <TableHead>
             Markdown
           </TableHead>
-          <TableHead>
+          <SortableHead field="updateDate">
             Update Date
-          </TableHead>
-          <TableHead>
+          </SortableHead>
+          <SortableHead field="artifactDate">
             Artifact Created Date
-          </TableHead>
+          </SortableHead>
           <TableHead>
             Summary
           </TableHead>

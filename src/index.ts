@@ -43,7 +43,7 @@ const server = serve({
         handleGetSyncTasks(req)
       )
     },
-    "/api/artifacts/:integration/:page": {
+    "/api/artifacts/:integration": {
       GET: withCors(async (req) =>
         handleGetArtifacts(req)
       )

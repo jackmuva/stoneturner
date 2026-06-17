@@ -1,5 +1,5 @@
 import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact } from '@/core/db/schema/schema';
-import { and, eq, gte, like, lte, gt } from 'drizzle-orm';
+import { and, eq, gte, like, lte, gt, or, asc, desc } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import { db } from '@/core/db/db';
 
@@ -69,8 +69,35 @@ export const getMdArtifactById = async (id: string): Promise<MdArtifactSelect[]>
   return await db.select().from(mdArtifact).where(eq(mdArtifact.id, id));
 }
 
-export const getMdArtifactsByIntegration = async (integration: string, offset?: number): Promise<MdArtifactSelect[]> => {
-  const query = db.select().from(mdArtifact).where(eq(mdArtifact.integration, integration));
+export type MdArtifactSortField = "updateDate" | "artifactDate";
+export type SortOrder = "asc" | "desc";
+
+export const getMdArtifactsByIntegration = async (
+  integration: string,
+  offset?: number,
+  options?: {
+    search?: string;
+    sortBy?: MdArtifactSortField;
+    sortOrder?: SortOrder;
+  },
+): Promise<MdArtifactSelect[]> => {
+  const conditions = [eq(mdArtifact.integration, integration)];
+  if (options?.search) {
+    const term = `%${options.search}%`;
+    conditions.push(
+      or(
+        like(mdArtifact.markdown, term),
+        like(mdArtifact.keyPoints, term),
+        like(mdArtifact.questionsAnswered, term),
+        like(mdArtifact.entities, term),
+      )!,
+    );
+  }
+
+  const sortColumn = options?.sortBy === "artifactDate" ? mdArtifact.artifactDate : mdArtifact.updateDate;
+  const orderBy = options?.sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
+
+  const query = db.select().from(mdArtifact).where(and(...conditions)).orderBy(orderBy);
   if (offset !== undefined) {
     return await query.limit(PAGE_SIZE).offset(offset);
   }

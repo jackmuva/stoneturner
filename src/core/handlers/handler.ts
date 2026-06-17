@@ -1,5 +1,5 @@
 import type { BunRequest } from "bun";
-import { getIntegrationCredentials, getMdArtifactsByIntegration, getSyncTasksByIntegration, getSyncTasksByUpdateDateAfter, upsertIntegrationCredential } from "../db/queries/queries";
+import { getIntegrationCredentials, getMdArtifactsByIntegration, getSyncTasksByIntegration, getSyncTasksByUpdateDateAfter, upsertIntegrationCredential, type MdArtifactSortField, type SortOrder } from "../db/queries/queries";
 import type { IntegrationCredential, MdArtifactSelect, SyncTaskSelect } from "../db/schema/schema";
 
 export async function handleGetIntegrations(req: BunRequest): Promise<Response> {
@@ -29,9 +29,22 @@ export async function handleGetSyncTasks(req: BunRequest): Promise<Response> {
 }
 
 export async function handleGetArtifacts(req: BunRequest): Promise<Response> {
-  const { page, integration } = req.params;
-  if(!page || !integration) return Response.json(null, {status: 400});
-  const artifacts: MdArtifactSelect[] = await getMdArtifactsByIntegration(integration, Number(page)) ?? [];
+  const { integration } = req.params;
+  if(!integration) return Response.json(null, {status: 400});
+
+  const url = new URL(req.url);
+  const offset = Number(url.searchParams.get("offset") ?? 0);
+  const search = url.searchParams.get("search") ?? undefined;
+  const sortByParam = url.searchParams.get("sortBy");
+  const sortBy: MdArtifactSortField | undefined = sortByParam === "artifactDate" || sortByParam === "updateDate" ? sortByParam : undefined;
+  const sortOrderParam = url.searchParams.get("sortOrder");
+  const sortOrder: SortOrder | undefined = sortOrderParam === "asc" || sortOrderParam === "desc" ? sortOrderParam : undefined;
+
+  const artifacts: MdArtifactSelect[] = await getMdArtifactsByIntegration(integration, offset, {
+    search,
+    sortBy,
+    sortOrder,
+  }) ?? [];
   return Response.json({ artifacts: artifacts});
 }
 
