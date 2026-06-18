@@ -77,17 +77,25 @@ export const IntegrationDataPage = () => {
         </BreadcrumbList>
       </Breadcrumb>
       <ButtonGroup className="flex">
-        <Button variant={"outline"} size="sm" className="bg-brand-purple/10">
-          <ArrowBigDownDashIcon size={12}/>
+        <Button variant={"outline"} size="sm" className="bg-brand-purple/20"
+          disabled={(syncTasks && syncTasks.length > 0)}
+          onClick={async() => {
+            if (!syncTasks || syncTasks.length === 0) {
+              await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/gong`, {
+                method: "POST",
+              });
+            }
+          }}>
+          <ArrowBigDownDashIcon size={12} />
           Full Sync
         </Button>
         <ButtonGroupSeparator />
-        <Button variant={"outline"} size={"sm"} className="bg-brand-cream/10">
-          <RefreshCwIcon size={12}/>
+        <Button variant={"outline"} size={"sm"} className="bg-brand-cream/20">
+          <RefreshCwIcon size={12} />
           Sync Updates
         </Button>
-        <Button variant={"destructive"} size="sm" className="bg-red-500/10 text-black">
-          <Trash2Icon size={12}/>
+        <Button variant={"destructive"} size="sm" className="bg-red-500/20 text-black">
+          <Trash2Icon size={12} />
           Delete Synced Data
         </Button>
       </ButtonGroup>

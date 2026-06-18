@@ -40,7 +40,8 @@ export const ArtifactTable = ({
   );
 
   return (
-    <Table className="w-full" containerClassName="h-full max-h-full overflow-auto no-scrollbar">
+    <Table className="w-full" 
+      containerClassName="h-full max-h-full overflow-auto no-scrollbar border rounded-md">
       <TableHeader className="sticky top-0 bg-background">
         <TableRow>
           <TableHead>

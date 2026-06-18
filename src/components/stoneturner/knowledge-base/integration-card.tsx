@@ -24,7 +24,7 @@ export const IntegrationCard = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex justify-between items-center w-full">
+        <CardTitle className="flex gap-4 items-center w-full">
           <div className="flex items-center gap-2 text-lg">
             <img src={intConfig.icon} alt={intConfig.icon} height={30} width={30} />
             <label>
@@ -33,12 +33,7 @@ export const IntegrationCard = ({
           </div>
           {integrations.filter((connectedInt: IntegrationCredential) => connectedInt.integration === intConfig.integration).length > 0 ? (
             !syncing ? (
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <div>
-                  Connected
-                </div>
-              </div>
+              <div className="w-3 h-3 rounded-full bg-green-500" />
             ) : (
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
@@ -54,15 +49,7 @@ export const IntegrationCard = ({
         {integrations.filter((connectedInt: IntegrationCredential) => connectedInt.integration === intConfig.integration).length > 0 ? (
           <div className="flex flex-col gap-2 w-full">
             <Button variant={"default"} className="w-full"
-              onClick={async () => {
-                navigate("/data/" + intConfig.integration);
-                return;
-                if (!syncing) {
-                  await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/gong`, {
-                    method: "POST",
-                  });
-                }
-              }}>
+              onClick={async () => navigate("/data/" + intConfig.integration)}>
               <BoltIcon size={16} />
               Configure
             </Button>
