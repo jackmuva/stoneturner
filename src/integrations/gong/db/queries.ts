@@ -1,5 +1,5 @@
 import { gongTranscript, type GongTranscriptInsert, type GongTranscriptSelect, gongCall, type GongCallInsert, type GongCallSelect } from './schema';
-import { desc, eq, sql } from 'drizzle-orm';
+import { delete, desc, eq, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import {db} from '@/core/db/db';
 
@@ -77,4 +77,14 @@ export const getLatestGongCall= async (): Promise<GongCallSelect | null> => {
     .orderBy(gongCall.started, desc(gongCall.started))
     .limit(1);
   return call ?? null;
+}
+
+export const deleteAllGongData = async (): Promise<void> => {
+  await db.delete(gongTranscript);
+  await db.delete(gongCall);
+}
+
+export const deleteGongDataByCallId = async (callId: string): Promise<void> => {
+  await db.delete(gongTranscript).where(eq(gongTranscript.callId, callId));
+  await db.delete(gongCall).where(eq(gongCall.callId, callId));
 }

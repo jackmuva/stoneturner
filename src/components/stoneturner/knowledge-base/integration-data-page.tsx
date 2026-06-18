@@ -13,7 +13,6 @@ import { ArtifactDetailSheet } from "./artifact-detail-sheet";
 import { ConfirmationDialog } from "../confirmation-dialog";
 
 type ConfirmAction = "fullSync" | "syncUpdates" | "delete";
-
 export type ArtifactSortField = "updateDate" | "artifactDate";
 export type SortOrder = "asc" | "desc";
 
@@ -47,16 +46,6 @@ export const IntegrationDataPage = () => {
     keepPreviousData: true,
   });
 
-  const handleSort = (field: ArtifactSortField) => {
-    setPage(0);
-    if (sortBy === field) {
-      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setSortBy(field);
-      setSortOrder("desc");
-    }
-  };
-
   const { data: syncTasks, mutate: syncTaskMutate, isLoading: syncsIsLoading } = useSWR<SyncTaskSelect[]>(`syncTasks`, async () => {
     const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/syncTasks/recent`, {
       method: "GET",
@@ -66,6 +55,16 @@ export const IntegrationDataPage = () => {
   }, {
     refreshInterval: 1000 * 60,
   });
+
+  const handleSort = (field: ArtifactSortField) => {
+    setPage(0);
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortOrder("desc");
+    }
+  };
 
   const confirmConfig: Record<ConfirmAction, { text: string; onConfirm: () => void | Promise<void> }> = {
     fullSync: {
@@ -79,13 +78,18 @@ export const IntegrationDataPage = () => {
     syncUpdates: {
       text: `This will sync recent updates from ${integration}. Continue?`,
       onConfirm: async () => {
-        // TODO: wire up incremental sync endpoint (not yet implemented on the backend)
+        await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/updates/gong`, {
+          method: "POST",
+        });
+
       },
     },
     delete: {
       text: `This will delete all synced data for ${integration}. This cannot be undone.`,
       onConfirm: async () => {
-        // TODO: wire up delete endpoint (not yet implemented on the backend)
+        await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/gong`, {
+          method: "DELETE",
+        });
       },
     },
   };
@@ -108,14 +112,14 @@ export const IntegrationDataPage = () => {
       <div className="flex-1 min-h-0 flex flex-row gap-4">
         <div className="flex-1 min-w-0 flex flex-col gap-4 min-h-0">
           <ButtonGroup className="flex">
-            <Button variant={"outline"} size="sm" className="bg-brand-purple/20"
+            <Button variant={"outline"} size="sm" className="bg-brand-purple/20 dark:bg-brand-purple/70"
               disabled={(syncTasks && syncTasks.length > 0)}
               onClick={() => setConfirmAction("fullSync")}>
               <ArrowBigDownDashIcon size={12} />
               Full Sync
             </Button>
             <ButtonGroupSeparator />
-            <Button variant={"outline"} size={"sm"} className="bg-brand-cream/20"
+            <Button variant={"outline"} size={"sm"} className="bg-brand-cream/20 dark:bg-brand-cream/70"
               onClick={() => setConfirmAction("syncUpdates")}>
               <RefreshCwIcon size={12} />
               Sync Updates

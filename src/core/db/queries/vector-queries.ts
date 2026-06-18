@@ -7,7 +7,7 @@ import {
   type KeyPointsEmbeddingInsert,
   type QuestionsAnsweredEmbeddingInsert,
 } from '../schema/vector-schema';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 export const upsertContentEmbedding = async (
   row: Omit<ContentEmbeddingInsert, 'embedding'> & { embedding: number[] },
@@ -118,4 +118,16 @@ export const searchQuestionsAnsweredEmbeddingByCosine = async (
     .from(questionsAnsweredEmbedding)
     .orderBy(distance)
     .limit(limit);
+};
+
+export const deleteEmbeddingByIntegration = async (integration: string): Promise<void> => {
+  await db.delete(contentEmbedding).where(eq(contentEmbedding.integration, integration));
+  await db.delete(keyPointsEmbedding).where(eq(keyPointsEmbedding.integration, integration));
+  await db.delete(questionsAnsweredEmbedding).where(eq(questionsAnsweredEmbedding.integration, integration));
+};
+
+export const deleteEmbeddingsByIntegrationArtifactId = async (integrationArtifactId: string): Promise<void> => {
+  await db.delete(contentEmbedding).where(eq(contentEmbedding.integrationArtifactId, integrationArtifactId));
+  await db.delete(keyPointsEmbedding).where(eq(keyPointsEmbedding.integrationArtifactId, integrationArtifactId));
+  await db.delete(questionsAnsweredEmbedding).where(eq(questionsAnsweredEmbedding.integrationArtifactId, integrationArtifactId));
 };

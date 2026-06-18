@@ -153,3 +153,19 @@ export const upsertMdArtifact = async (markdownArtifact: MdArtifactInsert): Prom
   }
   return;
 }
+
+export const deleteMdArtifactById = async (id: string): Promise<void> => {
+  await db.delete(mdArtifact).where(eq(mdArtifact.id, id));
+}
+
+export const deleteMdArtifactsByIntegration = async (integration: string): Promise<void> => {
+  await db.delete(mdArtifact).where(eq(mdArtifact.integration, integration));
+}
+
+export const deleteSyncTasksByIntegration = async (integration: string): Promise<void> => {
+  await db.delete(syncTask).where(eq(syncTask.integration, integration));
+}
+
+export const deleteIntegrationCredentialByIntegration = async (integration: string): Promise<void> => {
+  await db.delete(integrationCredential).where(eq(integrationCredential.integration, integration));
+}

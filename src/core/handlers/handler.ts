@@ -22,15 +22,18 @@ export async function handleGetRecentSyncTasks(req: BunRequest): Promise<Respons
 }
 
 export async function handleGetSyncTasks(req: BunRequest): Promise<Response> {
-  const { page, integration } = req.params;
-  if(!page || !integration) return Response.json(null, {status: 400});
-  const syncTasks: SyncTaskSelect[] = await getSyncTasksByIntegration(integration, Number(page)) ?? [];
+  const { integration } = req.params;
+  const url = new URL(req.url);
+  const offset = Number(url.searchParams.get("offset") ?? 0);
+
+  if (!integration) return Response.json(null, { status: 400 });
+  const syncTasks: SyncTaskSelect[] = await getSyncTasksByIntegration(integration, offset) ?? [];
   return Response.json({ syncTasks: syncTasks });
 }
 
 export async function handleGetArtifacts(req: BunRequest): Promise<Response> {
   const { integration } = req.params;
-  if(!integration) return Response.json(null, {status: 400});
+  if (!integration) return Response.json(null, { status: 400 });
 
   const url = new URL(req.url);
   const offset = Number(url.searchParams.get("offset") ?? 0);
@@ -45,6 +48,6 @@ export async function handleGetArtifacts(req: BunRequest): Promise<Response> {
     sortBy,
     sortOrder,
   }) ?? [];
-  return Response.json({ artifacts: artifacts});
+  return Response.json({ artifacts: artifacts });
 }
 

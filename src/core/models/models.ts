@@ -11,5 +11,7 @@ export type IntegrationConfig = {
 
 export type Integration = {
   config: IntegrationConfig,
-  sync: () => void,
+  sync: () => Promise<void> | void,
+  syncUpdates: () => Promise<void> | void,
+  deleteSync: () => Promise<void> | void,
 }
