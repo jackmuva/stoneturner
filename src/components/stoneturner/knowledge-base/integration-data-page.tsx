@@ -10,6 +10,9 @@ import { Input } from "@/components/ui/input";
 import { PAGE_SIZE } from "@/lib/constants";
 import { ArtifactTable } from "./artifact-table";
 import { ArtifactDetailSheet } from "./artifact-detail-sheet";
+import { ConfirmationDialog } from "../confirmation-dialog";
+
+type ConfirmAction = "fullSync" | "syncUpdates" | "delete";
 
 export type ArtifactSortField = "updateDate" | "artifactDate";
 export type SortOrder = "asc" | "desc";
@@ -22,6 +25,7 @@ export const IntegrationDataPage = () => {
   const [sortBy, setSortBy] = useState<ArtifactSortField>("updateDate");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [selectedArtifact, setSelectedArtifact] = useState<MdArtifactSelect | null>(null);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -63,6 +67,29 @@ export const IntegrationDataPage = () => {
     refreshInterval: 1000 * 60,
   });
 
+  const confirmConfig: Record<ConfirmAction, { text: string; onConfirm: () => void | Promise<void> }> = {
+    fullSync: {
+      text: `This will run a full sync of all ${integration} data and may take a while. Continue?`,
+      onConfirm: async () => {
+        await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/gong`, {
+          method: "POST",
+        });
+      },
+    },
+    syncUpdates: {
+      text: `This will sync recent updates from ${integration}. Continue?`,
+      onConfirm: async () => {
+        // TODO: wire up incremental sync endpoint (not yet implemented on the backend)
+      },
+    },
+    delete: {
+      text: `This will delete all synced data for ${integration}. This cannot be undone.`,
+      onConfirm: async () => {
+        // TODO: wire up delete endpoint (not yet implemented on the backend)
+      },
+    },
+  };
+
   return (
     <div className="w-full h-full min-w-0 min-h-0 flex flex-col gap-4 p-4 font-sans">
       <Breadcrumb>
@@ -83,22 +110,18 @@ export const IntegrationDataPage = () => {
           <ButtonGroup className="flex">
             <Button variant={"outline"} size="sm" className="bg-brand-purple/20"
               disabled={(syncTasks && syncTasks.length > 0)}
-              onClick={async () => {
-                if (!syncTasks || syncTasks.length === 0) {
-                  await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/gong`, {
-                    method: "POST",
-                  });
-                }
-              }}>
+              onClick={() => setConfirmAction("fullSync")}>
               <ArrowBigDownDashIcon size={12} />
               Full Sync
             </Button>
             <ButtonGroupSeparator />
-            <Button variant={"outline"} size={"sm"} className="bg-brand-cream/20">
+            <Button variant={"outline"} size={"sm"} className="bg-brand-cream/20"
+              onClick={() => setConfirmAction("syncUpdates")}>
               <RefreshCwIcon size={12} />
               Sync Updates
             </Button>
-            <Button variant={"destructive"} size="sm" className="bg-red-500/20 text-black">
+            <Button variant={"destructive"} size="sm" className="bg-red-500/20 text-black"
+              onClick={() => setConfirmAction("delete")}>
               <Trash2Icon size={12} />
               Delete Synced Data
             </Button>
@@ -124,6 +147,12 @@ export const IntegrationDataPage = () => {
         </div>
         <ArtifactDetailSheet artifact={selectedArtifact} onClose={() => setSelectedArtifact(null)} />
       </div>
+      <ConfirmationDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => { if (!open) setConfirmAction(null); }}
+        text={confirmAction ? confirmConfig[confirmAction].text : ""}
+        onConfirm={confirmAction ? confirmConfig[confirmAction].onConfirm : () => { }}
+      />
     </div >
   );
 }

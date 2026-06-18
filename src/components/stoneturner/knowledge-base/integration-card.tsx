@@ -25,7 +25,7 @@ export const IntegrationCard = ({
     <Card>
       <CardHeader>
         <CardTitle className="flex gap-2 items-center w-full">
-          <div className="flex items-center gap-2 text-lg">
+          <div className="flex items-center gap-2 text-base">
             <img src={intConfig.icon} alt={intConfig.icon} height={30} width={30} />
             <label>
               {intConfig.integration} Data
@@ -56,8 +56,7 @@ export const IntegrationCard = ({
           </div>
         ) : (
           <IntegrationDialog intConfig={intConfig} integrationsMutate={integrationsMutate} syncTaskMutate={syncTaskMutate} />
-        )
-        }
+        )}
       </CardContent>
     </Card>
   );
