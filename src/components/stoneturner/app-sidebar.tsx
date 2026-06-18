@@ -48,7 +48,7 @@ const cycleTheme = () => {
       <SidebarContent className="gap-2">
         <Collapsible open={knowledgeMenu} onOpenChange={setKnowledgeMenu}>
           <div className={`flex items-center justify-between px-2
-            ${pathname.startsWith("/knowledge") ? "border-r-4 border-black" : "border-r-4 border-background"}`}>
+            ${pathname.startsWith("/knowledge") ? "border-r-4 border-foreground" : "border-r-4 border-background"}`}>
             <NavLink to="/knowledge" end className="flex items-center gap-1">
               <SquareLibraryIcon size={16} />
               <label>Knowledge Base</label>
@@ -65,5 +65,5 @@ const cycleTheme = () => {
       <SidebarFooter className="pb-4">
       </SidebarFooter>
     </Sidebar >
-  )
+  );
 }

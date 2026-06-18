@@ -12,7 +12,8 @@ export function App() {
         <Routes>
           <Route element={<KnowledgeLayout/>}>
             <Route path="/" element={<KnowledgeBasePage/>} />
-            <Route path="data/:integration" element={<IntegrationDataPage/>} />
+            <Route path="knowledge" element={<KnowledgeBasePage/>} />
+            <Route path="knowledge/data/:integration" element={<IntegrationDataPage/>} />
           </Route>
         </Routes>
       </BrowserRouter>

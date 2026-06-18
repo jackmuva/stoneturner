@@ -1,5 +1,5 @@
 import { gongTranscript, type GongTranscriptInsert, type GongTranscriptSelect, gongCall, type GongCallInsert, type GongCallSelect } from './schema';
-import { delete, desc, eq, sql } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import {db} from '@/core/db/db';
 

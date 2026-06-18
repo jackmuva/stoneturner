@@ -49,7 +49,7 @@ export const IntegrationCard = ({
         {integrations.filter((connectedInt: IntegrationCredential) => connectedInt.integration === intConfig.integration).length > 0 ? (
           <div className="flex flex-col gap-2 w-full">
             <Button variant={"default"} className="w-full"
-              onClick={async () => navigate("/data/" + intConfig.integration)}>
+              onClick={async () => navigate(`/knowledge/data/${intConfig.integration}`)}>
               <BoltIcon size={16} />
               Configure
             </Button>
