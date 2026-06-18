@@ -24,7 +24,7 @@ export const IntegrationCard = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex gap-4 items-center w-full">
+        <CardTitle className="flex gap-2 items-center w-full">
           <div className="flex items-center gap-2 text-lg">
             <img src={intConfig.icon} alt={intConfig.icon} height={30} width={30} />
             <label>

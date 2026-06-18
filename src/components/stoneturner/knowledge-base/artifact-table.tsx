@@ -13,6 +13,7 @@ export const ArtifactTable = ({
   sortBy,
   sortOrder,
   onSort,
+  onRowClick,
 }: {
   setPage: React.Dispatch<React.SetStateAction<number>>
   artifacts: MdArtifactSelect[],
@@ -20,6 +21,7 @@ export const ArtifactTable = ({
   sortBy: ArtifactSortField,
   sortOrder: SortOrder,
   onSort: (field: ArtifactSortField) => void,
+  onRowClick: (artifact: MdArtifactSelect) => void,
 }) => {
   const SortIcon = ({ field }: { field: ArtifactSortField }) => {
     if (sortBy !== field) return <ChevronsUpDownIcon size={12} className="opacity-50" />;
@@ -40,18 +42,15 @@ export const ArtifactTable = ({
   );
 
   return (
-    <Table className="w-full" 
-      containerClassName="h-full max-h-full overflow-auto no-scrollbar border rounded-md">
-      <TableHeader className="sticky top-0 bg-background">
-        <TableRow>
+    <Table className="w-full"
+      containerClassName="flex-1 min-w-0 h-full max-h-full overflow-auto no-scrollbar border rounded-md">
+      <TableHeader className="sticky top-0 z-10 bg-background bg-[linear-gradient(rgba(137,142,211,0.15),rgba(137,142,211,0.15))] shadow-sm">
+        <TableRow className="hover:bg-transparent border-b-2 border-brand-purple/40">
           <TableHead>
             Markdown
           </TableHead>
-          <SortableHead field="updateDate">
-            Update Date
-          </SortableHead>
           <SortableHead field="artifactDate">
-            Artifact Created Date
+            Artifact Created
           </SortableHead>
           <TableHead>
             Summary
@@ -90,16 +89,13 @@ export const ArtifactTable = ({
           ))
         ) : (
           artifacts.map((artifact) =>
-            <TableRow>
+            <TableRow key={artifact.id} onClick={() => onRowClick(artifact)} className="cursor-pointer odd:bg-transparent even:bg-brand-grey/5 hover:bg-brand-purple/10">
               <TableCell>
                 <div className="w-[300px] line-clamp-3 whitespace-pre-line">
                   {(artifact.markdown ?? "").replace(/\\n/g, "\n")}
                 </div>
               </TableCell>
-              <TableCell>
-                {(new Date(artifact.updateDate)).toDateString()}
-              </TableCell>
-              <TableCell>
+              <TableCell className="text-muted-foreground tabular-nums">
                 {artifact.artifactDate ? (new Date(artifact.artifactDate)).toDateString() : "n/a"}
               </TableCell>
               <TableCell>
@@ -121,7 +117,7 @@ export const ArtifactTable = ({
           )
         )}
       </TableBody>
-      <TableFooter className="sticky bottom-0 z-20 w-full bg-background">
+      <TableFooter className="sticky bottom-0 z-20 w-full bg-background bg-[linear-gradient(rgba(137,142,211,0.15),rgba(137,142,211,0.15))] border-t-2 border-brand-purple/40">
         <TableRow>
           <TableCell colSpan={6}>
             <div className="flex items-center gap-4">

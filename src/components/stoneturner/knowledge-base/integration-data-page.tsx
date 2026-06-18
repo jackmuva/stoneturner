@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { PAGE_SIZE } from "@/lib/constants";
 import { ArtifactTable } from "./artifact-table";
+import { ArtifactDetailSheet } from "./artifact-detail-sheet";
 
 export type ArtifactSortField = "updateDate" | "artifactDate";
 export type SortOrder = "asc" | "desc";
@@ -20,6 +21,7 @@ export const IntegrationDataPage = () => {
   const [search, setSearch] = useState<string>("");
   const [sortBy, setSortBy] = useState<ArtifactSortField>("updateDate");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [selectedArtifact, setSelectedArtifact] = useState<MdArtifactSelect | null>(null);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -76,46 +78,52 @@ export const IntegrationDataPage = () => {
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
-      <ButtonGroup className="flex">
-        <Button variant={"outline"} size="sm" className="bg-brand-purple/20"
-          disabled={(syncTasks && syncTasks.length > 0)}
-          onClick={async() => {
-            if (!syncTasks || syncTasks.length === 0) {
-              await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/gong`, {
-                method: "POST",
-              });
-            }
-          }}>
-          <ArrowBigDownDashIcon size={12} />
-          Full Sync
-        </Button>
-        <ButtonGroupSeparator />
-        <Button variant={"outline"} size={"sm"} className="bg-brand-cream/20">
-          <RefreshCwIcon size={12} />
-          Sync Updates
-        </Button>
-        <Button variant={"destructive"} size="sm" className="bg-red-500/20 text-black">
-          <Trash2Icon size={12} />
-          Delete Synced Data
-        </Button>
-      </ButtonGroup>
-      <div className="relative w-full max-w-sm">
-        <SearchIcon size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Search artifacts..."
-          className="pl-8"
-        />
+      <div className="flex-1 min-h-0 flex flex-row gap-4">
+        <div className="flex-1 min-w-0 flex flex-col gap-4 min-h-0">
+          <ButtonGroup className="flex">
+            <Button variant={"outline"} size="sm" className="bg-brand-purple/20"
+              disabled={(syncTasks && syncTasks.length > 0)}
+              onClick={async () => {
+                if (!syncTasks || syncTasks.length === 0) {
+                  await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/gong`, {
+                    method: "POST",
+                  });
+                }
+              }}>
+              <ArrowBigDownDashIcon size={12} />
+              Full Sync
+            </Button>
+            <ButtonGroupSeparator />
+            <Button variant={"outline"} size={"sm"} className="bg-brand-cream/20">
+              <RefreshCwIcon size={12} />
+              Sync Updates
+            </Button>
+            <Button variant={"destructive"} size="sm" className="bg-red-500/20 text-black">
+              <Trash2Icon size={12} />
+              Delete Synced Data
+            </Button>
+          </ButtonGroup>
+          <div className="relative w-full max-w-sm">
+            <SearchIcon size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search artifacts..."
+              className="pl-8"
+            />
+          </div>
+          <ArtifactTable
+            setPage={setPage}
+            artifacts={artifacts ?? []}
+            isLoading={artifactsIsLoading}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+            onRowClick={setSelectedArtifact}
+          />
+        </div>
+        <ArtifactDetailSheet artifact={selectedArtifact} onClose={() => setSelectedArtifact(null)} />
       </div>
-      <ArtifactTable
-        setPage={setPage}
-        artifacts={artifacts ?? []}
-        isLoading={artifactsIsLoading}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onSort={handleSort}
-      />
-    </div>
+    </div >
   );
 }
