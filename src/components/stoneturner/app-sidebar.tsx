@@ -5,7 +5,7 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ChevronDown, SquareLibraryIcon, Sun, Moon, Monitor, type LucideProps } from "lucide-react";
+import { ChevronDown, SquareLibraryIcon, ActivityIcon, Sun, Moon, Monitor, type LucideProps } from "lucide-react";
 import { useState, type ForwardRefExoticComponent, type RefAttributes } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import stoneturnerLogo from "@/assets/stoneturner.png";
@@ -20,10 +20,11 @@ const themeIcons = {
 
 export function AppSidebar() {
   const [knowledgeMenu, setKnowledgeMenu] = useState<boolean>(false);
+  const [monitorMenu, setMonitorMenu] = useState<boolean>(false);
   const { pathname } = useLocation();
   const { theme, setTheme } = useTheme();
 
-const cycleTheme = () => {
+  const cycleTheme = () => {
     const themes = ["light", "dark"] as const;
     const currentIndex = themes.indexOf(theme as (typeof themes)[number]);
     const nextIndex = (currentIndex + 1) % themes.length;
@@ -61,7 +62,22 @@ const cycleTheme = () => {
             Placeholder
           </CollapsibleContent>
         </Collapsible>
-      </SidebarContent>
+        <Collapsible open={monitorMenu} onOpenChange={setMonitorMenu}>
+          <div className={`flex items-center justify-between px-2
+          ${pathname.startsWith("/monitoring") ? "border-r-4 border-foreground" : "border-r-4 border-background"}`}>
+            <NavLink to="/monitoring" className="flex items-center gap-1">
+              <ActivityIcon size={16} />
+              <label>Sync Monitoring</label>
+            </NavLink>
+            <CollapsibleTrigger asChild>
+              <ChevronDown className={`${monitorMenu ? "-rotate-90" : ""}`} size={16} />
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent>
+            Placeholder
+          </CollapsibleContent>
+        </Collapsible>
+      </SidebarContent >
       <SidebarFooter className="pb-4">
       </SidebarFooter>
     </Sidebar >

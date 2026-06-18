@@ -29,12 +29,14 @@ export const upsertIntegrationCredential = async (integrationData: IntegrationCr
   }
 }
 
-export const getSyncTasksByIntegration = async (integration: string, offset?: number): Promise<SyncTaskSelect[] | undefined> => {
-  const query = db.select().from(syncTask).where(and(eq(syncTask.integration, integration)));
-  if (offset !== undefined) {
-    return await query.limit(PAGE_SIZE).offset(offset);
-  }
-  return await query.limit(PAGE_SIZE);
+export const getSyncTasks = async (offset: number = 0, sortOrder: SortOrder = "desc"): Promise<SyncTaskSelect[]> => {
+  const orderBy = sortOrder === "asc" ? asc(syncTask.updateDate) : desc(syncTask.updateDate);
+  return await db.select().from(syncTask).orderBy(orderBy).offset(offset).limit(PAGE_SIZE);
+}
+
+export const getSyncTasksByIntegration = async (integration: string, offset: number = 0, sortOrder: SortOrder = "desc"): Promise<SyncTaskSelect[] | undefined> => {
+  const orderBy = sortOrder === "asc" ? asc(syncTask.updateDate) : desc(syncTask.updateDate);
+  return await db.select().from(syncTask).where(and(eq(syncTask.integration, integration))).orderBy(orderBy).limit(PAGE_SIZE).offset(offset);
 }
 
 export const upsertSyncTask = async (syncTaskData: SyncTaskInsert): Promise<void> => {
@@ -53,12 +55,9 @@ export const upsertSyncTask = async (syncTaskData: SyncTaskInsert): Promise<void
   await db.insert(syncTask).values(syncTaskData);
 }
 
-export const getFailedSyncTasks = async (): Promise<SyncTaskSelect[] | undefined> => {
-  return await db.select().from(syncTask).where(eq(syncTask.status, "FAILED"));
-}
-
-export const getPendingSyncTasks = async (): Promise<SyncTaskSelect[] | undefined> => {
-  return await db.select().from(syncTask).where(eq(syncTask.status, "PENDING"));
+export const getSyncTasksByStatus = async (status: "FAILED" | "PENDING" | "SUCCESS", offset: number = 0, sortOrder: SortOrder = "desc"): Promise<SyncTaskSelect[] | undefined> => {
+  const orderBy = sortOrder === "asc" ? asc(syncTask.updateDate) : desc(syncTask.updateDate);
+  return await db.select().from(syncTask).where(eq(syncTask.status, status)).orderBy(orderBy).offset(offset).limit(PAGE_SIZE);
 }
 
 export const getSyncTasksByUpdateDateAfter = async (updateDate: string): Promise<SyncTaskSelect[]> => {

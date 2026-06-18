@@ -1,5 +1,5 @@
 import type { BunRequest } from "bun";
-import { getIntegrationCredentials, getMdArtifactsByIntegration, getSyncTasksByIntegration, getSyncTasksByUpdateDateAfter, upsertIntegrationCredential, type MdArtifactSortField, type SortOrder } from "../db/queries/queries";
+import { getIntegrationCredentials, getMdArtifactsByIntegration, getSyncTasks, getSyncTasksByIntegration, getSyncTasksByStatus, getSyncTasksByUpdateDateAfter, upsertIntegrationCredential, type MdArtifactSortField, type SortOrder } from "../db/queries/queries";
 import type { IntegrationCredential, MdArtifactSelect, SyncTaskSelect } from "../db/schema/schema";
 
 export async function handleGetIntegrations(req: BunRequest): Promise<Response> {
@@ -18,6 +18,30 @@ export async function handleGetRecentSyncTasks(req: BunRequest): Promise<Respons
   const now: Date = new Date();
   now.setMinutes(now.getMinutes() - 1);
   const syncTasks = await getSyncTasksByUpdateDateAfter(now.toISOString());
+  return Response.json({ syncTasks: syncTasks });
+}
+
+export async function handleGetAllSyncTasks(req: BunRequest): Promise<Response> {
+  const url = new URL(req.url);
+  const offset = Number(url.searchParams.get("offset") ?? 0);
+  const sortOrderParam = url.searchParams.get("sortOrder");
+  const sortOrder: SortOrder = sortOrderParam === "asc" ? "asc" : "desc";
+
+  const integrationParam = url.searchParams.get("integration");
+  const integration = integrationParam && integrationParam !== "all" ? integrationParam : undefined;
+
+  const statusParam = url.searchParams.get("status");
+  const status = statusParam === "SUCCESS" || statusParam === "FAILED" || statusParam === "PENDING" ? statusParam : undefined;
+
+  // Integration filter takes precedence; the underlying queries don't combine filters.
+  let syncTasks: SyncTaskSelect[];
+  if (integration) {
+    syncTasks = await getSyncTasksByIntegration(integration, offset, sortOrder) ?? [];
+  } else if (status) {
+    syncTasks = await getSyncTasksByStatus(status, offset, sortOrder) ?? [];
+  } else {
+    syncTasks = await getSyncTasks(offset, sortOrder);
+  }
   return Response.json({ syncTasks: syncTasks });
 }
 

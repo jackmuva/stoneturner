@@ -4,6 +4,7 @@ import { ThemeProvider } from "../providers/theme";
 import { KnowledgeLayout } from "@/components/stoneturner/knowledge-base/knowledge-layout";
 import { KnowledgeBasePage } from "@/components/stoneturner/knowledge-base/knowledge-base-page";
 import { IntegrationDataPage } from "@/components/stoneturner/knowledge-base/integration-data-page";
+import { SyncMonitoringPage } from "@/components/stoneturner/sync-monitoring/sync-monitoring-page";
 
 export function App() {
   return (
@@ -14,6 +15,7 @@ export function App() {
             <Route path="/" element={<KnowledgeBasePage/>} />
             <Route path="knowledge" element={<KnowledgeBasePage/>} />
             <Route path="knowledge/data/:integration" element={<IntegrationDataPage/>} />
+            <Route path="monitoring" element={<SyncMonitoringPage/>} />
           </Route>
         </Routes>
       </BrowserRouter>
