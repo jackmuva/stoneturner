@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { MdArtifactSelect } from "@/core/db/schema/schema"
 import { PAGE_SIZE } from "@/lib/constants";
@@ -64,7 +65,28 @@ export const ArtifactTable = ({
       </TableHeader>
       <TableBody className="h-full overflow-y-auto no-scrollbar">
         {isLoading ? (
-          <div> Loading...</div>
+          Array.from({ length: PAGE_SIZE }).map((_, i) => (
+            <TableRow key={i}>
+              <TableCell>
+                <Skeleton className="h-16 w-[300px]" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-4 w-24" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-4 w-24" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-16 w-[300px]" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-16 w-[300px]" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-16 w-[300px]" />
+              </TableCell>
+            </TableRow>
+          ))
         ) : (
           artifacts.map((artifact) =>
             <TableRow>
