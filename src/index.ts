@@ -82,6 +82,20 @@ const server = serve({
         handleGetArtifacts(req)
       )
     },
+    "/api/oauth/:integration": {
+      GET: async(req) => {
+        if (req.params.integration) {
+          const target = req.params.integration.toLowerCase();
+          const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
+          if (index === -1) return Response.json(null, { status: 400 });
+          if (supportedIntegrations[index]!.handleRedirect) {
+            return await supportedIntegrations[index]!.handleRedirect(req);
+          };
+          return Response.json(null, { status: 200 });
+        }
+        return Response.json(null, { status: 400 });
+      }
+    },
 
     // Streamable HTTP MCP endpoint (stateless JSON-RPC). Not wrapped in withCors:
     // MCP desktop/CLI clients call it server-side and don't need browser CORS.
