@@ -22,13 +22,13 @@ export const IntegrationCard = ({
   let navigate = useNavigate();
 
   return (
-    <Card>
+    <Card className="flex flex-col justify-between">
       <CardHeader>
         <CardTitle className="flex gap-2 items-center w-full">
           <div className="flex items-center gap-2 text-base">
             <img src={intConfig.icon} alt={intConfig.icon} height={30} width={30} />
             <label>
-              {intConfig.integration} Data
+              {intConfig.integration[0]?.toUpperCase() + intConfig.integration.slice(1)} Data
             </label>
           </div>
           {integrations.filter((connectedInt: IntegrationCredential) => connectedInt.integration === intConfig.integration).length > 0 ? (
@@ -42,7 +42,9 @@ export const IntegrationCard = ({
                 </div>
               </div>
             )
-          ) : (<></>)}
+          ) : (
+              <div className="w-3 h-3 rounded-full bg-foreground" />
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>

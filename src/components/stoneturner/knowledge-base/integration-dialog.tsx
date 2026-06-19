@@ -18,7 +18,7 @@ export const IntegrationDialog = ({
 }) => {
   const [open, setOpen] = useState(openDialog ? openDialog : false);
   const [intInputs, setIntInputs] = useState<Record<string, string>>({});
-  const allFieldsFilled = intConfig.inputs.every(
+  const allFieldsFilled = intConfig.inputs?.every(
     (input) => (intInputs[input.input]?.trim().length ?? 0) > 0
   );
 
@@ -69,11 +69,17 @@ export const IntegrationDialog = ({
                   Visit <a className="text-indigo-700 underline" href={intConfig.docs} target="_blank">{intConfig.integration} docs</a> for further instruction.
                 </span>
               )
-              : <></>}
+              : (
+                <span>
+                  {!new URL(intConfig.oauthAuthorizationUrl!).searchParams.get("client_id")
+                    ? "OAuth App Credentials needed"
+                    : `Connect your ${intConfig.integration} via oauth`}
+                </span>
+              )}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
-          {intConfig.inputs.map((input) => {
+          {intConfig.inputs?.map((input) => {
             return (
               <Input key={input.input + intConfig.integration} placeholder={input.label} onChange={(e) => {
                 e.preventDefault();
@@ -85,9 +91,15 @@ export const IntegrationDialog = ({
           })}
         </div>
         <DialogFooter>
-          <Button variant={"default"} className="flex items-center gap-2 w-full" disabled={!allFieldsFilled}
+          <Button variant={"default"} className="flex items-center gap-2 w-full" disabled={(!allFieldsFilled && intConfig.integrationType !== "OAUTH")
+            || (intConfig.integrationType === "OAUTH" && !new URL(intConfig.oauthAuthorizationUrl!).searchParams.get("client_id"))}
             onClick={async () => {
-              upsertIntegrationCreds(intConfig);
+              if (intConfig.integrationType !== "OAUTH") {
+                upsertIntegrationCreds(intConfig);
+                return;
+              } else {
+                window.location.href = intConfig.oauthAuthorizationUrl!;
+              }
             }}>
             <DatabaseZapIcon size={16} />
             <div>Connect</div>

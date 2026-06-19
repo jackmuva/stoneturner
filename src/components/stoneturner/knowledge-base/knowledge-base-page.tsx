@@ -47,7 +47,7 @@ export const KnowledgeBasePage = () => {
         onChange={(e) => setSearch(e.target.value)}
         className="max-w-sm"
       />
-      <div className="animate-appear grid grid-cols-1 md:grid-cols-3">
+      <div className="animate-appear grid grid-cols-1 md:grid-cols-3 gap-3">
         {configRegistry
           .filter((intConfig: IntegrationConfig) =>
             intConfig.integration.toLowerCase().includes(search.toLowerCase()))

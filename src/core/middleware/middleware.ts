@@ -14,7 +14,7 @@ export function withCors(handler: (req: BunRequest) => Promise<Response>) {
 }
 
 function getCorsHeaders(req: BunRequest) {
-  const allowedOrigins = [process.env.FRONTEND_BASE_URL!];
+  const allowedOrigins = [process.env.BUN_PUBLIC_BACKEND_BASE_URL];
   const origin = req.headers.get("Origin");
 
   return {
