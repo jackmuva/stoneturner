@@ -2,31 +2,32 @@ import { z } from "zod";
 import {
   getMdArtifactsByIntegration,
   getIntegrationCredentials,
+  getIntegrationCredentialByIntegration,
 } from "@/core/db/queries/queries";
 import type { McpToolResult } from "@/core/models/mcp-models";
-import { configRegistry } from "@/integrations/config-registry";
+import { supportedIntegrations } from "@/integrations/sync-registry";
 import { textResult } from "@/lib/utils";
 
 export const getIntegrationSourcesSchema = z.object({});
 
 export async function runGetIntegrationSources(_args: unknown): Promise<McpToolResult> {
-  if (configRegistry.length === 0) {
+  if (supportedIntegrations.length === 0) {
     return textResult("No integration sources are configured.");
   }
 
   const credentials = await getIntegrationCredentials();
   const connected = new Set(credentials.map((c) => c.integration));
 
-  const blocks = configRegistry.map((cfg, i) => {
-    const hasCredentials = connected.has(cfg.integration);
+  const blocks = supportedIntegrations.map((cfg, i) => {
+    const hasCredentials = connected.has(cfg.config.integration);
     return [
-      `## ${i + 1}. ${cfg.integration}`,
+      `## ${i + 1}. ${cfg.config.integration}`,
       `- can sync: ${hasCredentials ? "yes\n" : "no (register credentials first)\n"}`,
     ].join("\n");
   });
 
   return textResult(
-    `Supported integration sources (${configRegistry.length}):\n\n${blocks.join("\n\n")}`,
+    `Supported integration sources (${supportedIntegrations.length}):\n\n${blocks.join("\n\n")}`,
   );
 }
 
@@ -44,31 +45,25 @@ export async function runSyncSource(args: unknown): Promise<McpToolResult> {
   }
   const { integration } = parsed.data;
 
-  if (!configRegistry.some((cfg) => cfg.integration === integration)) {
+  const cfg = supportedIntegrations.find(
+    (integ) => integ.config.integration.toLowerCase() === integration.toLowerCase(),
+  );
+  if (!cfg) {
     return textResult(
       `Unknown integration "${integration}". Use get_integration_sources to see valid names.`,
       true,
     );
   }
 
+  const credential = await getIntegrationCredentialByIntegration(integration);
+  if (!credential) {
+    return textResult(`The user is not currently connected to that integration data source. Please direct them to ${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/knowledge/config/${integration} to connect their integration. Once the user has connected, you can use the get_integration_sources to verify their connection status and proceed to use this tool to begin a data sync`, false);
+  }
+
   const existing = await getMdArtifactsByIntegration(integration);
   const isIncremental = existing.length > 0;
 
-  const baseUrl = process.env.BACKEND_BASE_URL;
-  if (!baseUrl) {
-    return textResult("BACKEND_BASE_URL is not configured.", true);
-  }
-  const path = isIncremental
-    ? `/api/sync/updates/${encodeURIComponent(integration)}`
-    : `/api/sync/${encodeURIComponent(integration)}`;
-
-  const res = await fetch(`${baseUrl}${path}`, { method: "POST" });
-  if (!res.ok) {
-    return textResult(
-      `Failed to start ${isIncremental ? "incremental" : "full"} sync for "${integration}" (HTTP ${res.status}).`,
-      true,
-    );
-  }
+  isIncremental ? cfg.syncUpdates() : cfg.sync();
 
   return textResult(
     isIncremental
