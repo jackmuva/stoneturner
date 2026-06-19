@@ -10,6 +10,7 @@ import {
 } from '../schema/vector-schema';
 import { and, eq, gte, lte, sql, type SQL, type SQLWrapper } from 'drizzle-orm';
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
+import { lower } from '@/lib/utils';
 
 export type EmbeddingSearchFilters = {
   integration?: string;
@@ -31,7 +32,7 @@ const buildFilterConditions = (
   if (!filters) return undefined;
   const conditions: SQLWrapper[] = [];
   if (filters.integration !== undefined) {
-    conditions.push(eq(columns.integration, filters.integration));
+    conditions.push(eq(lower(columns.integration), filters.integration.toLowerCase()));
   }
   if (filters.minDate !== undefined) {
     conditions.push(gte(columns.artifactDate, filters.minDate));
@@ -190,9 +191,9 @@ export const searchQuestionsAnsweredEmbeddingByCosine = async (
 };
 
 export const deleteEmbeddingByIntegration = async (integration: string): Promise<void> => {
-  await db.delete(contentEmbedding).where(eq(contentEmbedding.integration, integration));
-  await db.delete(keyPointsEmbedding).where(eq(keyPointsEmbedding.integration, integration));
-  await db.delete(questionsAnsweredEmbedding).where(eq(questionsAnsweredEmbedding.integration, integration));
+  await db.delete(contentEmbedding).where(eq(lower(contentEmbedding.integration), integration.toLowerCase()));
+  await db.delete(keyPointsEmbedding).where(eq(lower(keyPointsEmbedding.integration), integration.toLowerCase()));
+  await db.delete(questionsAnsweredEmbedding).where(eq(lower(questionsAnsweredEmbedding.integration), integration.toLowerCase()));
 };
 
 export const deleteEmbeddingsByIntegrationArtifactId = async (integrationArtifactId: string): Promise<void> => {

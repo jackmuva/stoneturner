@@ -26,7 +26,8 @@ const server = serve({
     "/api/sync/updates/:integration": {
       POST: withCors(async (req) => {
         if (req.params.integration) {
-          const index = supportedIntegrations.map((integ) => integ.config.integration).indexOf(req.params.integration);
+          const target = req.params.integration.toLowerCase();
+          const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
           if (index === -1) return Response.json(null, { status: 400 });
           supportedIntegrations[index]!.syncUpdates();
           return Response.json(null, { status: 200 });
@@ -37,7 +38,8 @@ const server = serve({
     "/api/sync/:integration": {
       POST: withCors(async (req) => {
         if (req.params.integration) {
-          const index = supportedIntegrations.map((integ) => integ.config.integration).indexOf(req.params.integration);
+          const target = req.params.integration.toLowerCase();
+          const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
           if (index === -1) return Response.json(null, { status: 400 });
           supportedIntegrations[index]!.sync();
           return Response.json(null, { status: 200 });
@@ -46,7 +48,8 @@ const server = serve({
       }),
       DELETE: withCors(async (req) => {
         if (req.params.integration) {
-          const index = supportedIntegrations.map((integ) => integ.config.integration).indexOf(req.params.integration);
+          const target = req.params.integration.toLowerCase();
+          const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
           if (index === -1) return Response.json(null, { status: 400 });
           supportedIntegrations[index]!.deleteSync();
           return Response.json(null, { status: 200 });

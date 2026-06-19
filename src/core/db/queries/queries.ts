@@ -2,13 +2,14 @@ import { type IntegrationCredential, integrationCredential, type SyncTaskInsert,
 import { and, eq, gte, like, lte, gt, or, asc, desc } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import { db } from '@/core/db/db';
+import { lower } from '@/lib/utils';
 
 export const getIntegrationCredentials = async (): Promise<IntegrationCredential[]> => {
   return await db.select().from(integrationCredential);
 }
 
 export const getIntegrationCredentialByIntegration = async (integrationName: string): Promise<IntegrationCredential | undefined> => {
-  const [record] = await db.select().from(integrationCredential).where(eq(integrationCredential.integration, integrationName));
+  const [record] = await db.select().from(integrationCredential).where(eq(lower(integrationCredential.integration), integrationName.toLowerCase()));
   return record;
 }
 
@@ -36,7 +37,7 @@ export const getSyncTasks = async (offset: number = 0, sortOrder: SortOrder = "d
 
 export const getSyncTasksByIntegration = async (integration: string, offset: number = 0, sortOrder: SortOrder = "desc"): Promise<SyncTaskSelect[] | undefined> => {
   const orderBy = sortOrder === "asc" ? asc(syncTask.updateDate) : desc(syncTask.updateDate);
-  return await db.select().from(syncTask).where(and(eq(syncTask.integration, integration))).orderBy(orderBy).limit(PAGE_SIZE).offset(offset);
+  return await db.select().from(syncTask).where(and(eq(lower(syncTask.integration), integration.toLowerCase()))).orderBy(orderBy).limit(PAGE_SIZE).offset(offset);
 }
 
 export const upsertSyncTask = async (syncTaskData: SyncTaskInsert): Promise<void> => {
@@ -69,7 +70,7 @@ export const getSyncTasksFiltered = async (filters: {
 }): Promise<SyncTaskSelect[]> => {
   const { integration, status, step, offset = 0, sortOrder = "desc" } = filters;
   const conditions = [
-    integration ? eq(syncTask.integration, integration) : undefined,
+    integration ? eq(lower(syncTask.integration), integration.toLowerCase()) : undefined,
     status ? eq(syncTask.status, status) : undefined,
     step ? eq(syncTask.step, step) : undefined,
   ].filter(Boolean);
@@ -103,7 +104,7 @@ export const getMdArtifactsByIntegration = async (
     sortBy?: MdArtifactSortField,
     sortOrder?: SortOrder,
   }): Promise<MdArtifactSelect[]> => {
-  const conditions = [eq(mdArtifact.integration, integration)];
+  const conditions = [eq(lower(mdArtifact.integration), integration.toLowerCase())];
   if (options?.search) {
     const term = `%${options.search}%`;
     conditions.push(
@@ -143,7 +144,7 @@ export const getMdArtifactBetweenDatesAndIntegrationAndEntity = async (
     like(mdArtifact.entities, `%${entity}%`),
   ];
   if (integration) {
-    conditions.push(eq(mdArtifact.integration, integration));
+    conditions.push(eq(lower(mdArtifact.integration), integration.toLowerCase()));
   }
   if (startDate) {
     conditions.push(gte(mdArtifact.artifactDate, startDate));
@@ -181,13 +182,13 @@ export const deleteMdArtifactById = async (id: string): Promise<void> => {
 }
 
 export const deleteMdArtifactsByIntegration = async (integration: string): Promise<void> => {
-  await db.delete(mdArtifact).where(eq(mdArtifact.integration, integration));
+  await db.delete(mdArtifact).where(eq(lower(mdArtifact.integration), integration.toLowerCase()));
 }
 
 export const deleteSyncTasksByIntegration = async (integration: string): Promise<void> => {
-  await db.delete(syncTask).where(eq(syncTask.integration, integration));
+  await db.delete(syncTask).where(eq(lower(syncTask.integration), integration.toLowerCase()));
 }
 
 export const deleteIntegrationCredentialByIntegration = async (integration: string): Promise<void> => {
-  await db.delete(integrationCredential).where(eq(integrationCredential.integration, integration));
+  await db.delete(integrationCredential).where(eq(lower(integrationCredential.integration), integration.toLowerCase()));
 }

@@ -1,10 +1,17 @@
 import type { McpToolResult } from "@/core/models/mcp-models";
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { sql } from "drizzle-orm";
+import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+// drizzle-orm doesn't export a native `lower`; wrap raw sql so integration
+// names (and other text columns) can be compared case-insensitively, e.g.
+// `eq(lower(col), value.toLowerCase())`.
+export const lower = (column: SQLiteColumn) => sql`lower(${column})`;
 
 export async function retry<T>(func: () => T | Promise<T>, maxAttempt: number = 3, attempt: number = 1, error?: Error): Promise<T> {
   if (attempt > maxAttempt) throw new Error(String(error));
