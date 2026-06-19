@@ -1,0 +1,1 @@
+ALTER TABLE `mdArtifacts` DROP COLUMN `lastIndex`;

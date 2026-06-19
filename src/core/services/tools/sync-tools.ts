@@ -20,7 +20,7 @@ export async function runGetIntegrationSources(_args: unknown): Promise<McpToolR
     const hasCredentials = connected.has(cfg.config.integration);
     return [
       `## ${i + 1}. ${cfg.config.integration}`,
-      `- can sync: ${hasCredentials ? "yes\n" : "no (register credentials first)\n"}`,
+      `- can sync: ${hasCredentials ? "yes\n" : "not yet, use the syncSource tool to input credentials\n"}`,
     ].join("\n");
   });
 
@@ -40,7 +40,7 @@ export async function runSyncSource(args: unknown): Promise<McpToolResult> {
   if (!cfg) return textResult(`Unknown integration "${integration}". Use get_integration_sources to see valid names.`, true);
 
   const credential = await getIntegrationCredentialByIntegration(integration);
-  if (!credential) return textResult(`The user is not currently connected to that integration data source. Please direct them to ${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/knowledge/config/${integration} to connect their integration. Once the user has connected, you can use the get_integration_sources to verify their connection status and proceed to use this tool to begin a data sync`, false);
+  if (!credential) return textResult(`Open [${integration} config](${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/knowledge/config/${integration}) to connect.`, false);
 
   const isIncremental = (await getMdArtifactsByIntegration(integration)).length > 0;
 
