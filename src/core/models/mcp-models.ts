@@ -73,4 +73,12 @@ export interface MergedHit {
   content: string | null;
 }
 
+export const READ_ONLY = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+} as const;
+
+
 

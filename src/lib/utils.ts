@@ -1,3 +1,4 @@
+import type { McpToolResult } from "@/core/models/mcp-models";
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -16,4 +17,10 @@ export async function retry<T>(func: () => T | Promise<T>, maxAttempt: number = 
     return await retry(func, maxAttempt, attempt + 1, error as Error);
   }
 }
+
+export const textResult = (text: string, isError = false): McpToolResult => ({
+  content: [{ type: "text", text }],
+  isError: isError || undefined,
+});
+
 
