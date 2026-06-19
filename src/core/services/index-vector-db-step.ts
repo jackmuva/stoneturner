@@ -11,7 +11,6 @@ import { PAGE_SIZE, MAX_WORKERS } from "@/lib/constants";
 import { retry } from "@/lib/utils";
 
 export const indexVectorDbStep = async (integration: string, incremental: boolean = true) => {
-  console.log("indexing");
   let curOffset: number = 0;
   let artifactLengths: number[] = [];
 
@@ -45,7 +44,6 @@ export const getMdArtifacts = async (integration: string, offset: number): Promi
 }
 
 export const chunkMd = async (artifacts: MdArtifactSelect[], curOffset: number, incremental: boolean) => {
-  console.log("chunking");
   for (const artifact of artifacts) {
     try {
       if (!artifact.markdown) continue;
@@ -63,7 +61,6 @@ export const chunkMd = async (artifacts: MdArtifactSelect[], curOffset: number, 
       const keyPoints = (artifact.keyPoints || []).filter((kp) => kp.trim() !== "");
       const questionsAnswered = (artifact.questionsAnswered || []).filter((qa) => qa.trim() !== "");
 
-      console.log("ready to index");
       await Promise.all([
         retry(async () => {
           const embeddings = await embedTexts(chunks.map((c) => c.text));
@@ -104,7 +101,6 @@ export const chunkMd = async (artifacts: MdArtifactSelect[], curOffset: number, 
           })));
         }, 3, 1),
       ]);
-      console.log("indexed a batch");
 
       await upsertSyncTask({
         integration: artifact.integration,
