@@ -11,11 +11,13 @@ export const IntegrationCard = ({
   integrations,
   syncing,
   integrationsMutate,
+  openDialog,
 }: {
   intConfig: IntegrationConfig,
   integrations: IntegrationCredential[],
   syncing: boolean,
   integrationsMutate: () => void,
+  openDialog?: boolean,
 }) => {
   let navigate = useNavigate();
 
@@ -44,7 +46,7 @@ export const IntegrationCard = ({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {integrations.filter((connectedInt: IntegrationCredential) => connectedInt.integration === intConfig.integration).length > 0 ? (
+        {integrations.filter((connectedInt: IntegrationCredential) => !openDialog && connectedInt.integration === intConfig.integration).length > 0 ? (
           <div className="flex flex-col gap-2 w-full">
             <Button variant={"default"} className="w-full"
               onClick={async () => navigate(`/knowledge/data/${intConfig.integration}`)}>
@@ -53,7 +55,7 @@ export const IntegrationCard = ({
             </Button>
           </div>
         ) : (
-          <IntegrationDialog intConfig={intConfig} integrationsMutate={integrationsMutate} />
+          <IntegrationDialog intConfig={intConfig} integrationsMutate={integrationsMutate} openDialog={openDialog}/>
         )}
       </CardContent>
     </Card>

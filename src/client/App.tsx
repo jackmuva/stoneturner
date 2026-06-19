@@ -14,6 +14,7 @@ export function App() {
           <Route element={<KnowledgeLayout/>}>
             <Route path="/" element={<KnowledgeBasePage/>} />
             <Route path="knowledge" element={<KnowledgeBasePage/>} />
+            <Route path="knowledge/config/:integration" element={<KnowledgeBasePage/>} />
             <Route path="knowledge/data/:integration" element={<IntegrationDataPage/>} />
             <Route path="monitoring" element={<SyncMonitoringPage/>} />
           </Route>

@@ -10,11 +10,13 @@ import type { IntegrationCredential } from "@/core/db/schema/schema";
 export const IntegrationDialog = ({
   intConfig,
   integrationsMutate,
+  openDialog,
 }: {
   intConfig: IntegrationConfig,
   integrationsMutate: () => void,
+  openDialog?: boolean,
 }) => {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(openDialog ? openDialog : false);
   const [intInputs, setIntInputs] = useState<Record<string, string>>({});
   const allFieldsFilled = intConfig.inputs.every(
     (input) => (intInputs[input.input]?.trim().length ?? 0) > 0

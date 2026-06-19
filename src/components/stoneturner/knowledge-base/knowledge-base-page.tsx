@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input';
 import { configRegistry } from '@/integrations/config-registry';
 import type { IntegrationCredential, SyncTaskSelect } from '@/core/db/schema/schema';
 import type { IntegrationConfig } from '@/core/models/models';
+import { useParams } from 'react-router-dom';
 
 export const KnowledgeBasePage = () => {
+  let { integration } = useParams();
   const [search, setSearch] = useState("");
   const { data: integrations, mutate: integrationsMutate } = useSWR<IntegrationCredential[]>(`integrations`, async (): Promise<IntegrationCredential[]> => {
     const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/integrations`, {
@@ -50,15 +52,16 @@ export const KnowledgeBasePage = () => {
           .filter((intConfig: IntegrationConfig) =>
             intConfig.integration.toLowerCase().includes(search.toLowerCase()))
           .map((intConfig: IntegrationConfig) => {
-          return <IntegrationCard key={intConfig.integration}
-            intConfig={intConfig}
-            integrations={integrations ?? []}
-            integrationsMutate={integrationsMutate}
-            syncing={syncTasks ? syncTasks.filter((task) => {
-              return task.integration === intConfig.integration
-            }).length > 0 : false}
-          />
-        })}
+            return <IntegrationCard key={intConfig.integration}
+              intConfig={intConfig}
+              integrations={integrations ?? []}
+              integrationsMutate={integrationsMutate}
+              syncing={syncTasks ? syncTasks.filter((task) => {
+                return task.integration === intConfig.integration
+              }).length > 0 : false}
+              openDialog={intConfig.integration.toLowerCase() === integration?.toLowerCase()}
+            />
+          })}
       </div>
     </div >
   );
