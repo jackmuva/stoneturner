@@ -37,7 +37,6 @@ export const mdArtifact = sqliteTable("mdArtifacts", {
   keyPoints: text("keyPoints", { mode: "json" }).$type<Array<string>>(),
   questionsAnswered: text("questionsAnswered", { mode: "json" }).$type<Array<string>>(),
   entities: text("entities", { mode: "json" }).$type<Array<string>>(),
-  lastIndex: text("lastIndex"),
 });
 
 

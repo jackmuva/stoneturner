@@ -14,13 +14,13 @@ export const syncGongPipeline = async (incremental: boolean = false) => {
     syncGongTranscriptsStep(incremental)
   ]);
   await parseGongStep();
-  await indexVectorDbStep("Gong")
+  await indexVectorDbStep("Gong", incremental);
 }
 
 export const gongIntegration: Integration = {
   config: gongConfig,
-  sync: () => syncGongPipeline(false),
-  syncUpdates: () => syncGongPipeline(true),
+  sync: async() => await syncGongPipeline(false),
+  syncUpdates: async() => await syncGongPipeline(true),
   deleteSync: async() => {
     await deleteSyncTasksByIntegration("Gong");
     await deleteMdArtifactsByIntegration("Gong");

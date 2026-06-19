@@ -4,6 +4,7 @@ import {
   keyPointsEmbedding,
   questionsAnsweredEmbedding,
   type ContentEmbeddingInsert,
+  type ContentEmbeddingSelect,
   type KeyPointsEmbeddingInsert,
   type QuestionsAnsweredEmbeddingInsert,
 } from '../schema/vector-schema';
@@ -29,6 +30,10 @@ export const upsertContentEmbedding = async (
     },
   });
 };
+
+export const getEmbeddingsByIntegrationArtifactId = async (artifactId: string) : Promise<ContentEmbeddingSelect[]> => {
+  return await db.select().from(contentEmbedding).where(eq(contentEmbedding.integrationArtifactId, artifactId));
+}
 
 export const searchContentEmbeddingByCosine = async (
   queryEmbedding: number[],

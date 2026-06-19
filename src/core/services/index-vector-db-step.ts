@@ -1,6 +1,7 @@
 import { getMdArtifactsByIntegration, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
 import type { MdArtifactSelect } from "@/core/db/schema/schema";
 import {
+  getEmbeddingsByIntegrationArtifactId,
   upsertContentEmbedding,
   upsertKeyPointsEmbedding,
   upsertQuestionsAnsweredEmbedding,
@@ -9,8 +10,9 @@ import { embedTexts } from "@/core/services/embedding";
 import { PAGE_SIZE, MAX_WORKERS } from "@/lib/constants";
 import { retry } from "@/lib/utils";
 
-export const indexVectorDbStep = async (integration: string, offset: number = 0) => {
-  let curOffset: number = offset;
+export const indexVectorDbStep = async (integration: string, incremental: boolean = true) => {
+  console.log("indexing");
+  let curOffset: number = 0;
   let artifactLengths: number[] = [];
 
   while (artifactLengths.filter((len: number) => len < PAGE_SIZE).length === 0) {
@@ -27,7 +29,7 @@ export const indexVectorDbStep = async (integration: string, offset: number = 0)
       artifactsList
         .map((artifacts, i) => { return { artifacts: artifacts, index: i } })
         .filter((artifactObj) => artifactObj.artifacts.status === "fulfilled")
-        .map((artifactObj) => chunkMd(artifactObj.artifacts.status === "fulfilled" ? artifactObj.artifacts.value : [], offsets[artifactObj.index]!))
+        .map((artifactObj) => chunkMd(artifactObj.artifacts.status === "fulfilled" ? artifactObj.artifacts.value : [], offsets[artifactObj.index]!, incremental))
     );
 
     artifactLengths = artifactsList.map((artifacts) => {
@@ -42,10 +44,16 @@ export const getMdArtifacts = async (integration: string, offset: number): Promi
   return await getMdArtifactsByIntegration(integration, offset)
 }
 
-export const chunkMd = async (artifacts: MdArtifactSelect[], curOffset: number) => {
+export const chunkMd = async (artifacts: MdArtifactSelect[], curOffset: number, incremental: boolean) => {
+  console.log("chunking");
   for (const artifact of artifacts) {
     try {
-      if (!artifact.markdown || artifact.lastIndex) continue;
+      if (!artifact.markdown) continue;
+
+      if (!incremental) {
+        const embeddings = await getEmbeddingsByIntegrationArtifactId(artifact.integrationArtifactId);
+        if (embeddings.length > 0) continue;
+      }
 
       const lines = artifact.markdown.split("\n").filter((line) => line.trim() !== "");
       const chunks = chunkLines(lines, 250);
@@ -55,6 +63,7 @@ export const chunkMd = async (artifacts: MdArtifactSelect[], curOffset: number) 
       const keyPoints = (artifact.keyPoints || []).filter((kp) => kp.trim() !== "");
       const questionsAnswered = (artifact.questionsAnswered || []).filter((qa) => qa.trim() !== "");
 
+      console.log("ready to index");
       await Promise.all([
         retry(async () => {
           const embeddings = await embedTexts(chunks.map((c) => c.text));
@@ -95,11 +104,7 @@ export const chunkMd = async (artifacts: MdArtifactSelect[], curOffset: number) 
           })));
         }, 3, 1),
       ]);
-
-      await upsertMdArtifact({
-        ...artifact,
-        lastIndex: (new Date()).toISOString(),
-      });
+      console.log("indexed a batch");
 
       await upsertSyncTask({
         integration: artifact.integration,

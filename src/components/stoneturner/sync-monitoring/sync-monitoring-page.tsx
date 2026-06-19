@@ -71,6 +71,7 @@ export const SyncMonitoringPage = () => {
                   <SelectItem value="all">All integrations</SelectItem>
                   {configRegistry.map((intConfig) => (
                     <SelectItem key={intConfig.integration} value={intConfig.integration}>
+                      <img src={intConfig.icon} alt={intConfig.icon} height={20} width={20} />
                       {intConfig.integration}
                     </SelectItem>
                   ))}

@@ -29,6 +29,7 @@ const server = serve({
           const index = supportedIntegrations.map((integ) => integ.config.integration).indexOf(req.params.integration);
           if (index === -1) return Response.json(null, { status: 400 });
           supportedIntegrations[index]!.syncUpdates();
+          return Response.json(null, { status: 200 });
         }
         return Response.json(null, { status: 400 });
       }),
@@ -39,6 +40,7 @@ const server = serve({
           const index = supportedIntegrations.map((integ) => integ.config.integration).indexOf(req.params.integration);
           if (index === -1) return Response.json(null, { status: 400 });
           supportedIntegrations[index]!.sync();
+          return Response.json(null, { status: 200 });
         }
         return Response.json(null, { status: 400 });
       }),
@@ -47,6 +49,7 @@ const server = serve({
           const index = supportedIntegrations.map((integ) => integ.config.integration).indexOf(req.params.integration);
           if (index === -1) return Response.json(null, { status: 400 });
           supportedIntegrations[index]!.deleteSync();
+          return Response.json(null, { status: 200 });
         }
         return Response.json(null, { status: 400 });
       }),
