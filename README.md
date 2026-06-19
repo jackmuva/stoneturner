@@ -1,8 +1,4 @@
-<div align="center">
-  <img src="src/assets/stoneturner.png" alt="stoneturner" width="100" />
-</div>
-
-# stoneturner
+# <img src="src/assets/stoneturner.png" alt="stoneturner" width="50" style="vertical-align:middle" /> stoneturner
 
 The unifying context layer for agents.
 
