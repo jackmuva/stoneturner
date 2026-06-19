@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="src/assets/stoneturner.png" alt="stoneturner" width="400" />
+  <img src="src/assets/stoneturner.png" alt="stoneturner" width="100" />
 </div>
 
 # stoneturner
