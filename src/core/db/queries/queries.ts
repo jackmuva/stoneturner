@@ -97,13 +97,12 @@ export type SortOrder = "asc" | "desc";
 
 export const getMdArtifactsByIntegration = async (
   integration: string,
-  offset?: number,
+  offset: number = 0,
   options?: {
-    search?: string;
-    sortBy?: MdArtifactSortField;
-    sortOrder?: SortOrder;
-  },
-): Promise<MdArtifactSelect[]> => {
+    search?: string,
+    sortBy?: MdArtifactSortField,
+    sortOrder?: SortOrder,
+  }): Promise<MdArtifactSelect[]> => {
   const conditions = [eq(mdArtifact.integration, integration)];
   if (options?.search) {
     const term = `%${options.search}%`;
@@ -117,7 +116,7 @@ export const getMdArtifactsByIntegration = async (
     );
   }
 
-  const sortColumn = options?.sortBy === "artifactDate" ? mdArtifact.artifactDate : mdArtifact.updateDate;
+  const sortColumn = options?.sortBy === "updateDate" ? mdArtifact.updateDate : mdArtifact.artifactDate;
   const orderBy = options?.sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
 
   const query = db.select().from(mdArtifact).where(and(...conditions)).orderBy(orderBy);

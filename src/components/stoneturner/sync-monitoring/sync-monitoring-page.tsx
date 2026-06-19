@@ -7,6 +7,8 @@ import { PAGE_SIZE } from "@/lib/constants";
 import { configRegistry } from "@/integrations/config-registry";
 import { SyncLogTable } from "./sync-log-table";
 import { SyncLogSheet } from "./sync-log-sheet";
+import { Button } from "@/components/ui/button";
+import { RefreshCwIcon } from "lucide-react";
 
 export type SyncSortOrder = "asc" | "desc";
 export type SyncStatusFilter = "all" | "SUCCESS" | "FAILED" | "PENDING";
@@ -19,7 +21,7 @@ export const SyncMonitoringPage = () => {
   const [sortOrder, setSortOrder] = useState<SyncSortOrder>("desc");
   const [selectedTask, setSelectedTask] = useState<SyncTaskSelect | null>(null);
 
-  const { data: syncTasks, isLoading } = useSWR<SyncTaskSelect[]>(`syncTasks/all/${integration}/${status}/${step}/${sortOrder}/${page}`, async (): Promise<SyncTaskSelect[]> => {
+  const { data: syncTasks, mutate: syncMutate, isLoading } = useSWR<SyncTaskSelect[]>(`syncTasks/all/${integration}/${status}/${step}/${sortOrder}/${page}`, async (): Promise<SyncTaskSelect[]> => {
     const params = new URLSearchParams({ offset: String(page * PAGE_SIZE), sortOrder });
     if (integration !== "all") params.set("integration", integration);
     if (status !== "all") params.set("status", status);
@@ -31,7 +33,6 @@ export const SyncMonitoringPage = () => {
     return body.syncTasks ?? [];
   }, {
     keepPreviousData: true,
-    refreshInterval: 1000 * 60,
   });
 
   const { data: steps } = useSWR<string[]>("syncTasks/steps", async (): Promise<string[]> => {
@@ -60,44 +61,49 @@ export const SyncMonitoringPage = () => {
       </Breadcrumb>
       <div className="flex-1 min-h-0 flex flex-row gap-4">
         <div className="flex-1 min-w-0 flex flex-col gap-4 min-h-0">
-          <div className="flex flex-row gap-3 items-center">
-            <Select value={integration} onValueChange={(value) => { setIntegration(value); setPage(0); }}>
-              <SelectTrigger size="sm" className="w-44">
-                <SelectValue placeholder="Integration" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All integrations</SelectItem>
-                {configRegistry.map((intConfig) => (
-                  <SelectItem key={intConfig.integration} value={intConfig.integration}>
-                    {intConfig.integration}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={status} onValueChange={(value) => { setStatus(value as SyncStatusFilter); setPage(0); }}>
-              <SelectTrigger size="sm" className="w-40">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="SUCCESS">Success</SelectItem>
-                <SelectItem value="FAILED">Failed</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={step} onValueChange={(value) => { setStep(value); setPage(0); }}>
-              <SelectTrigger size="sm" className="w-56">
-                <SelectValue placeholder="Step" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All steps</SelectItem>
-                {(steps ?? []).map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-row gap-3 items-center justify-between">
+            <div className="flex gap-3 items-center">
+              <Select value={integration} onValueChange={(value) => { setIntegration(value); setPage(0); }}>
+                <SelectTrigger size="sm" className="w-44">
+                  <SelectValue placeholder="Integration" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All integrations</SelectItem>
+                  {configRegistry.map((intConfig) => (
+                    <SelectItem key={intConfig.integration} value={intConfig.integration}>
+                      {intConfig.integration}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={status} onValueChange={(value) => { setStatus(value as SyncStatusFilter); setPage(0); }}>
+                <SelectTrigger size="sm" className="w-40">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="SUCCESS">Success</SelectItem>
+                  <SelectItem value="FAILED">Failed</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={step} onValueChange={(value) => { setStep(value); setPage(0); }}>
+                <SelectTrigger size="sm" className="w-56">
+                  <SelectValue placeholder="Step" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All steps</SelectItem>
+                  {(steps ?? []).map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button variant={"outline"} size={"icon-sm"} onClick={() => syncMutate()}>
+              <RefreshCwIcon size={12} />
+            </Button>
           </div>
           <SyncLogTable
             setPage={setPage}

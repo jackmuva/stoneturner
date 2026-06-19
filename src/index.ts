@@ -23,7 +23,7 @@ const server = serve({
         return await handleNewIntegrationCredential(req)
       }),
     },
-"/api/sync/updates/:integration": {
+    "/api/sync/updates/:integration": {
       POST: withCors(async (req) => {
         if (req.params.integration) {
           const index = supportedIntegrations.map((integ) => integ.config.integration).indexOf(req.params.integration);
@@ -51,17 +51,17 @@ const server = serve({
         return Response.json(null, { status: 400 });
       }),
     },
-        "/api/syncTasks": {
+    "/api/syncTasks": {
       GET: withCors(async (req) =>
         handleGetAllSyncTasks(req)
       ),
     },
-        "/api/syncTasks/recent": {
+    "/api/syncTasks/recent": {
       GET: withCors(async (req) =>
         handleGetRecentSyncTasks(req)
       ),
     },
-        "/api/syncTasks/steps": {
+    "/api/syncTasks/steps": {
       GET: withCors(async () =>
         handleGetSyncTaskSteps()
       ),

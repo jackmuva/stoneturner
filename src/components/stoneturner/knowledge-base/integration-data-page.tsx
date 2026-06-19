@@ -21,7 +21,7 @@ export const IntegrationDataPage = () => {
   const [page, setPage] = useState<number>(0);
   const [searchInput, setSearchInput] = useState<string>("");
   const [search, setSearch] = useState<string>("");
-  const [sortBy, setSortBy] = useState<ArtifactSortField>("updateDate");
+  const [sortBy, setSortBy] = useState<ArtifactSortField>("artifactDate");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [selectedArtifact, setSelectedArtifact] = useState<MdArtifactSelect | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
