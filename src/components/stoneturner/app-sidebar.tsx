@@ -11,6 +11,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import stoneturnerLogo from "@/assets/stoneturner.png";
 import { useTheme } from "@/providers/theme";
 import { Button } from "@/components/ui/button";
+import { Badge } from "../ui/badge";
 
 const themeIcons = {
   light: Sun,
@@ -38,7 +39,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar className="font-sans">
-      <SidebarHeader>
+      <SidebarHeader className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-1">
           <div className="text-lg italic h-full font-semibold font-sans flex items-center gap-1">
             <img src={stoneturnerLogo} alt="stoneturner-logo" className="animate-rotate" width={25} height={25} />
@@ -48,6 +49,9 @@ export function AppSidebar() {
             <Icon size={18} />
           </Button>
         </div>
+        {isDev && <Badge className="px-4">
+          Dev Mode
+        </Badge>}
       </SidebarHeader>
       <SidebarContent className="gap-2">
         <Collapsible open={knowledgeMenu} onOpenChange={setKnowledgeMenu}>
@@ -82,7 +86,7 @@ export function AppSidebar() {
         </Collapsible>
         <Collapsible open={devMenu} onOpenChange={setDevMenu}>
           <div className={`flex items-center justify-between px-2
-          ${pathname.startsWith("/dev") ? "border-r-4 border-foreground" : "border-r-4 border-background"}`}>
+          ${pathname.startsWith("/dev/testing") ? "border-r-4 border-foreground" : "border-r-4 border-background"}`}>
             <NavLink to="/dev/testing" className="flex items-center gap-1">
               <CodeIcon size={16} />
               <label>Development</label>
