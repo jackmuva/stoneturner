@@ -15,43 +15,21 @@ import { textResult } from "@/lib/utils";
 
 export const semanticSearchSchema = z.object({
   query: z.string().min(1).describe("Natural-language search query"),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(25)
-    .default(5)
-    .describe("Maximum number of artifacts to return"),
-  integration: z
-    .string()
-    .min(1)
-    .optional()
-    .describe("Only return artifacts from this integration (e.g. \"gong\")"),
-  minDate: z
-    .string()
-    .optional()
-    .describe("Only return artifacts on or after this ISO date (artifactDate >= minDate)"),
-  maxDate: z
-    .string()
-    .optional()
-    .describe("Only return artifacts on or before this ISO date (artifactDate <= maxDate)"),
-  entities: z
-    .array(z.string().min(1))
-    .optional()
-    .describe("Only return artifacts that include all of these entities (exact, case-sensitive match)"),
+  limit: z.number().int().min(1).max(25).default(5).describe("Maximum number of artifacts to return"),
+  integration: z.string().min(1).optional().describe("Only return artifacts from this integration (e.g. \"gong\")"),
+  minDate: z.string().optional().describe("Only return artifacts on or after this ISO date (artifactDate >= minDate)"),
+  maxDate: z.string().optional().describe("Only return artifacts on or before this ISO date (artifactDate <= maxDate)"),
+  entities: z.array(z.string().min(1)).optional().describe("Only return artifacts that include all of these entities (exact, case-sensitive match)"),
 });
 
 export async function runSemanticSearch(args: unknown): Promise<McpToolResult> {
   const parsed = semanticSearchSchema.safeParse(args);
-  if (!parsed.success) {
-    return textResult(`Invalid arguments: ${parsed.error.message}`, true);
-  }
+  if (!parsed.success) return textResult(`Invalid arguments: ${parsed.error.message}`, true);
+
   const { query, limit, integration, minDate, maxDate, entities } = parsed.data;
 
   const [embedding] = await embedTexts([query]);
-  if (!embedding) {
-    return textResult("Failed to embed the query.", true);
-  }
+  if (!embedding) return textResult("Failed to embed the query.", true);
 
   const filters: EmbeddingSearchFilters = { integration, minDate, maxDate, entities };
 
@@ -61,37 +39,14 @@ export async function runSemanticSearch(args: unknown): Promise<McpToolResult> {
     searchQuestionsAnsweredEmbeddingByCosine(embedding, limit, filters),
   ]);
 
-  const merged = new Map<string, MergedHit>();
-  const ingest = (
-    rows: { integrationArtifactId: string; content: string | null; distance: number }[],
-  ) => {
-    for (const row of rows) {
-      const existing = merged.get(row.integrationArtifactId);
-      if (existing) {
-        if (row.distance < existing.distance) {
-          existing.distance = row.distance;
-          existing.content = row.content;
-        }
-      } else {
-        merged.set(row.integrationArtifactId, {
-          integrationArtifactId: row.integrationArtifactId,
-          distance: row.distance,
-          content: row.content,
-        });
-      }
-    }
-  };
-  ingest(content);
-  ingest(keyPoints);
-  ingest(questions);
+  let merged = new Map<string, MergedHit>();
+  merged = ingest(merged, content);
+  merged = ingest(merged, keyPoints);
+  merged = ingest(merged, questions);
 
-  const hits = [...merged.values()]
-    .sort((a, b) => a.distance - b.distance)
-    .slice(0, limit);
+  const hits = [...merged.values()].sort((a, b) => a.distance - b.distance).slice(0, limit);
 
-  if (hits.length === 0) {
-    return textResult(`No matches found for "${query}".`);
-  }
+  if (hits.length === 0) return textResult(`No matches found for "${query}".`);
 
   const artifacts = await Promise.all(
     hits.map((hit) => getArtifact(hit.integrationArtifactId)),
@@ -100,10 +55,9 @@ export async function runSemanticSearch(args: unknown): Promise<McpToolResult> {
   const blocks = hits.map((hit, i) => {
     const similarity = (1 - hit.distance).toFixed(3);
     const artifact = artifacts[i];
-    const keyPointsList =
-      artifact?.keyPoints && artifact.keyPoints.length > 0
-        ? artifact.keyPoints.map((kp: string) => `  - ${kp}`).join("\n")
-        : "  (none)";
+    const keyPointsList = artifact?.keyPoints && artifact.keyPoints.length > 0
+      ? artifact.keyPoints.map((kp: string) => `  - ${kp}`).join("\n")
+      : "  (none)";
     return [
       `### ${i + 1}. ${hit.integrationArtifactId}`,
       `- similarity: ${similarity}`,
@@ -112,17 +66,12 @@ export async function runSemanticSearch(args: unknown): Promise<McpToolResult> {
     ].join("\n");
   });
 
-  return textResult(
-    `Found ${hits.length} matching artifact(s) for "${query}":\n\n${blocks.join("\n\n")}`,
-  );
+  return textResult(`Found ${hits.length} matching artifact(s) for "${query}":\n\n${blocks.join("\n\n")}`);
 }
 
 
 export const getArtifactSchema = z.object({
-  id: z
-    .string()
-    .min(1)
-    .describe("The mdArtifacts primary id or the integrationArtifactId"),
+  id: z.string().min(1).describe("The mdArtifacts primary id or the integrationArtifactId"),
 });
 
 export async function getArtifact(id: string): Promise<MdArtifactSelect | undefined> {
@@ -132,18 +81,13 @@ export async function getArtifact(id: string): Promise<MdArtifactSelect | undefi
 
 export async function runGetArtifact(args: unknown): Promise<McpToolResult> {
   const parsed = getArtifactSchema.safeParse(args);
-  if (!parsed.success) {
-    return textResult(`Invalid arguments: ${parsed.error.message}`, true);
-  }
+  if (!parsed.success) return textResult(`Invalid arguments: ${parsed.error.message}`, true);
 
   const artifact = await getArtifact(parsed.data.id);
-  if (!artifact) {
-    return textResult(`No artifact found for id "${parsed.data.id}".`, true);
-  }
+  if (!artifact) return textResult(`No artifact found for id "${parsed.data.id}".`, true); 
 
   const fmtList = (label: string, items: string[] | null | undefined) =>
-    `## ${label}\n${
-      items && items.length > 0 ? items.map((x) => `- ${x}`).join("\n") : "(none)"
+    `## ${label}\n${items && items.length > 0 ? items.map((x) => `- ${x}`).join("\n") : "(none)"
     }`;
 
   const text = [
@@ -159,4 +103,22 @@ export async function runGetArtifact(args: unknown): Promise<McpToolResult> {
   return textResult(text);
 }
 
+const ingest = (merged: Map<string, MergedHit>, rows: { integrationArtifactId: string; content: string | null; distance: number }[]) => {
+  for (const row of rows) {
+    const existing = merged.get(row.integrationArtifactId);
+    if (existing) {
+      if (row.distance < existing.distance) {
+        existing.distance = row.distance;
+        existing.content = row.content;
+      }
+    } else {
+      merged.set(row.integrationArtifactId, {
+        integrationArtifactId: row.integrationArtifactId,
+        distance: row.distance,
+        content: row.content,
+      });
+    }
+  }
+  return merged;
+};
 

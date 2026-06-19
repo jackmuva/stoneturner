@@ -11,9 +11,7 @@ import { textResult } from "@/lib/utils";
 export const getIntegrationSourcesSchema = z.object({});
 
 export async function runGetIntegrationSources(_args: unknown): Promise<McpToolResult> {
-  if (supportedIntegrations.length === 0) {
-    return textResult("No integration sources are configured.");
-  }
+  if (supportedIntegrations.length === 0) return textResult("No integration sources are configured.");
 
   const credentials = await getIntegrationCredentials();
   const connected = new Set(credentials.map((c) => c.integration));
@@ -26,48 +24,31 @@ export async function runGetIntegrationSources(_args: unknown): Promise<McpToolR
     ].join("\n");
   });
 
-  return textResult(
-    `Supported integration sources (${supportedIntegrations.length}):\n\n${blocks.join("\n\n")}`,
-  );
+  return textResult(`Supported integration sources (${supportedIntegrations.length}):\n\n${blocks.join("\n\n")}`,);
 }
 
 export const syncSourceSchema = z.object({
-  integration: z
-    .string()
-    .min(1)
-    .describe("The integration source to sync (e.g. \"gong\"). Use get_integration_sources to see valid names."),
+  integration: z.string().min(1).describe("The integration source to sync (e.g. \"gong\"). Use get_integration_sources to see valid names."),
 });
 
 export async function runSyncSource(args: unknown): Promise<McpToolResult> {
   const parsed = syncSourceSchema.safeParse(args);
-  if (!parsed.success) {
-    return textResult(`Invalid arguments: ${parsed.error.message}`, true);
-  }
-  const { integration } = parsed.data;
+  if (!parsed.success) return textResult(`Invalid arguments: ${parsed.error.message}`, true);
 
-  const cfg = supportedIntegrations.find(
-    (integ) => integ.config.integration.toLowerCase() === integration.toLowerCase(),
-  );
-  if (!cfg) {
-    return textResult(
-      `Unknown integration "${integration}". Use get_integration_sources to see valid names.`,
-      true,
-    );
-  }
+  const { integration } = parsed.data;
+  const cfg = supportedIntegrations.find((integ) => integ.config.integration.toLowerCase() === integration.toLowerCase());
+  if (!cfg) return textResult(`Unknown integration "${integration}". Use get_integration_sources to see valid names.`, true);
 
   const credential = await getIntegrationCredentialByIntegration(integration);
-  if (!credential) {
-    return textResult(`The user is not currently connected to that integration data source. Please direct them to ${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/knowledge/config/${integration} to connect their integration. Once the user has connected, you can use the get_integration_sources to verify their connection status and proceed to use this tool to begin a data sync`, false);
-  }
+  if (!credential) return textResult(`The user is not currently connected to that integration data source. Please direct them to ${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/knowledge/config/${integration} to connect their integration. Once the user has connected, you can use the get_integration_sources to verify their connection status and proceed to use this tool to begin a data sync`, false);
 
-  const existing = await getMdArtifactsByIntegration(integration);
-  const isIncremental = existing.length > 0;
+  const isIncremental = (await getMdArtifactsByIntegration(integration)).length > 0;
 
   isIncremental ? cfg.syncUpdates() : cfg.sync();
 
   return textResult(
     isIncremental
-      ? `Started an incremental sync for "${integration}" (${existing.length} existing artifact(s) found). New and updated artifacts will be ingested in the background.`
-      : `Started a full sync for "${integration}" (no existing artifacts). Artifacts will be ingested in the background.`,
+      ? `Started an incremental sync for "${integration}". New and updated artifacts will be ingested in the background.`
+      : `Started a full sync for "${integration}". Artifacts will be ingested in the background.`,
   );
 }
