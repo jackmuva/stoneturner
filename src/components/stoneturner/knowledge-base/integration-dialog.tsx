@@ -10,11 +10,9 @@ import type { IntegrationCredential } from "@/core/db/schema/schema";
 export const IntegrationDialog = ({
   intConfig,
   integrationsMutate,
-  syncTaskMutate,
 }: {
   intConfig: IntegrationConfig,
   integrationsMutate: () => void,
-  syncTaskMutate: () => void,
 }) => {
   const [open, setOpen] = useState(false);
   const [intInputs, setIntInputs] = useState<Record<string, string>>({});
@@ -25,7 +23,7 @@ export const IntegrationDialog = ({
   const upsertIntegrationCreds = async (intConfig: IntegrationConfig) => {
     if (!allFieldsFilled) return;
     if (intConfig.integrationType === "BASIC_TOKEN") {
-      const integrationConfig: IntegrationCredential= {
+      const integrationConfig: IntegrationCredential = {
         id: crypto.randomUUID(),
         integration: intConfig.integration,
         integrationType: intConfig.integrationType,
@@ -34,7 +32,7 @@ export const IntegrationDialog = ({
         refreshToken: intInputs['refreshToken'] ?? null,
         accessKey: intInputs["accessKey"] ?? null,
         secretKey: intInputs["secretKey"] ?? null,
-        baseUrl: intInputs["baseUrl"]?? null,
+        baseUrl: intInputs["baseUrl"] ?? null,
       }
 
       await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/integrations`, {
@@ -45,9 +43,6 @@ export const IntegrationDialog = ({
       integrationsMutate();
       toast("Credential Saved", { position: "top-center" })
       setOpen(false);
-      setTimeout(() => {
-        syncTaskMutate();
-      }, 5000);
     }
   }
 

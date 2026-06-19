@@ -10,13 +10,11 @@ export const IntegrationCard = ({
   intConfig,
   integrations,
   syncing,
-  syncTaskMutate,
   integrationsMutate,
 }: {
   intConfig: IntegrationConfig,
   integrations: IntegrationCredential[],
   syncing: boolean,
-  syncTaskMutate: () => void,
   integrationsMutate: () => void,
 }) => {
   let navigate = useNavigate();
@@ -36,7 +34,7 @@ export const IntegrationCard = ({
               <div className="w-3 h-3 rounded-full bg-green-500" />
             ) : (
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                <div className="w-3 h-3 rounded-full bg-indigo-500 animate-pulse" />
                 <div>
                   Syncing
                 </div>
@@ -55,7 +53,7 @@ export const IntegrationCard = ({
             </Button>
           </div>
         ) : (
-          <IntegrationDialog intConfig={intConfig} integrationsMutate={integrationsMutate} syncTaskMutate={syncTaskMutate} />
+          <IntegrationDialog intConfig={intConfig} integrationsMutate={integrationsMutate} />
         )}
       </CardContent>
     </Card>
