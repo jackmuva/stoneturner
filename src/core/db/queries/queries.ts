@@ -60,6 +60,30 @@ export const getSyncTasksByStatus = async (status: "FAILED" | "PENDING" | "SUCCE
   return await db.select().from(syncTask).where(eq(syncTask.status, status)).orderBy(orderBy).offset(offset).limit(PAGE_SIZE);
 }
 
+export const getSyncTasksFiltered = async (filters: {
+  integration?: string;
+  status?: "FAILED" | "PENDING" | "SUCCESS";
+  step?: string;
+  offset?: number;
+  sortOrder?: SortOrder;
+}): Promise<SyncTaskSelect[]> => {
+  const { integration, status, step, offset = 0, sortOrder = "desc" } = filters;
+  const conditions = [
+    integration ? eq(syncTask.integration, integration) : undefined,
+    status ? eq(syncTask.status, status) : undefined,
+    step ? eq(syncTask.step, step) : undefined,
+  ].filter(Boolean);
+  const orderBy = sortOrder === "asc" ? asc(syncTask.updateDate) : desc(syncTask.updateDate);
+  return await db.select().from(syncTask)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(orderBy).offset(offset).limit(PAGE_SIZE);
+}
+
+export const getDistinctSyncTaskSteps = async (): Promise<string[]> => {
+  const rows = await db.selectDistinct({ step: syncTask.step }).from(syncTask).orderBy(asc(syncTask.step));
+  return rows.map((r) => r.step).filter((s): s is string => s !== null);
+}
+
 export const getSyncTasksByUpdateDateAfter = async (updateDate: string): Promise<SyncTaskSelect[]> => {
   return await db.select().from(syncTask).where(gt(syncTask.updateDate, updateDate));
 }

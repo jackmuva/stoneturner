@@ -15,13 +15,15 @@ export const SyncMonitoringPage = () => {
   const [page, setPage] = useState<number>(0);
   const [integration, setIntegration] = useState<string>("all");
   const [status, setStatus] = useState<SyncStatusFilter>("all");
+  const [step, setStep] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState<SyncSortOrder>("desc");
   const [selectedTask, setSelectedTask] = useState<SyncTaskSelect | null>(null);
 
-  const { data: syncTasks, isLoading } = useSWR<SyncTaskSelect[]>(`syncTasks/all/${integration}/${status}/${sortOrder}/${page}`, async (): Promise<SyncTaskSelect[]> => {
+  const { data: syncTasks, isLoading } = useSWR<SyncTaskSelect[]>(`syncTasks/all/${integration}/${status}/${step}/${sortOrder}/${page}`, async (): Promise<SyncTaskSelect[]> => {
     const params = new URLSearchParams({ offset: String(page * PAGE_SIZE), sortOrder });
     if (integration !== "all") params.set("integration", integration);
     if (status !== "all") params.set("status", status);
+    if (step !== "all") params.set("step", step);
     const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/syncTasks?${params.toString()}`, {
       method: "GET",
     });
@@ -30,6 +32,14 @@ export const SyncMonitoringPage = () => {
   }, {
     keepPreviousData: true,
     refreshInterval: 1000 * 60,
+  });
+
+  const { data: steps } = useSWR<string[]>("syncTasks/steps", async (): Promise<string[]> => {
+    const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/syncTasks/steps`, {
+      method: "GET",
+    });
+    const body = await res.json();
+    return body.steps ?? [];
   });
 
   const handleSort = () => {
@@ -73,6 +83,19 @@ export const SyncMonitoringPage = () => {
                 <SelectItem value="SUCCESS">Success</SelectItem>
                 <SelectItem value="FAILED">Failed</SelectItem>
                 <SelectItem value="PENDING">Pending</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={step} onValueChange={(value) => { setStep(value); setPage(0); }}>
+              <SelectTrigger size="sm" className="w-56">
+                <SelectValue placeholder="Step" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All steps</SelectItem>
+                {(steps ?? []).map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

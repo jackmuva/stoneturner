@@ -1,6 +1,6 @@
 import { serve } from "bun";
 import index from "./client/index.html";
-import { handleGetAllSyncTasks, handleGetArtifacts, handleGetIntegrations, handleGetRecentSyncTasks, handleGetSyncTasks, handleNewIntegrationCredential } from "./core/handlers/handler";
+import { handleGetAllSyncTasks, handleGetArtifacts, handleGetIntegrations, handleGetRecentSyncTasks, handleGetSyncTasks, handleGetSyncTaskSteps, handleNewIntegrationCredential } from "./core/handlers/handler";
 import { withCors } from "./core/middleware/middleware";
 import { handleMcp } from "./core/handlers/mcp-handler";
 import { supportedIntegrations } from "./integrations/sync-registry";
@@ -59,6 +59,11 @@ const server = serve({
         "/api/syncTasks/recent": {
       GET: withCors(async (req) =>
         handleGetRecentSyncTasks(req)
+      ),
+    },
+        "/api/syncTasks/steps": {
+      GET: withCors(async () =>
+        handleGetSyncTaskSteps()
       ),
     },
     "/api/syncTasks/:integration": {

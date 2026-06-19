@@ -1,5 +1,5 @@
 import type { BunRequest } from "bun";
-import { getIntegrationCredentials, getMdArtifactsByIntegration, getSyncTasks, getSyncTasksByIntegration, getSyncTasksByStatus, getSyncTasksByUpdateDateAfter, upsertIntegrationCredential, type MdArtifactSortField, type SortOrder } from "../db/queries/queries";
+import { getIntegrationCredentials, getMdArtifactsByIntegration, getSyncTasks, getSyncTasksByIntegration, getSyncTasksByStatus, getSyncTasksByUpdateDateAfter, getSyncTasksFiltered, getDistinctSyncTaskSteps, upsertIntegrationCredential, type MdArtifactSortField, type SortOrder } from "../db/queries/queries";
 import type { IntegrationCredential, MdArtifactSelect, SyncTaskSelect } from "../db/schema/schema";
 
 export async function handleGetIntegrations(req: BunRequest): Promise<Response> {
@@ -33,16 +33,16 @@ export async function handleGetAllSyncTasks(req: BunRequest): Promise<Response> 
   const statusParam = url.searchParams.get("status");
   const status = statusParam === "SUCCESS" || statusParam === "FAILED" || statusParam === "PENDING" ? statusParam : undefined;
 
-  // Integration filter takes precedence; the underlying queries don't combine filters.
-  let syncTasks: SyncTaskSelect[];
-  if (integration) {
-    syncTasks = await getSyncTasksByIntegration(integration, offset, sortOrder) ?? [];
-  } else if (status) {
-    syncTasks = await getSyncTasksByStatus(status, offset, sortOrder) ?? [];
-  } else {
-    syncTasks = await getSyncTasks(offset, sortOrder);
-  }
+  const stepParam = url.searchParams.get("step");
+  const step = stepParam && stepParam !== "all" ? stepParam : undefined;
+
+  const syncTasks = await getSyncTasksFiltered({ integration, status, step, offset, sortOrder });
   return Response.json({ syncTasks: syncTasks });
+}
+
+export async function handleGetSyncTaskSteps(): Promise<Response> {
+  const steps = await getDistinctSyncTaskSteps();
+  return Response.json({ steps });
 }
 
 export async function handleGetSyncTasks(req: BunRequest): Promise<Response> {
