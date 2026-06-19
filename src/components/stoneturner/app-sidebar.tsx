@@ -22,11 +22,8 @@ const themeIcons = {
 export function AppSidebar() {
   const [knowledgeMenu, setKnowledgeMenu] = useState<boolean>(false);
   const [monitorMenu, setMonitorMenu] = useState<boolean>(false);
-  const [devMenu, setDevMenu] = useState<boolean>(false);
   const { pathname } = useLocation();
   const { theme, setTheme } = useTheme();
-
-  const isDev = pathname.startsWith("/dev");
 
   const cycleTheme = () => {
     const themes = ["light", "dark"] as const;
@@ -49,15 +46,15 @@ export function AppSidebar() {
             <Icon size={18} />
           </Button>
         </div>
-        {isDev && <Badge className="px-4">
+        {process.env.BUN_PUBLIC_DEV_MODE !== "false" && <Badge className="px-4">
           Dev Mode
         </Badge>}
       </SidebarHeader>
       <SidebarContent className="gap-2">
         <Collapsible open={knowledgeMenu} onOpenChange={setKnowledgeMenu}>
           <div className={`flex items-center justify-between px-2
-            ${pathname.startsWith("/knowledge") || pathname.startsWith("/dev/knowledge") ? "border-r-4 border-foreground" : "border-r-4 border-background"}`}>
-            <NavLink to={isDev ? "/dev/knowledge" : "/knowledge"} end className="flex items-center gap-1">
+            ${pathname.startsWith("/knowledge") ? "border-r-4 border-foreground" : "border-r-4 border-background"}`}>
+            <NavLink to={"/knowledge"} end className="flex items-center gap-1">
               <SquareLibraryIcon size={16} />
               <label>Knowledge Base</label>
             </NavLink>
@@ -71,28 +68,13 @@ export function AppSidebar() {
         </Collapsible>
         <Collapsible open={monitorMenu} onOpenChange={setMonitorMenu}>
           <div className={`flex items-center justify-between px-2
-          ${pathname.startsWith("/monitoring") || pathname.startsWith("/dev/monitoring") ? "border-r-4 border-foreground" : "border-r-4 border-background"}`}>
-            <NavLink to={isDev ? "/dev/monitoring" : "/monitoring"} className="flex items-center gap-1">
+          ${pathname.startsWith("/monitoring") ? "border-r-4 border-foreground" : "border-r-4 border-background"}`}>
+            <NavLink to={"/monitoring"} className="flex items-center gap-1">
               <ActivityIcon size={16} />
               <label>Sync Monitoring</label>
             </NavLink>
             <CollapsibleTrigger asChild>
               <ChevronDown className={`${monitorMenu ? "-rotate-90" : ""}`} size={16} />
-            </CollapsibleTrigger>
-          </div>
-          <CollapsibleContent>
-            Placeholder
-          </CollapsibleContent>
-        </Collapsible>
-        <Collapsible open={devMenu} onOpenChange={setDevMenu}>
-          <div className={`flex items-center justify-between px-2
-          ${pathname.startsWith("/dev/testing") ? "border-r-4 border-foreground" : "border-r-4 border-background"}`}>
-            <NavLink to="/dev/testing" className="flex items-center gap-1">
-              <CodeIcon size={16} />
-              <label>Development</label>
-            </NavLink>
-            <CollapsibleTrigger asChild>
-              <ChevronDown className={`${devMenu ? "-rotate-90" : ""}`} size={16} />
             </CollapsibleTrigger>
           </div>
           <CollapsibleContent>
