@@ -8,7 +8,44 @@ import {
   type KeyPointsEmbeddingInsert,
   type QuestionsAnsweredEmbeddingInsert,
 } from '../schema/vector-schema';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, gte, lte, sql, type SQL, type SQLWrapper } from 'drizzle-orm';
+import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
+
+export type EmbeddingSearchFilters = {
+  integration?: string;
+  minDate?: string;
+  maxDate?: string;
+  entities?: string[];
+};
+
+type FilterColumns = {
+  integration: SQLiteColumn;
+  artifactDate: SQLiteColumn;
+  entities: SQLiteColumn;
+};
+
+const buildFilterConditions = (
+  columns: FilterColumns,
+  filters?: EmbeddingSearchFilters,
+): SQL | undefined => {
+  if (!filters) return undefined;
+  const conditions: SQLWrapper[] = [];
+  if (filters.integration !== undefined) {
+    conditions.push(eq(columns.integration, filters.integration));
+  }
+  if (filters.minDate !== undefined) {
+    conditions.push(gte(columns.artifactDate, filters.minDate));
+  }
+  if (filters.maxDate !== undefined) {
+    conditions.push(lte(columns.artifactDate, filters.maxDate));
+  }
+  if (filters.entities !== undefined) {
+    for (const entity of filters.entities) {
+      conditions.push(sql`array_contains(${columns.entities}, ${entity}) = 1`);
+    }
+  }
+  return conditions.length > 0 ? and(...conditions) : undefined;
+};
 
 export const upsertContentEmbedding = async (
   row: Omit<ContentEmbeddingInsert, 'embedding'> & { embedding: number[] },
@@ -38,6 +75,7 @@ export const getEmbeddingsByIntegrationArtifactId = async (artifactId: string) :
 export const searchContentEmbeddingByCosine = async (
   queryEmbedding: number[],
   limit: number = 5,
+  filters?: EmbeddingSearchFilters,
 ) => {
   const distance = sql<number>`vector_distance_cos(${contentEmbedding.embedding}, vector32(${JSON.stringify(queryEmbedding)}))`;
   return await db
@@ -47,6 +85,14 @@ export const searchContentEmbeddingByCosine = async (
       distance,
     })
     .from(contentEmbedding)
+    .where(buildFilterConditions(
+      {
+        integration: contentEmbedding.integration,
+        artifactDate: contentEmbedding.artifactDate,
+        entities: contentEmbedding.entities,
+      },
+      filters,
+    ))
     .orderBy(distance)
     .limit(limit);
 };
@@ -75,6 +121,7 @@ export const upsertKeyPointsEmbedding = async (
 export const searchKeyPointsEmbeddingByCosine = async (
   queryEmbedding: number[],
   limit: number = 5,
+  filters?: EmbeddingSearchFilters,
 ) => {
   const distance = sql<number>`vector_distance_cos(${keyPointsEmbedding.embedding}, vector32(${JSON.stringify(queryEmbedding)}))`;
   return await db
@@ -84,6 +131,14 @@ export const searchKeyPointsEmbeddingByCosine = async (
       distance,
     })
     .from(keyPointsEmbedding)
+    .where(buildFilterConditions(
+      {
+        integration: keyPointsEmbedding.integration,
+        artifactDate: keyPointsEmbedding.artifactDate,
+        entities: keyPointsEmbedding.entities,
+      },
+      filters,
+    ))
     .orderBy(distance)
     .limit(limit);
 };
@@ -112,6 +167,7 @@ export const upsertQuestionsAnsweredEmbedding = async (
 export const searchQuestionsAnsweredEmbeddingByCosine = async (
   queryEmbedding: number[],
   limit: number = 5,
+  filters?: EmbeddingSearchFilters,
 ) => {
   const distance = sql<number>`vector_distance_cos(${questionsAnsweredEmbedding.embedding}, vector32(${JSON.stringify(queryEmbedding)}))`;
   return await db
@@ -121,6 +177,14 @@ export const searchQuestionsAnsweredEmbeddingByCosine = async (
       distance,
     })
     .from(questionsAnsweredEmbedding)
+    .where(buildFilterConditions(
+      {
+        integration: questionsAnsweredEmbedding.integration,
+        artifactDate: questionsAnsweredEmbedding.artifactDate,
+        entities: questionsAnsweredEmbedding.entities,
+      },
+      filters,
+    ))
     .orderBy(distance)
     .limit(limit);
 };

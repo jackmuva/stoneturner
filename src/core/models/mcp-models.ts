@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export interface JsonRpcRequest {
   jsonrpc: "2.0";
   id?: string | number | null;
@@ -49,3 +51,26 @@ export const SERVER_INFO = {
   name: "stoneturner-mcp-server",
   version: "0.1.0",
 } as const;
+
+
+export interface McpTool {
+  name: string;
+  description: string;
+  annotations: {
+    title: string;
+    readOnlyHint: boolean;
+    destructiveHint: boolean;
+    idempotentHint: boolean;
+    openWorldHint: boolean;
+  };
+  inputSchema: z.ZodType;
+  handler: (args: unknown) => Promise<McpToolResult>;
+}
+
+export interface MergedHit {
+  integrationArtifactId: string;
+  distance: number;
+  content: string | null;
+}
+
+
