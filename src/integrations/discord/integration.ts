@@ -11,7 +11,7 @@ import { syncMessages } from "./sync-steps/sync-messages";
 
 export const syncDiscordPipeline = async (incremental: boolean = false) => {
   console.log("starting discord sync");
-  await syncGuilds();
+  // await syncGuilds();
   await syncChannels();
   await syncMessages();
   // await indexVectorDbStep("discord", incremental);

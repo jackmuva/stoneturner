@@ -39,6 +39,13 @@ export const syncGuilds = async () => {
           approximatePresenceCount: guild.approximate_presence_count,
         }
       }));
+
+      await upsertSyncTask({
+        integration: "discord",
+        status: "SUCCESS",
+        step: "get-guilds",
+        inputs: JSON.stringify({ cursor }),
+      })
     }
 
     if (guilds.length < GUILD_LIMIT) break;
@@ -65,6 +72,7 @@ export const getNextGuildPage = async (cursor?: string): Promise<PartialGuild[] 
   });
 
   if (!guildRes.ok) {
+    console.log("discord get guild failed", await guildRes.json());
     await refreshDiscordTokens();
     throw new Error(`discord get guilds failed: ${guildRes.status}`);
   };

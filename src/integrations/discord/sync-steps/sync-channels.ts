@@ -8,6 +8,7 @@ import { batchInsertDiscordChannel, getDiscordGuilds } from "../db/queries";
 import type { DiscordGuildSelect } from "../db/schema";
 
 export const syncChannels = async () => {
+  console.log("sync channels");
   let curOffset = 0;
 
   while (true) {
@@ -74,7 +75,14 @@ const upsertChannels = async (guilds: DiscordGuildSelect[]): Promise<void> => {
         defaultSortOrder: channel.default_sort_order,
         defaultForumLayout: channel.default_forum_layout,
       }
-    }))
+    }));
+
+    await upsertSyncTask({
+      integration: "discord",
+      status: "SUCCESS",
+      step: "get-channel-by-guild",
+      inputs: JSON.stringify({ guildId: guild.id }),
+    })
   }
   return;
 }
@@ -92,6 +100,7 @@ const getChannelsByGuild = async (guildId: string): Promise<DiscordChannel[] | n
   });
 
   if (!channelRes.ok) {
+    console.log("failed to get channels", await channelRes.json());
     await refreshDiscordTokens();
     throw new Error(`discord get channels failed for guild ${guildId}: ${channelRes.status}`);
   };
