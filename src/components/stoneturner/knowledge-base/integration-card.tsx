@@ -57,7 +57,7 @@ export const IntegrationCard = ({
             </Button>
           </div>
         ) : (
-          <IntegrationDialog intConfig={intConfig} integrationsMutate={integrationsMutate} openDialog={openDialog}/>
+          <IntegrationDialog intConfig={intConfig} integrationsMutate={integrationsMutate} defaultOpen={openDialog}/>
         )}
       </CardContent>
     </Card>

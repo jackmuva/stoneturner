@@ -10,21 +10,20 @@ import type { IntegrationCredential } from "@/core/db/schema/schema";
 export const IntegrationDialog = ({
   intConfig,
   integrationsMutate,
-  openDialog,
+  defaultOpen,
   open: controlledOpen,
   onOpenChange,
 }: {
   intConfig: IntegrationConfig,
   integrationsMutate?: () => void,
-  openDialog?: boolean,
+  defaultOpen?: boolean,
   open?: boolean,
   onOpenChange?: (open: boolean) => void,
 }) => {
-  const isControlled = controlledOpen !== undefined;
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(openDialog ? openDialog : false);
-  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const [internalOpen, setInternalOpen] = useState(defaultOpen ?? false);
+  const open = controlledOpen ?? internalOpen;
   const setOpen = (value: boolean) => {
-    if (!isControlled) setUncontrolledOpen(value);
+    setInternalOpen(value);
     onOpenChange?.(value);
   };
   const [intInputs, setIntInputs] = useState<Record<string, string>>({});
@@ -61,7 +60,7 @@ export const IntegrationDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      {!isControlled && (
+      {controlledOpen === undefined && (
         <DialogTrigger asChild>
           <Button variant={"default"} className="flex gap-1 items-center w-full">
             <DatabaseZapIcon size={16} />
