@@ -57,6 +57,340 @@ export type DefaultReaction = {
   emoji_name: string | null,
 }
 
+export type Attachment = {
+  id: string,
+  filename: string,
+  title?: string | null,
+  description?: string | null,
+  contentType?: string,
+  size: number,
+  url: string,
+  proxyUrl: string,
+  height?: number | null,
+  width?: number | null,
+  ephemeral?: boolean,
+  durationSecs?: number,
+  placeholder?: string,
+  placeholderLength?: number,
+}
+
+export type Embed = {
+  title?: string | null,
+  type?: string,
+  description?: string | null,
+  url?: string,
+  timestamp?: string,
+  color?: number,
+  footer?: {
+    text: string,
+    iconUrl?: string,
+    proxyIconUrl?: string,
+  },
+  image?: {
+    url: string,
+    proxyUrl?: string,
+    height?: number,
+    width?: number,
+  },
+  thumbnail?: {
+    url: string,
+    proxyUrl?: string,
+    height?: number,
+    width?: number,
+  },
+  video?: {
+    url: string,
+    proxyUrl?: string,
+    height?: number,
+    width?: number,
+  },
+  provider?: {
+    name?: string,
+    url?: string,
+  },
+  author?: {
+    name?: string,
+    url?: string,
+    iconUrl?: string,
+    proxyIconUrl?: string,
+  },
+  fields?: Array<{
+    name: string,
+    value: string,
+    inline?: boolean,
+  }>,
+}
+
+export type Reaction = {
+  count: number,
+  countDetails?: {
+    burst: number,
+    normal: number,
+  },
+  me: boolean,
+  meBurst?: boolean,
+  emoji: {
+    id: string | null,
+    name: string | null,
+    animated?: boolean,
+  },
+  burstColors?: string[],
+}
+
+export type ChannelMention = {
+  id: string,
+  guildId: string,
+  type: number,
+  name: string,
+}
+
+export type MessageReference = {
+  type?: number,
+  guildId?: string,
+  channelId?: string,
+  messageId?: string,
+  failIfNotExists?: boolean,
+}
+
+export type MessageSnapshot = {
+  message: {
+    id: string,
+    channelId: string,
+    guildId?: string,
+    author: User,
+    content: string,
+    timestamp: string,
+    editedTimestamp?: string | null,
+    tts: boolean,
+    mentionEveryone: boolean,
+    mentions: User[],
+    mentionRoles: string[],
+    pinned: boolean,
+    type: number,
+  },
+}
+
+export type MessageActivity = {
+  type: number,
+  party_id?: string,
+}
+
+export type PartialApplication = {
+  id: string,
+  name: string,
+  icon: string | null,
+  description: string,
+  bot?: User,
+}
+
+export type MessageInteractionMetadata = {
+  id: string,
+  type: number,
+  name: string,
+  user: User,
+  authorizingIntegrationsApps?: Array<{
+    id: string,
+    type: number,
+    name: string,
+    icon: string | null,
+    description: string,
+    bot?: User,
+  }>,
+  originalResponseMessageId?: string,
+  triggeringMessageId?: string,
+  interactionMetadata?: MessageInteractionMetadata,
+}
+
+export type MessageInteraction = {
+  id: string,
+  type: number,
+  name: string,
+  user: User,
+  properties?: {
+    sessionId?: string,
+    continuation?: boolean,
+    namingStrategy?: string,
+  },
+}
+
+export type MessageComponent = {
+  type: number,
+  style?: number,
+  label?: string,
+  emoji?: {
+    id: string | null,
+    name: string | null,
+    animated?: boolean,
+  },
+  custom_id?: string,
+  url?: string,
+  disabled?: boolean,
+  components?: MessageComponent[],
+}
+
+export type StickerItem = {
+  id: string,
+  name: string,
+  format_type: number,
+}
+
+export type Sticker = {
+  id: string,
+  name: string,
+  description: string | null,
+  tags?: string,
+  formatType: number,
+  type: number,
+  available?: boolean,
+  guildId?: string,
+  user?: User,
+  sortValue?: number,
+}
+
+export type RoleSubscriptionData = {
+  roleSubscriptionListingId: string,
+  tierName: string,
+  totalMonthsSubscribed: number,
+  isRenewal: boolean,
+}
+
+export type ResolvedData = {
+  users?: Record<string, User>,
+  members?: Record<string, {
+    roles: string[],
+    nick?: string | null,
+    avatar?: string | null,
+    deaf?: boolean,
+    mute?: boolean,
+    joinedAt: string,
+    flags: number,
+    isPending?: boolean,
+    communicationDisabledUntil?: string | null,
+  }>,
+  channels?: Record<string, {
+    id: string,
+    type: number,
+    name: string,
+    permissions: string,
+  }>,
+  roles?: Record<string, {
+    id: string,
+    name: string,
+    permissions: string,
+    color: number,
+    hoist: boolean,
+    icon?: string | null,
+    unicodeEmoji?: string | null,
+    position: number,
+    flags: number,
+    mentionable: boolean,
+  }>,
+  stickers?: Record<string, Sticker>,
+  messages?: Record<string, {
+    id: string,
+    channelId: string,
+    guildId?: string,
+    author: User,
+    content: string,
+    timestamp: string,
+    editedTimestamp?: string | null,
+  }>,
+  reactions?: Record<string, {
+    count: number,
+    me: boolean,
+    emoji: {
+      id: string | null,
+      name: string | null,
+      animated?: boolean,
+    },
+  }>,
+}
+
+export type Poll = {
+  question: {
+    text: string,
+    answers: Array<{
+      text: string,
+      emoji?: {
+        id: string | null,
+        name: string | null,
+        animated?: boolean,
+      },
+    }>,
+  },
+  expiry: string,
+  layoutProperties?: {
+    type: number,
+    allowMultiselect: boolean,
+    minValues?: number,
+    maxValues?: number,
+    questionDuration?: number,
+  },
+  results?: {
+    isFinalized: boolean,
+    answerCounts: Array<{
+      id: number,
+      count: number,
+      meVoted: boolean,
+    }>,
+  },
+  isExpired?: boolean,
+  totalVoteCount?: number,
+}
+
+export type MessageCall = {
+  participants: string[],
+  is_ended?: boolean,
+  quality_modifier?: number,
+  ring_time?: number,
+}
+
+export type SharedClientTheme = {
+  theme?: string,
+}
+
+export type DiscordMessage = {
+  id: string,
+  channel_id: string,
+  author: User,
+  content: string,
+  timestamp: string,
+  edited_timestamp: string | null,
+  tts: boolean,
+  mention_everyone: boolean,
+  mentions: User[],
+  mention_roles: string[],
+  mention_channels?: ChannelMention[],
+  attachments: Attachment[],
+  embeds: Embed[],
+  reactions?: Reaction[],
+  nonce?: number | string,
+  pinned: boolean,
+  webhook_id?: string,
+  type: number,
+  activity?: MessageActivity,
+  application?: PartialApplication,
+  application_id?: string,
+  flags?: number,
+  message_reference?: MessageReference,
+  message_snapshots?: MessageSnapshot[],
+  referenced_message?: {
+    message_id: string,
+  },
+  interaction_metadata?: MessageInteractionMetadata,
+  interaction?: MessageInteraction,
+  thread?: DiscordChannel,
+  components?: MessageComponent[],
+  sticker_items?: StickerItem[],
+  stickers?: Sticker[],
+  position?: number,
+  role_subscription_data?: RoleSubscriptionData,
+  resolved?: ResolvedData,
+  poll?: Poll,
+  call?: MessageCall,
+  shared_client_theme?: SharedClientTheme,
+}
+
 export type DiscordChannel = {
   id: string,
   type: number,

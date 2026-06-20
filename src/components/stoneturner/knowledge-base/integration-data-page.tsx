@@ -78,25 +78,27 @@ export const IntegrationDataPage = () => {
     fullSync: {
       text: `This will run a full sync of all ${integration} data and may take a while. Continue?`,
       onConfirm: async () => {
-        await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/Gong`, {
+        await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/${integration}`, {
           method: "POST",
         });
         setConfirmAction(null);
+        syncTaskMutate();
       },
     },
     syncUpdates: {
       text: `This will sync recent updates from ${integration}. Continue?`,
       onConfirm: async () => {
-        await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/updates/Gong`, {
+        await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/updates/${integration}`, {
           method: "POST",
         });
         setConfirmAction(null);
+        syncTaskMutate();
       },
     },
     delete: {
       text: `This will delete all synced data for ${integration}. This cannot be undone.`,
       onConfirm: async () => {
-        await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/Gong`, {
+        await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/${integration}`, {
           method: "DELETE",
         });
         setConfirmAction(null);

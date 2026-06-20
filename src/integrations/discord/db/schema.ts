@@ -1,6 +1,6 @@
-import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
-import type { Overwrite, User, ThreadMetadata, ThreadMember, ForumTag, DefaultReaction } from "../models/models";
+import type { Overwrite, User, ThreadMetadata, ThreadMember, ForumTag, DefaultReaction, Attachment, Embed, Reaction, ChannelMention, MessageReference, MessageSnapshot, MessageActivity, PartialApplication, MessageInteractionMetadata, MessageInteraction, MessageComponent, StickerItem, Sticker, RoleSubscriptionData, ResolvedData, Poll, MessageCall, SharedClientTheme } from "../models/models";
 
 export const discordGuild = sqliteTable("discordGuild", {
   id: text("id").primaryKey(),
@@ -63,3 +63,51 @@ export const discordChannel = sqliteTable("discordChannel", {
 
 export type DiscordChannelSelect = InferSelectModel<typeof discordChannel>;
 export type DiscordChannelInsert = InferInsertModel<typeof discordChannel>;
+
+export const discordMessage = sqliteTable("discordMessage", {
+  id: text("id").primaryKey(),
+  channelId: text("channelId").notNull(),
+  author: text("author", { mode: "json" }).$type<User>().notNull(),
+  content: text("content").notNull(),
+  timestamp: text("timestamp").notNull(),
+  editedTimestamp: text("editedTimestamp"),
+  tts: integer("tts", { mode: "boolean" }).notNull(),
+  mentionEveryone: integer("mentionEveryone", { mode: "boolean" }).notNull(),
+  mentions: text("mentions", { mode: "json" }).$type<User[]>().notNull(),
+  mentionRoles: text("mentionRoles", { mode: "json" }).$type<string[]>().notNull(),
+  mentionChannels: text("mentionChannels", { mode: "json" }).$type<ChannelMention[]>(),
+  attachments: text("attachments", { mode: "json" }).$type<Attachment[]>().notNull(),
+  embeds: text("embeds", { mode: "json" }).$type<Embed[]>().notNull(),
+  reactions: text("reactions", { mode: "json" }).$type<Reaction[]>(),
+  nonce: text("nonce"),
+  pinned: integer("pinned", { mode: "boolean" }).notNull(),
+  webhookId: text("webhookId"),
+  type: integer("type").notNull(),
+  activity: text("activity", { mode: "json" }).$type<MessageActivity>(),
+  application: text("application", { mode: "json" }).$type<PartialApplication>(),
+  applicationId: text("applicationId"),
+  flags: integer("flags"),
+  messageReference: text("messageReference", { mode: "json" }).$type<MessageReference>(),
+  messageSnapshots: text("messageSnapshots", { mode: "json" }).$type<MessageSnapshot[]>(),
+  referencedMessageId: text("referencedMessageId"),
+  interactionMetadata: text("interactionMetadata", { mode: "json" }).$type<MessageInteractionMetadata>(),
+  interaction: text("interaction", { mode: "json" }).$type<MessageInteraction>(),
+  threadId: text("threadId"),
+  components: text("components", { mode: "json" }).$type<MessageComponent[]>(),
+  stickerItems: text("stickerItems", { mode: "json" }).$type<StickerItem[]>(),
+  stickers: text("stickers", { mode: "json" }).$type<Sticker[]>(),
+  position: integer("position"),
+  roleSubscriptionData: text("roleSubscriptionData", { mode: "json" }).$type<RoleSubscriptionData>(),
+  resolved: text("resolved", { mode: "json" }).$type<ResolvedData>(),
+  poll: text("poll", { mode: "json" }).$type<Poll>(),
+  call: text("call", { mode: "json" }).$type<MessageCall>(),
+  sharedClientTheme: text("sharedClientTheme", { mode: "json" }).$type<SharedClientTheme>(),
+},
+  (table) => [
+    uniqueIndex("discordMessage_id_unique_idx").on(table.id),
+    index("discordMessage_channelId_idx").on(table.channelId),
+    index("discordMessage_referencedMessageId_idx").on(table.referencedMessageId),
+  ]);
+
+export type DiscordMessageSelect = InferSelectModel<typeof discordMessage>;
+export type DiscordMessageInsert = InferInsertModel<typeof discordMessage>;

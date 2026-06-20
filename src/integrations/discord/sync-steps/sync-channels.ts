@@ -97,5 +97,6 @@ const getChannelsByGuild = async (guildId: string): Promise<DiscordChannel[] | n
   };
 
   const channelList: DiscordChannel[] = await channelRes.json()
+  console.log("channels: ", channelList);
   return channelList;
 }

@@ -70,5 +70,6 @@ export const getNextGuildPage = async (cursor?: string): Promise<PartialGuild[] 
   };
 
   const guildList: PartialGuild[] = await guildRes.json()
+  console.log("guilds: ", guildList);
   return guildList;
 }

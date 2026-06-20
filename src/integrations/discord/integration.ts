@@ -1,13 +1,20 @@
 import type { Integration } from "@/core/models/models";
 import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
-import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration, getIntegrationCredentialByIntegration, upsertIntegrationCredential } from "@/core/db/queries/queries";
+import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration, upsertIntegrationCredential } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { discordConfig } from "./config";
 import type { BunRequest } from "bun";
 import { DISCORD_API_ENDPOINT, refreshDiscordTokens } from "./sync-steps/discord-utils";
+import { syncGuilds } from "./sync-steps/sync-guilds";
+import { syncChannels } from "./sync-steps/sync-channels";
+import { syncMessages } from "./sync-steps/sync-messages";
 
 export const syncDiscordPipeline = async (incremental: boolean = false) => {
-  await indexVectorDbStep("discord", incremental);
+  console.log("starting discord sync");
+  await syncGuilds();
+  await syncChannels();
+  await syncMessages();
+  // await indexVectorDbStep("discord", incremental);
 }
 
 const handleOauthRedirect = async (req: BunRequest) => {

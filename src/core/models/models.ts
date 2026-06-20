@@ -6,7 +6,7 @@ export type IntegrationConfig = {
   integrationType: "BASIC_TOKEN" | "OAUTH" | "API_KEY",
   docs?: string,
   inputs?: {
-    input: "accessKey"| "baseUrl",
+    input: "accessKey"| "baseUrl" | "secretKey",
     label: string,
   }[],
   oauthAuthorizationUrl?: string,
