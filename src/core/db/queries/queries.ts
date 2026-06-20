@@ -1,5 +1,5 @@
 import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact } from '@/core/db/schema/schema';
-import { and, eq, gte, like, lte, gt, or, asc, desc } from 'drizzle-orm';
+import { and, eq, gte, like, lte, gt, or, asc, desc, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import { db } from '@/core/db/db';
 import { lower } from '@/lib/utils';
@@ -25,7 +25,7 @@ export const upsertIntegrationCredential = async (integrationData: IntegrationCr
       secretKey: integrationData.secretKey,
       baseUrl: integrationData.baseUrl,
       tokenExpiration: integrationData.tokenExpiration,
-    }).where(eq(integrationCredential.id, existing.id));
+    }).where(sql`"id" = ${existing.id}`);
   } else {
     await db.insert(integrationCredential).values(integrationData);
   }
@@ -50,7 +50,7 @@ export const upsertSyncTask = async (syncTaskData: SyncTaskInsert): Promise<void
         updateDate: (new Date()).toISOString(),
         status: syncTaskData.status,
         inputs: syncTaskData.inputs,
-      }).where(eq(syncTask.id, existing.id));
+      }).where(sql`"id" = ${existing.id}`);
       return;
     }
   }
@@ -170,8 +170,7 @@ export const upsertMdArtifact = async (markdownArtifact: MdArtifactInsert): Prom
       keyPoints: markdownArtifact.keyPoints,
       questionsAnswered: markdownArtifact.questionsAnswered,
       entities: markdownArtifact.entities,
-      lastIndex: markdownArtifact.lastIndex,
-    }).where(eq(mdArtifact.integrationArtifactId, markdownArtifact.integrationArtifactId));
+    }).where(sql`"integrationArtifactId" = ${markdownArtifact.integrationArtifactId}`);
   } else {
     await db.insert(mdArtifact).values(markdownArtifact);
   }

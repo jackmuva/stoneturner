@@ -74,5 +74,3 @@ export const discordIntegration: Integration = {
   },
   handleRedirect: handleOauthRedirect,
 }
-
-

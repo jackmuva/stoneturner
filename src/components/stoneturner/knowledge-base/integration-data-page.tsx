@@ -4,7 +4,10 @@ import useSWR from 'swr'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { ButtonGroup, ButtonGroupSeparator } from "@/components/ui/button-group";
 import { Button } from "@/components/ui/button";
-import { ArrowBigDownDashIcon, RefreshCwIcon, SearchIcon, Trash2Icon } from "lucide-react";
+import { ArrowBigDownDashIcon, KeyRoundIcon, MoreVerticalIcon, RefreshCwIcon, SearchIcon, Trash2Icon } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { IntegrationDialog } from "./integration-dialog";
+import { configRegistry } from "@/integrations/config-registry";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { PAGE_SIZE } from "@/lib/constants";
@@ -25,6 +28,11 @@ export const IntegrationDataPage = () => {
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [selectedArtifact, setSelectedArtifact] = useState<MdArtifactSelect | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [reauthOpen, setReauthOpen] = useState<boolean>(false);
+
+  const intConfig = configRegistry.find(
+    (config) => config.integration.toLowerCase() === integration?.toLowerCase()
+  );
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -127,11 +135,25 @@ export const IntegrationDataPage = () => {
                 <RefreshCwIcon size={12} />
                 Sync Updates
               </Button>
-              <Button variant={"destructive"} size="sm" className="bg-red-500/20 text-black"
-                onClick={() => setConfirmAction("delete")}>
-                <Trash2Icon size={12} />
-                Delete Synced Data
-              </Button>
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant={"outline"} size="sm">
+                    <MoreVerticalIcon size={12} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {intConfig && (
+                    <DropdownMenuItem onClick={() => setReauthOpen(true)}>
+                      <KeyRoundIcon size={12} />
+                      Reauthenticate
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem variant="destructive" onClick={() => setConfirmAction("delete")}>
+                    <Trash2Icon size={12} />
+                    Delete Synced Data
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </ButtonGroup>
             {syncTasks && syncTasks.length > 0 && <div className="w-52 flex gap-1 items-center">
               <span className="text-sm animate-pulse">Syncing...</span>
@@ -167,6 +189,13 @@ export const IntegrationDataPage = () => {
         text={confirmAction ? confirmConfig[confirmAction].text : ""}
         onConfirm={confirmAction ? confirmConfig[confirmAction].onConfirm : () => { }}
       />
+      {intConfig && (
+        <IntegrationDialog
+          intConfig={intConfig}
+          open={reauthOpen}
+          onOpenChange={setReauthOpen}
+        />
+      )}
     </div >
   );
 }

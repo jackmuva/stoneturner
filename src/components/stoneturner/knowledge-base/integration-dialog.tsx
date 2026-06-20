@@ -11,12 +11,22 @@ export const IntegrationDialog = ({
   intConfig,
   integrationsMutate,
   openDialog,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   intConfig: IntegrationConfig,
-  integrationsMutate: () => void,
+  integrationsMutate?: () => void,
   openDialog?: boolean,
+  open?: boolean,
+  onOpenChange?: (open: boolean) => void,
 }) => {
-  const [open, setOpen] = useState(openDialog ? openDialog : false);
+  const isControlled = controlledOpen !== undefined;
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(openDialog ? openDialog : false);
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (value: boolean) => {
+    if (!isControlled) setUncontrolledOpen(value);
+    onOpenChange?.(value);
+  };
   const [intInputs, setIntInputs] = useState<Record<string, string>>({});
   const allFieldsFilled = intConfig.inputs?.every(
     (input) => (intInputs[input.input]?.trim().length ?? 0) > 0
@@ -35,6 +45,7 @@ export const IntegrationDialog = ({
         accessKey: intInputs["accessKey"] ?? null,
         secretKey: intInputs["secretKey"] ?? null,
         baseUrl: intInputs["baseUrl"] ?? null,
+        tokenExpiration: intInputs["tokenExpiration"] ?? null,
       }
 
       await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/integrations`, {
@@ -42,7 +53,7 @@ export const IntegrationDialog = ({
         body: JSON.stringify(integrationConfig),
         credentials: "include",
       });
-      integrationsMutate();
+      if (integrationsMutate) integrationsMutate();
       toast("Credential Saved", { position: "top-center" })
       setOpen(false);
     }
@@ -50,12 +61,14 @@ export const IntegrationDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant={"default"} className="flex gap-1 items-center w-full">
-          <DatabaseZapIcon size={16} />
-          <div>Connect</div>
-        </Button>
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          <Button variant={"default"} className="flex gap-1 items-center w-full">
+            <DatabaseZapIcon size={16} />
+            <div>Connect</div>
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="font-sans">
         <DialogHeader>
           <DialogTitle className="text-lg">
