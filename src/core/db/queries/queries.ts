@@ -50,6 +50,7 @@ export const upsertSyncTask = async (syncTaskData: SyncTaskInsert): Promise<void
         updateDate: (new Date()).toISOString(),
         status: syncTaskData.status,
         inputs: syncTaskData.inputs,
+        step: syncTaskData.step,
       }).where(sql`"id" = ${existing.id}`);
       return;
     }

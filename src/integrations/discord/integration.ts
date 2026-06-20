@@ -1,11 +1,10 @@
 import type { Integration } from "@/core/models/models";
 import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
-import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration, upsertIntegrationCredential } from "@/core/db/queries/queries";
+import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration, getIntegrationCredentialByIntegration, upsertIntegrationCredential } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { discordConfig } from "./config";
 import type { BunRequest } from "bun";
-
-const DISCORD_API_ENDPOINT = "https://discord.com/api/v10";
+import { DISCORD_API_ENDPOINT, refreshDiscordTokens } from "./sync-steps/discord-utils";
 
 export const syncDiscordPipeline = async (incremental: boolean = false) => {
   await indexVectorDbStep("discord", incremental);
@@ -73,4 +72,5 @@ export const discordIntegration: Integration = {
     await deleteEmbeddingByIntegration("discord");
   },
   handleRedirect: handleOauthRedirect,
+  refreshAccessTokens: refreshDiscordTokens,
 }

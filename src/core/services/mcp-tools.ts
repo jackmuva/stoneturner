@@ -1,5 +1,5 @@
 import { READ_ONLY, type McpTool } from "../models/mcp-models";
-import { getArtifactSchema, runGetArtifact, runSemanticSearch, semanticSearchSchema } from "./tools/search-tools";
+import { getArtifactSchema, runGetArtifact, runSemanticSearch, runSqlQuery, runSqlQuerySchema, semanticSearchSchema } from "./tools/search-tools";
 import { getIntegrationSourcesSchema, runGetIntegrationSources, runSyncSource, syncSourceSchema } from "./tools/sync-tools";
 
 export const tools: McpTool[] = [
@@ -26,6 +26,21 @@ export const tools: McpTool[] = [
     annotations: { title: "Get artifact by id", ...READ_ONLY },
     inputSchema: getArtifactSchema,
     handler: runGetArtifact,
+  },
+  {
+    name: "run_sql_query",
+    description:
+      "Run a single read-only SQL SELECT statement against the underlying database and return the result rows as JSON. The database is SQLite (libSQL/Turso), so use SQLite syntax and functions (e.g. json_extract, strftime, GROUP_CONCAT). Only SELECT (and WITH ... SELECT) statements are permitted — any statement that mutates data or schema (INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, PRAGMA, ATTACH, etc.) or stacks multiple statements is rejected.\n\n" +
+      "When to use: for precise, structured lookups and aggregations that semantic_search can't express — counting artifacts, filtering by exact column values, joining tables, or inspecting metadata. Reach for semantic_search instead when you need to find content by meaning.\n\n" +
+      "Discovering the schema: since this is SQLite, list all tables by querying the `sqlite_master` catalog. Key tables: `mdArtifacts` (integrationArtifactId, integration, artifactDate, keyPoints, questionsAnswered, entities, markdown), `integrationCredential`, `syncTask`, `gongCall`, `gongTranscript`.\n\n" +
+      "Examples:\n" +
+      "- List all tables: { \"query\": \"SELECT name FROM sqlite_master WHERE type='table'\" }\n" +
+      "- Inspect a table's columns/DDL: { \"query\": \"SELECT sql FROM sqlite_master WHERE type='table' AND name='mdArtifacts'\" }\n" +
+      "- Count artifacts per integration: { \"query\": \"SELECT integration, COUNT(*) AS n FROM mdArtifacts GROUP BY integration\" }\n" +
+      "- Most recent calls: { \"query\": \"SELECT integrationArtifactId, artifactDate FROM mdArtifacts ORDER BY artifactDate DESC\", \"maxRows\": 10 }",
+    annotations: { title: "Run SQL query", ...READ_ONLY },
+    inputSchema: runSqlQuerySchema,
+    handler: runSqlQuery,
   },
   {
     name: "get_integration_sources",
