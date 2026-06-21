@@ -13,7 +13,7 @@ export const syncDiscordPipeline = async (incremental: boolean = false) => {
   console.log("starting discord sync");
   // await syncGuilds();
   await syncChannels();
-  await syncMessages();
+  // await syncMessages();
   // await indexVectorDbStep("discord", incremental);
 }
 

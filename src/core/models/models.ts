@@ -10,6 +10,7 @@ export type IntegrationConfig = {
     label: string,
   }[],
   oauthAuthorizationUrl?: string,
+  installUrl?: string,
 };
 
 export type Integration = {

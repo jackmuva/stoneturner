@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { DatabaseZapIcon } from "lucide-react";
+import { DatabaseZapIcon, HardDriveDownloadIcon } from "lucide-react";
 import type { IntegrationConfig } from "@/core/models/models";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
@@ -85,7 +85,7 @@ export const IntegrationDialog = ({
                 <span>
                   {!new URL(intConfig.oauthAuthorizationUrl!).searchParams.get("client_id")
                     ? "OAuth App Credentials needed"
-                    : `Connect your ${intConfig.integration} via oauth`}
+                    : `${intConfig.installUrl ? "First install your app to your integration before connecting your " : "Connect your "}${intConfig.integration} via oauth`}
                 </span>
               )}
           </DialogDescription>
@@ -103,19 +103,31 @@ export const IntegrationDialog = ({
           })}
         </div>
         <DialogFooter>
-          <Button variant={"default"} className="flex items-center gap-2 w-full" disabled={(!allFieldsFilled && intConfig.integrationType !== "OAUTH")
-            || (intConfig.integrationType === "OAUTH" && !new URL(intConfig.oauthAuthorizationUrl!).searchParams.get("client_id"))}
-            onClick={async () => {
-              if (intConfig.integrationType !== "OAUTH") {
-                upsertIntegrationCreds(intConfig);
-                return;
-              } else {
-                window.location.href = intConfig.oauthAuthorizationUrl!;
-              }
-            }}>
-            <DatabaseZapIcon size={16} />
-            <div>Connect</div>
-          </Button>
+          <div className="w-full flex flex-col gap-2">
+            {intConfig.installUrl &&
+              <Button variant={"default"} className="flex items-center gap-2 w-full"
+                onClick={async () => {
+                  window.location.href = intConfig.installUrl!;
+                }}>
+                <HardDriveDownloadIcon size={16} />
+                <div>Install</div>
+              </Button>
+
+            }
+            <Button variant={"default"} className="flex items-center gap-2 w-full" disabled={(!allFieldsFilled && intConfig.integrationType !== "OAUTH")
+              || (intConfig.integrationType === "OAUTH" && !new URL(intConfig.oauthAuthorizationUrl!).searchParams.get("client_id"))}
+              onClick={async () => {
+                if (intConfig.integrationType !== "OAUTH") {
+                  upsertIntegrationCreds(intConfig);
+                  return;
+                } else {
+                  window.location.href = intConfig.oauthAuthorizationUrl!;
+                }
+              }}>
+              <DatabaseZapIcon size={16} />
+              <div>Connect</div>
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
