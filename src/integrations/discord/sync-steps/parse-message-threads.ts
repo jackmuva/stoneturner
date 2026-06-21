@@ -28,7 +28,7 @@ const parseThreadMessages = async (incremental: boolean, lastArtifactDate?: stri
         }
         curIndex += 1;
       }
-      const threadResults = await Promise.allSettled(workerQueue.map(async(threadObj) => {
+      const threadResults = await Promise.allSettled(workerQueue.map(async (threadObj) => {
         const channel = await getDiscordChannelById(threadObj.channelId);
         return processMessages(true, threadObj.threadId, channel?.name ?? threadObj.channelId,
           (new Date(threadObj.lastMessageDate)).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
@@ -53,7 +53,7 @@ const parseChannelMessages = async (incremental: boolean, lastArtifactDate: stri
   while (channels.length > 0) {
     for (const channel of channels) {
       const range = await getMessageTimestampRangeByChannelId(channel.id)
-      if (!range) continue;
+      if (!range || !range.minMessageTimestamp || !range.maxMessageTimestamp) continue;
 
       const dayArray = constructDayMap(new Date(range.minMessageTimestamp), new Date(range.maxMessageTimestamp));
       let curDayIndex = 0;
@@ -109,9 +109,9 @@ const processMessages = async (thread: boolean, channelId: string, channelName: 
 
     const analysisPrompt = `Analyze the following Discord conversation and extract three distinct types of information:
 
-1. KEY POINTS: The main takeaways, important decisions, and key ideas discussed.
-2. QUESTIONS ANSWERED: The key questions or problems this conversation addresses and resolves.
-3. ENTITIES: Names of people, companies, tools, products, concepts, and other important entities mentioned.
+1. keyPoints: The main takeaways, important decisions, and key ideas discussed.
+2. questionsAnswered: The key questions or problems this conversation addresses and resolves.
+3. entities: Names of people, companies, tools, products, concepts, and other important entities mentioned.
 
 For each category, provide a comprehensive list with clear, concise entries.
 

@@ -42,7 +42,6 @@ const upsertMessages = async (channel: DiscordChannelSelect, incremental: boolea
     })
     return;
   }
-
   if (messages.length === 0) return;
 
   await batchInsertDiscordMessage(messages.map((message) => {
@@ -86,6 +85,13 @@ const upsertMessages = async (channel: DiscordChannelSelect, incremental: boolea
       sharedClientTheme: message.shared_client_theme,
     }
   }));
+
+  await upsertSyncTask({
+    integration: "discord",
+    status: "SUCCESS",
+    step: "get-messages-by-channel",
+    inputs: JSON.stringify({ channelId: channel.id, lastMessageId }),
+  })
 
   if (messages.length === MAX_MESSAGES) {
     await upsertMessages(channel, incremental, messages.at(-1)!.id);

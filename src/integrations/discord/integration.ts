@@ -12,8 +12,7 @@ import type { DiscordGuild } from "./models/models";
 import { batchInsertDiscordGuild } from "./db/queries";
 
 export const syncDiscordPipeline = async (incremental: boolean = true) => {
-  console.log("starting discord sync");
-  // await syncChannels();
+  await syncChannels();
   await syncMessages(incremental);
   await parseDiscordMessages(incremental);
   await indexVectorDbStep("discord", incremental);
