@@ -5,16 +5,18 @@ import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { discordConfig } from "./config";
 import type { BunRequest } from "bun";
 import { DISCORD_API_ENDPOINT, refreshDiscordTokens } from "./sync-steps/discord-utils";
-import { syncGuilds } from "./sync-steps/sync-guilds";
 import { syncChannels } from "./sync-steps/sync-channels";
 import { syncMessages } from "./sync-steps/sync-messages";
+import { parseDiscordStep } from "./sync-steps/parse-messages";
+import type { DiscordGuild } from "./models/models";
+import { batchInsertDiscordGuild } from "./db/queries";
 
 export const syncDiscordPipeline = async (incremental: boolean = false) => {
   console.log("starting discord sync");
-  // await syncGuilds();
-  await syncChannels();
-  // await syncMessages();
-  // await indexVectorDbStep("discord", incremental);
+  // await syncChannels();
+  await syncMessages();
+  await parseDiscordStep();
+  await indexVectorDbStep("discord", incremental);
 }
 
 const handleOauthRedirect = async (req: BunRequest) => {
@@ -49,6 +51,7 @@ const handleOauthRedirect = async (req: BunRequest) => {
     expires_in: number;
     token_type: string;
     scope: string;
+    guild: DiscordGuild;
   };
 
   const tokenExpiration = new Date(Date.now() + token.expires_in * 1000).toISOString();
@@ -65,6 +68,53 @@ const handleOauthRedirect = async (req: BunRequest) => {
     baseUrl: DISCORD_API_ENDPOINT,
     tokenExpiration,
   });
+
+  await batchInsertDiscordGuild([{
+    id: token.guild.id,
+    name: token.guild.name,
+    icon: token.guild.icon,
+    iconHash: token.guild.icon_hash ?? null,
+    splash: token.guild.splash,
+    discoverySplash: token.guild.discovery_splash,
+    owner: token.guild.owner,
+    ownerId: token.guild.owner_id,
+    permissions: token.guild.permissions,
+    region: token.guild.region ?? null,
+    afkChannelId: token.guild.afk_channel_id,
+    afkTimeout: token.guild.afk_timeout,
+    widgetEnabled: token.guild.widget_enabled,
+    widgetChannelId: token.guild.widget_channel_id ?? null,
+    verificationLevel: token.guild.verification_level,
+    defaultMessageNotifications: token.guild.default_message_notifications,
+    explicitContentFilter: token.guild.explicit_content_filter,
+    roles: token.guild.roles,
+    emojis: token.guild.emojis,
+    features: token.guild.features,
+    mfaLevel: token.guild.mfa_level,
+    applicationId: token.guild.application_id,
+    systemChannelId: token.guild.system_channel_id,
+    systemChannelFlags: token.guild.system_channel_flags,
+    rulesChannelId: token.guild.rules_channel_id,
+    maxPresences: token.guild.max_presences ?? null,
+    maxMembers: token.guild.max_members,
+    vanityUrlCode: token.guild.vanity_url_code,
+    description: token.guild.description,
+    banner: token.guild.banner,
+    premiumTier: token.guild.premium_tier,
+    premiumSubscriptionCount: token.guild.premium_subscription_count,
+    preferredLocale: token.guild.preferred_locale,
+    publicUpdatesChannelId: token.guild.public_updates_channel_id,
+    maxVideoChannelUsers: token.guild.max_video_channel_users,
+    maxStageVideoChannelUsers: token.guild.max_stage_video_channel_users,
+    approximateMemberCount: token.guild.approximate_member_count,
+    approximatePresenceCount: token.guild.approximate_presence_count,
+    welcomeScreen: token.guild.welcome_screen,
+    nsfwLevel: token.guild.nsfw_level,
+    stickers: token.guild.stickers,
+    premiumProgressBarEnabled: token.guild.premium_progress_bar_enabled,
+    safetyAlertsChannelId: token.guild.safety_alerts_channel_id,
+    incidentsData: token.guild.incidents_data ?? null,
+  }])
 
   return Response.redirect(process.env.BUN_PUBLIC_BACKEND_BASE_URL!, 302);
 }

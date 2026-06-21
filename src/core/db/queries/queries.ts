@@ -193,3 +193,8 @@ export const deleteSyncTasksByIntegration = async (integration: string): Promise
 export const deleteIntegrationCredentialByIntegration = async (integration: string): Promise<void> => {
   await db.delete(integrationCredential).where(eq(lower(integrationCredential.integration), integration.toLowerCase()));
 }
+
+export const getLastArtifactDateByIntegration = async (integration: string): Promise<string | undefined> => {
+  const [record] = await db.select({ artifactDate: mdArtifact.artifactDate }).from(mdArtifact).where(eq(lower(mdArtifact.integration), integration.toLowerCase())).orderBy(desc(mdArtifact.artifactDate)).limit(1);
+  return record?.artifactDate ?? undefined;
+}

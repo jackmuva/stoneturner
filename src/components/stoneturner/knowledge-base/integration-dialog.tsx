@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import ReactMarkdown, { type Components } from "react-markdown";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DatabaseZapIcon, HardDriveDownloadIcon } from "lucide-react";
 import type { IntegrationConfig } from "@/core/models/models";
@@ -6,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
+import { markdownComponents } from "./artifact-detail-sheet";
 
 export const IntegrationDialog = ({
   intConfig,
@@ -74,20 +76,9 @@ export const IntegrationDialog = ({
             Connect your {intConfig.integration}
           </DialogTitle>
           <DialogDescription>
-            {intConfig.integrationType === "BASIC_TOKEN" ?
-              (
-                <span>
-                  Connect your data integration via a basic token found in your {intConfig.integration} settings.
-                  Visit <a className="text-indigo-700 underline" href={intConfig.docs} target="_blank">{intConfig.integration} docs</a> for further instruction.
-                </span>
-              )
-              : (
-                <span>
-                  {!new URL(intConfig.oauthAuthorizationUrl!).searchParams.get("client_id")
-                    ? "OAuth App Credentials needed"
-                    : `${intConfig.installUrl ? "First install your app to your integration before connecting your " : "Connect your "}${intConfig.integration} via oauth`}
-                </span>
-              )}
+            {intConfig.description &&
+              <ReactMarkdown components={markdownComponents}>{intConfig.description}</ReactMarkdown>
+            }
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">

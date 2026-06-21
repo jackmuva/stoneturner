@@ -89,18 +89,15 @@ const upsertMessages = async (channel: DiscordChannelSelect): Promise<void> => {
 }
 
 const getMessages = async (channelId: string, lastMessageId: string): Promise<DiscordMessage[] | null> => {
-  const discordCred: IntegrationCredential | null = await getDiscordCredentials();
-  if (!discordCred) return null;
 
   const messageRes = await fetch(`${DISCORD_API_ENDPOINT}/channels/${channelId}/messages?before=${lastMessageId}&limit=100`, {
     method: "GET",
     headers: {
-      "Authorization": `Bearer ${discordCred.accessToken}`
+      "Authorization": `Bot ${process.env.DISCORD_BOT_TOKEN}`
     },
   });
 
   if (!messageRes.ok) {
-    await refreshDiscordTokens();
     throw new Error(`discord get messages failed for channel ${channelId}: ${messageRes.status}`);
   }
 

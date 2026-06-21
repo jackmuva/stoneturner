@@ -391,6 +391,94 @@ export type DiscordMessage = {
   shared_client_theme?: SharedClientTheme,
 }
 
+export type Role = {
+  id: string,
+  name: string,
+  permissions: string,
+  color: number,
+  hoist: boolean,
+  icon?: string | null,
+  unicode_emoji?: string | null,
+  position: number,
+  managed: boolean,
+  mentionable: boolean,
+  flags: number,
+}
+
+export type Emoji = {
+  id: string,
+  name: string | null,
+  roles?: string[],
+  user?: User,
+  require_colons?: boolean,
+  managed?: boolean,
+  animated?: boolean,
+  available?: boolean,
+}
+
+export type WelcomeScreen = {
+  description: string | null,
+  welcome_channels: Array<{
+    channel_id: string,
+    description: string,
+    emoji_id: string | null,
+    emoji_name: string | null,
+  }>,
+}
+
+export type IncidentsData = {
+  invites_disabled_until?: string | null,
+  dm_settings_disabled_until?: string | null,
+  dms_disabled_until?: string | null,
+}
+
+export type DiscordGuild = {
+  id: string,
+  name: string,
+  icon: string | null,
+  icon_hash?: string | null,
+  splash: string | null,
+  discovery_splash: string | null,
+  owner?: boolean,
+  owner_id: string,
+  permissions?: string,
+  region?: string | null,
+  afk_channel_id: string | null,
+  afk_timeout: number,
+  widget_enabled?: boolean,
+  widget_channel_id?: string | null,
+  verification_level: number,
+  default_message_notifications: number,
+  explicit_content_filter: number,
+  roles: Role[],
+  emojis: Emoji[],
+  features: string[],
+  mfa_level: number,
+  application_id: string | null,
+  system_channel_id: string | null,
+  system_channel_flags: number,
+  rules_channel_id: string | null,
+  max_presences?: number | null,
+  max_members?: number,
+  vanity_url_code: string | null,
+  description: string | null,
+  banner: string | null,
+  premium_tier: number,
+  premium_subscription_count?: number,
+  preferred_locale: string,
+  public_updates_channel_id: string | null,
+  max_video_channel_users?: number,
+  max_stage_video_channel_users?: number,
+  approximate_member_count?: number,
+  approximate_presence_count?: number,
+  welcome_screen?: WelcomeScreen,
+  nsfw_level: number,
+  stickers?: Sticker[],
+  premium_progress_bar_enabled: boolean,
+  safety_alerts_channel_id: string | null,
+  incidents_data: IncidentsData | null,
+}
+
 export type DiscordChannel = {
   id: string,
   type: number,

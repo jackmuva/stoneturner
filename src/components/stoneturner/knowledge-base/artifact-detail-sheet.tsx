@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MdArtifactSelect } from "@/core/db/schema/schema";
 import { configRegistry } from "@/integrations/config-registry";
 
-const markdownComponents: Components = {
+export const markdownComponents: Components = {
   h1: ({ children }) => (
     <h1 className="mt-6 mb-3 text-xl font-semibold text-foreground first:mt-0">{children}</h1>
   ),

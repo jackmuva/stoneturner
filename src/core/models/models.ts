@@ -4,9 +4,9 @@ export type IntegrationConfig = {
   integration: string,
   icon: string,
   integrationType: "BASIC_TOKEN" | "OAUTH" | "API_KEY",
-  docs?: string,
+  description?: string,
   inputs?: {
-    input: "accessKey"| "baseUrl" | "secretKey",
+    input: "accessKey" | "baseUrl" | "secretKey",
     label: string,
   }[],
   oauthAuthorizationUrl?: string,

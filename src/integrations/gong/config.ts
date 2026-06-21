@@ -4,7 +4,7 @@ export const gongConfig: IntegrationConfig = {
   integration: "Gong",
   icon: "/assets/gong.png",
   integrationType: "BASIC_TOKEN",
-  docs: "https://help.gong.io/docs/receive-access-to-the-api",
+  description: "Connect your data integration via a basic token found in your Gong settings. Visit the [Gong docs](https://help.gong.io/docs/receive-access-to-the-api) for further instruction.",
   inputs: [
     {
       input: "accessKey",

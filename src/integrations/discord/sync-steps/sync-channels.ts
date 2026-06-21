@@ -1,6 +1,5 @@
-import type { IntegrationCredential } from "@/core/db/schema/schema";
 import type { DiscordChannel } from "../models/models";
-import { DISCORD_API_ENDPOINT, getDiscordCredentials, refreshDiscordTokens } from "./discord-utils";
+import { DISCORD_API_ENDPOINT } from "./discord-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE, MAX_WORKERS } from "@/lib/constants";
@@ -8,7 +7,6 @@ import { batchInsertDiscordChannel, getDiscordGuilds } from "../db/queries";
 import type { DiscordGuildSelect } from "../db/schema";
 
 export const syncChannels = async () => {
-  console.log("sync channels");
   let curOffset = 0;
 
   while (true) {
@@ -89,23 +87,18 @@ const upsertChannels = async (guilds: DiscordGuildSelect[]): Promise<void> => {
 
 
 const getChannelsByGuild = async (guildId: string): Promise<DiscordChannel[] | null> => {
-  const discordCred: IntegrationCredential | null = await getDiscordCredentials();
-  if (!discordCred) return null;
-
   const channelRes = await fetch(`${DISCORD_API_ENDPOINT}/guilds/${guildId}/channels`, {
     method: "GET",
     headers: {
-      "Authorization": `Bearer ${discordCred.accessToken}`
+      "Authorization": `Bot ${process.env.DISCORD_BOT_TOKEN}`
     },
   });
 
   if (!channelRes.ok) {
     console.log("failed to get channels", await channelRes.json());
-    await refreshDiscordTokens();
     throw new Error(`discord get channels failed for guild ${guildId}: ${channelRes.status}`);
   };
 
   const channelList: DiscordChannel[] = await channelRes.json()
-  console.log("channels: ", channelList);
   return channelList;
 }

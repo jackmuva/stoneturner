@@ -1,5 +1,5 @@
 import { discordGuild, discordChannel, discordMessage, type DiscordGuildInsert, type DiscordGuildSelect, type DiscordChannelInsert, type DiscordChannelSelect, type DiscordMessageInsert, type DiscordMessageSelect } from './schema';
-import { sql } from 'drizzle-orm';
+import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import { db } from '@/core/db/db';
 
@@ -11,12 +11,47 @@ export const batchInsertDiscordGuild = async (guilds: DiscordGuildInsert[]): Pro
       set: {
         name: sql`excluded.name`,
         icon: sql`excluded.icon`,
-        banner: sql`excluded.banner`,
+        iconHash: sql`excluded.iconHash`,
+        splash: sql`excluded.splash`,
+        discoverySplash: sql`excluded.discoverySplash`,
         owner: sql`excluded.owner`,
+        ownerId: sql`excluded.ownerId`,
         permissions: sql`excluded.permissions`,
+        region: sql`excluded.region`,
+        afkChannelId: sql`excluded.afkChannelId`,
+        afkTimeout: sql`excluded.afkTimeout`,
+        widgetEnabled: sql`excluded.widgetEnabled`,
+        widgetChannelId: sql`excluded.widgetChannelId`,
+        verificationLevel: sql`excluded.verificationLevel`,
+        defaultMessageNotifications: sql`excluded.defaultMessageNotifications`,
+        explicitContentFilter: sql`excluded.explicitContentFilter`,
+        roles: sql`excluded.roles`,
+        emojis: sql`excluded.emojis`,
         features: sql`excluded.features`,
+        mfaLevel: sql`excluded.mfaLevel`,
+        applicationId: sql`excluded.applicationId`,
+        systemChannelId: sql`excluded.systemChannelId`,
+        systemChannelFlags: sql`excluded.systemChannelFlags`,
+        rulesChannelId: sql`excluded.rulesChannelId`,
+        maxPresences: sql`excluded.maxPresences`,
+        maxMembers: sql`excluded.maxMembers`,
+        vanityUrlCode: sql`excluded.vanityUrlCode`,
+        description: sql`excluded.description`,
+        banner: sql`excluded.banner`,
+        premiumTier: sql`excluded.premiumTier`,
+        premiumSubscriptionCount: sql`excluded.premiumSubscriptionCount`,
+        preferredLocale: sql`excluded.preferredLocale`,
+        publicUpdatesChannelId: sql`excluded.publicUpdatesChannelId`,
+        maxVideoChannelUsers: sql`excluded.maxVideoChannelUsers`,
+        maxStageVideoChannelUsers: sql`excluded.maxStageVideoChannelUsers`,
         approximateMemberCount: sql`excluded.approximateMemberCount`,
         approximatePresenceCount: sql`excluded.approximatePresenceCount`,
+        welcomeScreen: sql`excluded.welcomeScreen`,
+        nsfwLevel: sql`excluded.nsfwLevel`,
+        stickers: sql`excluded.stickers`,
+        premiumProgressBarEnabled: sql`excluded.premiumProgressBarEnabled`,
+        safetyAlertsChannelId: sql`excluded.safetyAlertsChannelId`,
+        incidentsData: sql`excluded.incidentsData`,
       }
     });
 }
@@ -131,9 +166,43 @@ export const batchInsertDiscordMessage = async (messages: DiscordMessageInsert[]
     });
 }
 
-export const getDiscordMessages = async (offset: number = 0): Promise<DiscordMessageSelect[]> => {
+export const getMessageTimestampRangeByChannelId = async (channelId: string): Promise<{ minMessageTimestamp: string; maxMessageTimestamp: string } | undefined> => {
+  const [record] = await db.select({
+    minMessageTimestamp: sql<string>`MIN(${discordMessage.timestamp})`,
+    maxMessageTimestamp: sql<string>`MAX(${discordMessage.timestamp})`,
+  }).from(discordMessage)
+    .where(eq(discordMessage.channelId, channelId));
+  return record;
+}
+
+export const getTopLevelMessagesByChannelId = async (channelId: string, before: string, after: string): Promise<DiscordMessageSelect[]> => {
+  const filters = [
+    eq(discordMessage.channelId, channelId),
+    sql`${discordMessage.threadId} IS NULL`,
+  ];
+  filters.push(lte(discordMessage.timestamp, before));
+  filters.push(gte(discordMessage.timestamp, after));
+
   return await db.select()
     .from(discordMessage)
+    .where(and(...filters))
+    .orderBy(asc(discordMessage.timestamp));
+}
+
+export const getMessagesByThreadId = async (threadId: string): Promise<DiscordMessageSelect[]> => {
+  const records = await db.select().from(discordMessage)
+    .where(eq(discordMessage.threadId, threadId));
+  return records;
+}
+
+export const getDiscordThreadIds = async (offset: number = 0): Promise<{ threadId: string; lastMessageDate: string }[]> => {
+  const records = await db.select({
+    threadId: discordMessage.threadId,
+    lastMessageDate: sql<string>`MAX(${discordMessage.timestamp})`,
+  }).from(discordMessage)
+    .where(sql`${discordMessage.threadId} IS NOT NULL`)
+    .groupBy(discordMessage.threadId)
     .limit(PAGE_SIZE)
     .offset(offset);
+  return records.map((r) => ({ threadId: r.threadId!, lastMessageDate: r.lastMessageDate }));
 }
