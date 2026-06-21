@@ -190,6 +190,10 @@ export const deleteSyncTasksByIntegration = async (integration: string): Promise
   await db.delete(syncTask).where(eq(lower(syncTask.integration), integration.toLowerCase()));
 }
 
+export const deleteSyncTasksPriorToDate = async (date: string): Promise<void> => {
+  await db.delete(syncTask).where(lte(syncTask.updateDate, date));
+}
+
 export const deleteIntegrationCredentialByIntegration = async (integration: string): Promise<void> => {
   await db.delete(integrationCredential).where(eq(lower(integrationCredential.integration), integration.toLowerCase()));
 }
