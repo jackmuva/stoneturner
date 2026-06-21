@@ -7,15 +7,15 @@ import type { BunRequest } from "bun";
 import { DISCORD_API_ENDPOINT, refreshDiscordTokens } from "./sync-steps/discord-utils";
 import { syncChannels } from "./sync-steps/sync-channels";
 import { syncMessages } from "./sync-steps/sync-messages";
-import { parseDiscordStep } from "./sync-steps/parse-messages";
+import { parseDiscordMessages } from "./sync-steps/parse-message-threads";
 import type { DiscordGuild } from "./models/models";
 import { batchInsertDiscordGuild } from "./db/queries";
 
-export const syncDiscordPipeline = async (incremental: boolean = false) => {
+export const syncDiscordPipeline = async (incremental: boolean = true) => {
   console.log("starting discord sync");
   // await syncChannels();
-  await syncMessages();
-  await parseDiscordStep();
+  await syncMessages(incremental);
+  await parseDiscordMessages(incremental);
   await indexVectorDbStep("discord", incremental);
 }
 

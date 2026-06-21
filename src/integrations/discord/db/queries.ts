@@ -1,5 +1,5 @@
 import { discordGuild, discordChannel, discordMessage, type DiscordGuildInsert, type DiscordGuildSelect, type DiscordChannelInsert, type DiscordChannelSelect, type DiscordMessageInsert, type DiscordMessageSelect } from './schema';
-import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import { db } from '@/core/db/db';
 
@@ -114,6 +114,15 @@ export const getDiscordChannels = async (offset: number = 0): Promise<DiscordCha
     .offset(offset);
 }
 
+export const getAllDiscordChannels = async (offset: number =0): Promise<DiscordChannelSelect[]> => {
+  return await db.select().from(discordChannel).limit(PAGE_SIZE).offset(offset);
+}
+
+export const getDiscordChannelById = async (id: string): Promise<DiscordChannelSelect | null> => {
+  const [returning] = await db.select().from(discordChannel).where(eq(discordChannel.id, id))
+  return returning ?? null;
+}
+
 export const deleteAllDiscordData = async (): Promise<void> => {
   await db.delete(discordGuild);
   await db.delete(discordChannel);
@@ -195,14 +204,23 @@ export const getMessagesByThreadId = async (threadId: string): Promise<DiscordMe
   return records;
 }
 
-export const getDiscordThreadIds = async (offset: number = 0): Promise<{ threadId: string; lastMessageDate: string }[]> => {
+export const getLastMessageByChannelId = async (channelId: string): Promise<DiscordMessageSelect | null> => {
+  const [returning] = await db.select().from(discordMessage)
+    .where(eq(discordMessage.channelId, channelId))
+    .orderBy(desc(discordMessage.timestamp))
+    .limit(1);
+  return returning ?? null;
+}
+
+export const getDiscordThreadIds = async (offset: number = 0): Promise<{ channelId: string, threadId: string; lastMessageDate: string }[]> => {
   const records = await db.select({
+    channelId: discordMessage.channelId,
     threadId: discordMessage.threadId,
     lastMessageDate: sql<string>`MAX(${discordMessage.timestamp})`,
   }).from(discordMessage)
     .where(sql`${discordMessage.threadId} IS NOT NULL`)
-    .groupBy(discordMessage.threadId)
+    .groupBy(discordMessage.channelId, discordMessage.threadId)
     .limit(PAGE_SIZE)
     .offset(offset);
-  return records.map((r) => ({ threadId: r.threadId!, lastMessageDate: r.lastMessageDate }));
+  return records.map((r) => ({ channelId: r.channelId!, threadId: r.threadId!, lastMessageDate: r.lastMessageDate }));
 }

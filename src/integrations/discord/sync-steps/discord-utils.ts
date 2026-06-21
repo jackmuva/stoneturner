@@ -1,13 +1,6 @@
 import { getIntegrationCredentialByIntegration, upsertIntegrationCredential } from "@/core/db/queries/queries";
-import type { IntegrationCredential } from "@/core/db/schema/schema";
 
 export const DISCORD_API_ENDPOINT = "https://discord.com/api/v10";
-
-export const getDiscordCredentials = async (): Promise<IntegrationCredential | null> => {
-  const credential = await getIntegrationCredentialByIntegration("discord");
-  return credential ?? null;
-}
-
 
 export const refreshDiscordTokens = async () => {
   const credential = await getIntegrationCredentialByIntegration("discord");

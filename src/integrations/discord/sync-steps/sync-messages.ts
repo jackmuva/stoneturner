@@ -1,33 +1,33 @@
-import type { IntegrationCredential } from "@/core/db/schema/schema";
 import type { DiscordMessage } from "../models/models"
-import { DISCORD_API_ENDPOINT, getDiscordCredentials, refreshDiscordTokens } from "./discord-utils";
+import { DISCORD_API_ENDPOINT } from "./discord-utils";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE, MAX_WORKERS } from "@/lib/constants";
-import { batchInsertDiscordMessage, getDiscordChannels } from "../db/queries";
+import { batchInsertDiscordMessage, getDiscordChannels, getLastMessageByChannelId } from "../db/queries";
 import { upsertSyncTask } from "@/core/db/queries/queries";
 import type { DiscordChannelSelect } from "../db/schema";
 
-export const syncMessages = async () => {
-  let curOffset = 0;
+const MAX_MESSAGES = 100;
 
+export const syncMessages = async (incremental: boolean = true) => {
+  let offset = 0;
   while (true) {
-    const offsets = Array.from({ length: MAX_WORKERS }, (_, i) => curOffset + (i * PAGE_SIZE));
-    const channelLists = await Promise.all(offsets.map((offset) => getDiscordChannels(offset)));
-    const channels = channelLists.flat();
-
+    const channels = await getDiscordChannels(offset);
     if (channels.length === 0) break;
-
-    await Promise.all(channels.map((channel) => upsertMessages(channel)));
-
-    if (channelLists.some((channelList) => channelList.length < PAGE_SIZE)) break;
-    curOffset += MAX_WORKERS * PAGE_SIZE;
+    for (let i = 0; i < channels.length; i += MAX_WORKERS) {
+      const chunk = channels.slice(i, i + MAX_WORKERS);
+      await Promise.all(chunk.map((channel) => upsertMessages(channel, incremental)));
+    }
+    if (channels.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
   }
-  return;
 }
 
-const upsertMessages = async (channel: DiscordChannelSelect): Promise<void> => {
-  const lastMessageId = channel.lastMessageId;
-  if (!lastMessageId) return;
+const upsertMessages = async (channel: DiscordChannelSelect, incremental: boolean, cursor?: string): Promise<void> => {
+  let lastMessageId: undefined | string = cursor;
+  if (incremental) {
+    const lastMessage = await getLastMessageByChannelId(channel.id);
+    if (lastMessage) lastMessageId = lastMessage.id;
+  }
 
   const messages: DiscordMessage[] | null = await retry(async () => {
     return await getMessages(channel.id, lastMessageId);
@@ -57,7 +57,7 @@ const upsertMessages = async (channel: DiscordChannelSelect): Promise<void> => {
       mentionEveryone: message.mention_everyone,
       mentions: message.mentions,
       mentionRoles: message.mention_roles,
-      mentionChannels: message.mention_channels,
+      mentionChannels: message.mention_channels ?? undefined,
       attachments: message.attachments,
       embeds: message.embeds,
       reactions: message.reactions,
@@ -85,12 +85,19 @@ const upsertMessages = async (channel: DiscordChannelSelect): Promise<void> => {
       call: message.call,
       sharedClientTheme: message.shared_client_theme,
     }
-  }))
+  }));
+
+  if (messages.length === MAX_MESSAGES) {
+    await upsertMessages(channel, incremental, messages.at(-1)!.id);
+  }
 }
 
-const getMessages = async (channelId: string, lastMessageId: string): Promise<DiscordMessage[] | null> => {
-
-  const messageRes = await fetch(`${DISCORD_API_ENDPOINT}/channels/${channelId}/messages?before=${lastMessageId}&limit=100`, {
+const getMessages = async (channelId: string, lastMessageId?: string): Promise<DiscordMessage[] | null> => {
+  const urlParams = new URLSearchParams({
+    limit: String(MAX_MESSAGES)
+  })
+  if (lastMessageId) urlParams.set("after", lastMessageId);
+  const messageRes = await fetch(`${DISCORD_API_ENDPOINT}/channels/${channelId}/messages?${urlParams.toString()}`, {
     method: "GET",
     headers: {
       "Authorization": `Bot ${process.env.DISCORD_BOT_TOKEN}`
