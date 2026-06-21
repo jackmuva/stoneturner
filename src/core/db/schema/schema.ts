@@ -11,6 +11,7 @@ export const integrationCredential = sqliteTable("integrationCredential", {
   accessKey: text("accessKey"),
   secretKey: text("secretKey"),
   baseUrl: text("baseUrl"),
+  tokenExpiration: text("tokenExpiration")
 });
 
 export type IntegrationCredential = InferSelectModel<typeof integrationCredential>;

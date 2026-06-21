@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import "./index.css";
 import { ThemeProvider } from "../providers/theme";
-import { KnowledgeLayout } from "@/components/stoneturner/knowledge-base/knowledge-layout";
+import { Layout } from "@/components/stoneturner/layout";
 import { KnowledgeBasePage } from "@/components/stoneturner/knowledge-base/knowledge-base-page";
 import { IntegrationDataPage } from "@/components/stoneturner/knowledge-base/integration-data-page";
 import { SyncMonitoringPage } from "@/components/stoneturner/sync-monitoring/sync-monitoring-page";
@@ -11,7 +11,7 @@ export function App() {
     <ThemeProvider>
       <BrowserRouter>
         <Routes>
-          <Route element={<KnowledgeLayout />}>
+          <Route element={<Layout />}>
             <Route path="/" element={<KnowledgeBasePage />} />
             <Route path="knowledge" element={<KnowledgeBasePage />} />
             <Route path="knowledge/config/:integration" element={<KnowledgeBasePage />} />

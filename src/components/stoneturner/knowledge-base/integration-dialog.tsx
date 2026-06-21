@@ -1,24 +1,35 @@
 import { Button } from "@/components/ui/button";
+import ReactMarkdown, { type Components } from "react-markdown";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { DatabaseZapIcon } from "lucide-react";
+import { DatabaseZapIcon, HardDriveDownloadIcon } from "lucide-react";
 import type { IntegrationConfig } from "@/core/models/models";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
+import { markdownComponents } from "./artifact-detail-sheet";
 
 export const IntegrationDialog = ({
   intConfig,
   integrationsMutate,
-  openDialog,
+  defaultOpen,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   intConfig: IntegrationConfig,
-  integrationsMutate: () => void,
-  openDialog?: boolean,
+  integrationsMutate?: () => void,
+  defaultOpen?: boolean,
+  open?: boolean,
+  onOpenChange?: (open: boolean) => void,
 }) => {
-  const [open, setOpen] = useState(openDialog ? openDialog : false);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen ?? false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = (value: boolean) => {
+    setInternalOpen(value);
+    onOpenChange?.(value);
+  };
   const [intInputs, setIntInputs] = useState<Record<string, string>>({});
-  const allFieldsFilled = intConfig.inputs.every(
+  const allFieldsFilled = intConfig.inputs?.every(
     (input) => (intInputs[input.input]?.trim().length ?? 0) > 0
   );
 
@@ -35,6 +46,7 @@ export const IntegrationDialog = ({
         accessKey: intInputs["accessKey"] ?? null,
         secretKey: intInputs["secretKey"] ?? null,
         baseUrl: intInputs["baseUrl"] ?? null,
+        tokenExpiration: intInputs["tokenExpiration"] ?? null,
       }
 
       await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/integrations`, {
@@ -42,7 +54,7 @@ export const IntegrationDialog = ({
         body: JSON.stringify(integrationConfig),
         credentials: "include",
       });
-      integrationsMutate();
+      if (integrationsMutate) integrationsMutate();
       toast("Credential Saved", { position: "top-center" })
       setOpen(false);
     }
@@ -50,30 +62,27 @@ export const IntegrationDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant={"default"} className="flex gap-1 items-center w-full">
-          <DatabaseZapIcon size={16} />
-          <div>Connect</div>
-        </Button>
-      </DialogTrigger>
+      {controlledOpen === undefined && (
+        <DialogTrigger asChild>
+          <Button variant={"default"} className="flex gap-1 items-center w-full">
+            <DatabaseZapIcon size={16} />
+            <div>Connect</div>
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="font-sans">
         <DialogHeader>
           <DialogTitle className="text-lg">
             Connect your {intConfig.integration}
           </DialogTitle>
           <DialogDescription>
-            {intConfig.integrationType === "BASIC_TOKEN" ?
-              (
-                <span>
-                  Connect your data integration via a basic token found in your {intConfig.integration} settings.
-                  Visit <a className="text-indigo-700 underline" href={intConfig.docs} target="_blank">{intConfig.integration} docs</a> for further instruction.
-                </span>
-              )
-              : <></>}
+            {intConfig.description &&
+              <ReactMarkdown components={markdownComponents}>{intConfig.description}</ReactMarkdown>
+            }
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
-          {intConfig.inputs.map((input) => {
+          {intConfig.inputs?.map((input) => {
             return (
               <Input key={input.input + intConfig.integration} placeholder={input.label} onChange={(e) => {
                 e.preventDefault();
@@ -85,13 +94,31 @@ export const IntegrationDialog = ({
           })}
         </div>
         <DialogFooter>
-          <Button variant={"default"} className="flex items-center gap-2 w-full" disabled={!allFieldsFilled}
-            onClick={async () => {
-              upsertIntegrationCreds(intConfig);
-            }}>
-            <DatabaseZapIcon size={16} />
-            <div>Connect</div>
-          </Button>
+          <div className="w-full flex flex-col gap-2">
+            {intConfig.installUrl &&
+              <Button variant={"default"} className="flex items-center gap-2 w-full"
+                onClick={async () => {
+                  window.location.href = intConfig.installUrl!;
+                }}>
+                <HardDriveDownloadIcon size={16} />
+                <div>Install</div>
+              </Button>
+
+            }
+            <Button variant={"default"} className="flex items-center gap-2 w-full" disabled={(!allFieldsFilled && intConfig.integrationType !== "OAUTH")
+              || (intConfig.integrationType === "OAUTH" && !new URL(intConfig.oauthAuthorizationUrl!).searchParams.get("client_id"))}
+              onClick={async () => {
+                if (intConfig.integrationType !== "OAUTH") {
+                  upsertIntegrationCreds(intConfig);
+                  return;
+                } else {
+                  window.location.href = intConfig.oauthAuthorizationUrl!;
+                }
+              }}>
+              <DatabaseZapIcon size={16} />
+              <div>Connect</div>
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

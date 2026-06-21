@@ -26,6 +26,7 @@ export const SyncMonitoringPage = () => {
     if (integration !== "all") params.set("integration", integration);
     if (status !== "all") params.set("status", status);
     if (step !== "all") params.set("step", step);
+
     const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/syncTasks?${params.toString()}`, {
       method: "GET",
     });

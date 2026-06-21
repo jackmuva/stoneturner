@@ -1,5 +1,5 @@
 import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact } from '@/core/db/schema/schema';
-import { and, eq, gte, like, lte, gt, or, asc, desc } from 'drizzle-orm';
+import { and, eq, gte, like, lte, gt, or, asc, desc, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import { db } from '@/core/db/db';
 import { lower } from '@/lib/utils';
@@ -24,7 +24,8 @@ export const upsertIntegrationCredential = async (integrationData: IntegrationCr
       accessKey: integrationData.accessKey,
       secretKey: integrationData.secretKey,
       baseUrl: integrationData.baseUrl,
-    }).where(eq(integrationCredential.id, existing.id));
+      tokenExpiration: integrationData.tokenExpiration,
+    }).where(sql`"id" = ${existing.id}`);
   } else {
     await db.insert(integrationCredential).values(integrationData);
   }
@@ -49,7 +50,8 @@ export const upsertSyncTask = async (syncTaskData: SyncTaskInsert): Promise<void
         updateDate: (new Date()).toISOString(),
         status: syncTaskData.status,
         inputs: syncTaskData.inputs,
-      }).where(eq(syncTask.id, existing.id));
+        step: syncTaskData.step,
+      }).where(sql`"id" = ${existing.id}`);
       return;
     }
   }
@@ -169,8 +171,7 @@ export const upsertMdArtifact = async (markdownArtifact: MdArtifactInsert): Prom
       keyPoints: markdownArtifact.keyPoints,
       questionsAnswered: markdownArtifact.questionsAnswered,
       entities: markdownArtifact.entities,
-      lastIndex: markdownArtifact.lastIndex,
-    }).where(eq(mdArtifact.integrationArtifactId, markdownArtifact.integrationArtifactId));
+    }).where(sql`"integrationArtifactId" = ${markdownArtifact.integrationArtifactId}`);
   } else {
     await db.insert(mdArtifact).values(markdownArtifact);
   }
@@ -189,6 +190,15 @@ export const deleteSyncTasksByIntegration = async (integration: string): Promise
   await db.delete(syncTask).where(eq(lower(syncTask.integration), integration.toLowerCase()));
 }
 
+export const deleteSyncTasksPriorToDate = async (date: string): Promise<void> => {
+  await db.delete(syncTask).where(lte(syncTask.updateDate, date));
+}
+
 export const deleteIntegrationCredentialByIntegration = async (integration: string): Promise<void> => {
   await db.delete(integrationCredential).where(eq(lower(integrationCredential.integration), integration.toLowerCase()));
+}
+
+export const getLastArtifactDateByIntegration = async (integration: string): Promise<string | undefined> => {
+  const [record] = await db.select({ artifactDate: mdArtifact.artifactDate }).from(mdArtifact).where(eq(lower(mdArtifact.integration), integration.toLowerCase())).orderBy(desc(mdArtifact.artifactDate)).limit(1);
+  return record?.artifactDate ?? undefined;
 }

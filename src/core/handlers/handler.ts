@@ -1,5 +1,5 @@
 import type { BunRequest } from "bun";
-import { getIntegrationCredentials, getMdArtifactsByIntegration, getSyncTasks, getSyncTasksByIntegration, getSyncTasksByStatus, getSyncTasksByUpdateDateAfter, getSyncTasksFiltered, getDistinctSyncTaskSteps, upsertIntegrationCredential, type MdArtifactSortField, type SortOrder } from "../db/queries/queries";
+import { getIntegrationCredentials, getMdArtifactsByIntegration, getSyncTasks, getSyncTasksByIntegration, getSyncTasksByStatus, getSyncTasksByUpdateDateAfter, getSyncTasksFiltered, getDistinctSyncTaskSteps, upsertIntegrationCredential, deleteSyncTasksPriorToDate, type MdArtifactSortField, type SortOrder } from "../db/queries/queries";
 import type { IntegrationCredential, MdArtifactSelect, SyncTaskSelect } from "../db/schema/schema";
 
 export async function handleGetIntegrations(req: BunRequest): Promise<Response> {
@@ -73,5 +73,12 @@ export async function handleGetArtifacts(req: BunRequest): Promise<Response> {
     sortOrder,
   }) ?? [];
   return Response.json({ artifacts: artifacts });
+}
+
+export async function handleDeleteStaleSyncTasks(): Promise<Response> {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 14);
+  await deleteSyncTasksPriorToDate(cutoff.toISOString());
+  return Response.json({ deleted: true, cutoff: cutoff.toISOString() });
 }
 

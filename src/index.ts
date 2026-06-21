@@ -1,6 +1,6 @@
 import { serve } from "bun";
 import index from "./client/index.html";
-import { handleGetAllSyncTasks, handleGetArtifacts, handleGetIntegrations, handleGetRecentSyncTasks, handleGetSyncTasks, handleGetSyncTaskSteps, handleNewIntegrationCredential } from "./core/handlers/handler";
+import { handleGetAllSyncTasks, handleGetArtifacts, handleGetIntegrations, handleGetRecentSyncTasks, handleGetSyncTasks, handleGetSyncTaskSteps, handleNewIntegrationCredential, handleDeleteStaleSyncTasks } from "./core/handlers/handler";
 import { withCors } from "./core/middleware/middleware";
 import { handleMcp } from "./core/handlers/mcp-handler";
 import { supportedIntegrations } from "./integrations/sync-registry";
@@ -66,6 +66,9 @@ const server = serve({
       GET: withCors(async (req) =>
         handleGetRecentSyncTasks(req)
       ),
+      DELETE: withCors(async () =>
+        handleDeleteStaleSyncTasks()
+      ),
     },
     "/api/syncTasks/steps": {
       GET: withCors(async () =>
@@ -81,6 +84,20 @@ const server = serve({
       GET: withCors(async (req) =>
         handleGetArtifacts(req)
       )
+    },
+    "/api/oauth/:integration": {
+      GET: async(req) => {
+        if (req.params.integration) {
+          const target = req.params.integration.toLowerCase();
+          const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
+          if (index === -1) return Response.json(null, { status: 400 });
+          if (supportedIntegrations[index]!.handleRedirect) {
+            return await supportedIntegrations[index]!.handleRedirect(req);
+          };
+          return Response.json(null, { status: 200 });
+        }
+        return Response.json(null, { status: 400 });
+      }
     },
 
     // Streamable HTTP MCP endpoint (stateless JSON-RPC). Not wrapped in withCors:

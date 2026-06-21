@@ -19,6 +19,7 @@ export async function retry<T>(func: () => T | Promise<T>, maxAttempt: number = 
     const res: T = await func();
     return res;
   } catch (error) {
+    console.error("retry function: ", error);
     await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 5) * (attempt + 5))
     );
     return await retry(func, maxAttempt, attempt + 1, error as Error);
