@@ -32,18 +32,9 @@ const parseThreadMessages = async (
   while (threadArray.length > 0) {
     let curIndex = 0;
     while (curIndex < threadArray.length) {
-      let workerQueue: { channelId: string, threadId: string; lastMessageDate: string }[] = [];
-      while (workerQueue.length < MAX_WORKERS && curIndex < threadArray.length) {
-        if (!incremental) {
-          workerQueue.push(threadArray[curIndex]!);
-        } else if (lastArtifactDate && lastArtifactDate < threadArray[curIndex]!.lastMessageDate) {
-          workerQueue.push(threadArray[curIndex]!);
-        }
-        curIndex += 1;
-      }
-
-      if (cursor) workerQueue = workerQueue.filter((work) => work.channelId === cursor.channelId); 
-
+      let { workerQueue, newIndex } = fillWorkerQueue(incremental, threadArray, curIndex, lastArtifactDate)
+      curIndex = newIndex;
+      if (cursor) workerQueue = workerQueue.filter((work) => work.channelId === cursor.channelId);
       await Promise.allSettled(workerQueue.map(async (threadObj) => {
         const channel = await getDiscordChannelById(threadObj.channelId);
         return processMessages(true, threadObj.threadId, channel?.name ?? threadObj.channelId,
@@ -57,6 +48,25 @@ const parseThreadMessages = async (
   }
 }
 
+const fillWorkerQueue = (
+  incremental: boolean,
+  threadArray: { channelId: string, threadId: string; lastMessageDate: string }[],
+  lastIndex: number,
+  lastArtifactDate?: string,
+) => {
+  let curIndex = lastIndex;
+  let workerQueue: { channelId: string, threadId: string; lastMessageDate: string }[] = [];
+  while (workerQueue.length < MAX_WORKERS && curIndex < threadArray.length) {
+    if (!incremental) {
+      workerQueue.push(threadArray[curIndex]!);
+    } else if (lastArtifactDate && lastArtifactDate < threadArray[curIndex]!.lastMessageDate) {
+      workerQueue.push(threadArray[curIndex]!);
+    }
+    curIndex += 1;
+  }
+  return { workerQueue, newIndex: curIndex };
+}
+
 const parseChannelMessages = async (
   incremental: boolean,
   lastArtifactDate: string | undefined,
@@ -67,28 +77,20 @@ const parseChannelMessages = async (
 
   while (channels.length > 0) {
     for (const channel of channels) {
-      if(cursor && channel.id !== cursor.channelId) continue;
+      if (cursor && channel.id !== cursor.channelId) continue;
 
       const range = await getMessageTimestampRangeByChannelId(channel.id)
       if (!range || !range.minMessageTimestamp || !range.maxMessageTimestamp) continue;
 
       let dayArray = constructDayMap(new Date(range.minMessageTimestamp), new Date(range.maxMessageTimestamp));
 
-      if(cursor && dayArray) dayArray = dayArray.filter((day) => day[Object.keys(day)[0]!]?.start === cursor.start);
+      if (cursor && dayArray) dayArray = dayArray.filter((day) => day[Object.keys(day)[0]!]?.start === cursor.start);
 
       let curDayIndex = 0;
 
       while (curDayIndex < dayArray.length) {
-        const workDays: { [day: string]: { start: string, end: string } }[] = [];
-        while (workDays.length < MAX_WORKERS && curDayIndex < dayArray.length) {
-          const dayObj = dayArray[curDayIndex];
-          if (dayObj) {
-            if (!incremental || (lastArtifactDate && Object.values(dayObj)[0]!.start >= lastArtifactDate)) {
-              workDays.push(dayObj);
-            }
-          }
-          curDayIndex += 1;
-        }
+        const { workDays, newIndex } = fillWorkDays(incremental, curDayIndex, dayArray, lastArtifactDate);
+        curDayIndex = newIndex;
 
         await Promise.allSettled(workDays.map((dayObj) => {
           const readableDay = Object.keys(dayObj)[0]!
@@ -100,6 +102,31 @@ const parseChannelMessages = async (
     curOffset += PAGE_SIZE;
     channels = await getDiscordChannels(curOffset);
   }
+}
+
+const fillWorkDays = (
+  incremental: boolean,
+  existingIndex: number,
+  dayArray: {
+    [day: string]: {
+      start: string;
+      end: string;
+    };
+  }[],
+  lastArtifactDate?: string,
+) => {
+  let curDayIndex = existingIndex;
+  const workDays: { [day: string]: { start: string, end: string } }[] = [];
+  while (workDays.length < MAX_WORKERS && curDayIndex < dayArray.length) {
+    const dayObj = dayArray[curDayIndex];
+    if (dayObj) {
+      if (!incremental || (lastArtifactDate && Object.values(dayObj)[0]!.start >= lastArtifactDate)) {
+        workDays.push(dayObj);
+      }
+    }
+    curDayIndex += 1;
+  }
+  return { workDays, newIndex: curDayIndex };
 }
 
 const processMessages = async (thread: boolean, channelId: string, channelName: string, readableDate: string, start: string, end?: string) => {
