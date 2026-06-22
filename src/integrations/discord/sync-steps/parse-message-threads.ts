@@ -6,13 +6,26 @@ import { retry } from "@/lib/utils";
 import { generateText, Output } from "ai";
 import * as z from "zod";
 
-export const parseDiscordMessages = async (incremental: boolean): Promise<void> => {
+export const parseDiscordMessages = async (
+  incremental: boolean,
+  cursor?: { thread: boolean, channelId: string, readableDate: string, start: string, end?: string }
+): Promise<void> => {
   const lastArtifactDate = await getLastArtifactDateByIntegration("discord");
-  await parseChannelMessages(incremental, lastArtifactDate);
-  await parseThreadMessages(incremental, lastArtifactDate);
+  if (cursor?.thread) {
+    await parseThreadMessages(incremental, lastArtifactDate, cursor);
+  } else if (cursor) {
+    await parseChannelMessages(incremental, lastArtifactDate, cursor);
+  } else {
+    await parseChannelMessages(incremental, lastArtifactDate);
+    await parseThreadMessages(incremental, lastArtifactDate);
+  }
 }
 
-const parseThreadMessages = async (incremental: boolean, lastArtifactDate?: string) => {
+const parseThreadMessages = async (
+  incremental: boolean,
+  lastArtifactDate?: string,
+  cursor?: { thread: boolean, channelId: string, readableDate: string, start: string, end?: string }
+) => {
   let curOffset = 0;
   let threadArray: { channelId: string, threadId: string; lastMessageDate: string }[] = await getDiscordThreadIds(curOffset);
 
@@ -28,34 +41,41 @@ const parseThreadMessages = async (incremental: boolean, lastArtifactDate?: stri
         }
         curIndex += 1;
       }
-      const threadResults = await Promise.allSettled(workerQueue.map(async (threadObj) => {
+
+      if (cursor) workerQueue = workerQueue.filter((work) => work.channelId === cursor.channelId); 
+
+      await Promise.allSettled(workerQueue.map(async (threadObj) => {
         const channel = await getDiscordChannelById(threadObj.channelId);
         return processMessages(true, threadObj.threadId, channel?.name ?? threadObj.channelId,
           (new Date(threadObj.lastMessageDate)).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
           threadObj.lastMessageDate
         )
       }));
-      for (const result of threadResults) {
-        if (result.status === 'rejected') {
-          console.error('Failed to process thread:', result.reason);
-        }
-      }
     }
     curOffset += PAGE_SIZE;
     threadArray = await getDiscordThreadIds(curOffset);
   }
 }
 
-const parseChannelMessages = async (incremental: boolean, lastArtifactDate: string | undefined) => {
+const parseChannelMessages = async (
+  incremental: boolean,
+  lastArtifactDate: string | undefined,
+  cursor?: { thread: boolean, channelId: string, readableDate: string, start: string, end?: string }
+) => {
   let curOffset = 0;
   let channels: DiscordChannelSelect[] = await getDiscordChannels(curOffset);
 
   while (channels.length > 0) {
     for (const channel of channels) {
+      if(cursor && channel.id !== cursor.channelId) continue;
+
       const range = await getMessageTimestampRangeByChannelId(channel.id)
       if (!range || !range.minMessageTimestamp || !range.maxMessageTimestamp) continue;
 
-      const dayArray = constructDayMap(new Date(range.minMessageTimestamp), new Date(range.maxMessageTimestamp));
+      let dayArray = constructDayMap(new Date(range.minMessageTimestamp), new Date(range.maxMessageTimestamp));
+
+      if(cursor && dayArray) dayArray = dayArray.filter((day) => day[Object.keys(day)[0]!]?.start === cursor.start);
+
       let curDayIndex = 0;
 
       while (curDayIndex < dayArray.length) {
@@ -69,16 +89,12 @@ const parseChannelMessages = async (incremental: boolean, lastArtifactDate: stri
           }
           curDayIndex += 1;
         }
-        const dayResults = await Promise.allSettled(workDays.map((dayObj) => {
+
+        await Promise.allSettled(workDays.map((dayObj) => {
           const readableDay = Object.keys(dayObj)[0]!
           const day = dayObj[readableDay]!
           return processMessages(false, channel.id, channel?.name ?? channel.id, readableDay, day.start, day.end);
         }));
-        for (const result of dayResults) {
-          if (result.status === 'rejected') {
-            console.error('Failed to process channel day:', result.reason);
-          }
-        }
       }
     }
     curOffset += PAGE_SIZE;
@@ -143,17 +159,16 @@ ${markdown}`;
     await upsertSyncTask({
       integration: "discord",
       status: "SUCCESS",
-      inputs: JSON.stringify({ thread, channelId, readableDate }),
-      step: "parse-discord-messages",
+      inputs: JSON.stringify({ thread, channelId, readableDate, start, end }),
+      step: "discord-parse-messages",
     });
   } catch (e) {
     await upsertSyncTask({
       integration: "discord",
       status: "FAILED",
-      inputs: JSON.stringify({ thread, channelId, readableDate }),
-      step: "parse-discord-messages",
+      inputs: JSON.stringify({ thread, channelId, readableDate, start, end }),
+      step: "discord-parse-messages",
     });
-    throw e;
   }
 }
 

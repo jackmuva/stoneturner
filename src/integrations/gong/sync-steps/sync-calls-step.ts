@@ -5,7 +5,7 @@ import { batchInsertGongCall, getLatestGongCall } from "../db/queries";
 import type { GongCallResponse } from "../models/models";
 import type { GongCallInsert } from "../db/schema";
 
-export const syncGongCallsStep= async (incremental: boolean = false) => {
+export const syncGongCallsStep = async (incremental: boolean = false, cursor?: string) => {
   let latestDate: null | string = null;
   if (incremental) {
     const latestCall = await getLatestGongCall();
@@ -14,11 +14,12 @@ export const syncGongCallsStep= async (incremental: boolean = false) => {
 
   const { basicToken, baseUrl } = await getCredentials();
 
-  let curCursor: string | null = null;
+  let curCursor: string | null = cursor ?? null;
   let firstIteration: boolean = true;
   while ((curCursor || firstIteration) && baseUrl) {
     firstIteration = false;
     curCursor = await fetchGongCalls(basicToken, baseUrl, curCursor, latestDate);
+    if(cursor) break;
   }
 }
 
@@ -32,6 +33,7 @@ export const getCredentials = async (): Promise<{ basicToken: string, baseUrl: s
 }
 
 const fetchGongCalls = async (basicToken: string, baseUrl: string, curCursor: string | null, startDate: string | null): Promise<string | null> => {
+  try{
   const url = new URL(`${baseUrl?.at(-1) === "/" ? baseUrl.slice(0, -1) : baseUrl}/v2/calls`);
   if (curCursor) url.searchParams.append("cursor", curCursor);
   if (startDate) url.searchParams.append("fromDateTime", startDate);
@@ -43,19 +45,6 @@ const fetchGongCalls = async (basicToken: string, baseUrl: string, curCursor: st
       "Content-Type": "application/json",
     },
   }));
-
-  if (!gongReq.ok) {
-    await upsertSyncTask({
-      integration: "Gong",
-      status: "FAILED",
-      inputs: JSON.stringify({
-        cursor: curCursor,
-        url: url.toString(),
-      }),
-      step: "sync-call"
-    });
-    return null;
-  }
 
   const gongResponse: GongCallResponse = (await gongReq.json()) as GongCallResponse;
 
@@ -87,9 +76,21 @@ const fetchGongCalls = async (basicToken: string, baseUrl: string, curCursor: st
   await upsertSyncTask({
     integration: "Gong",
     status: "SUCCESS",
-    inputs: JSON.stringify({ cursor: curCursor, url: `${baseUrl?.at(-1) === "/" ? baseUrl.slice(0, -1) : baseUrl}/v2/calls` }),
-    step: "sync-call"
+    inputs: JSON.stringify({ cursor: curCursor }),
+    step: "gong-sync-call"
   });
 
   return gongResponse.records.cursor;
+  }catch(e){
+await upsertSyncTask({
+      integration: "Gong",
+      status: "FAILED",
+      inputs: JSON.stringify({
+        cursor: curCursor,
+        error: e,
+      }),
+      step: "gong-sync-call"
+    });
+    return null;
+  }
 }

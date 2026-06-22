@@ -6,8 +6,8 @@ import { PAGE_SIZE, SUMMARIZATION_MODEL, MAX_WORKERS } from "@/lib/constants";
 import { generateText, Output } from "ai";
 import * as z from "zod";
 
-export const parseGongStep = async (offset: number = 0) => {
-  let curOffset: number = offset;
+export const parseGongStep = async (offset?: number) => {
+  let curOffset: number = offset ?? 0;
   let transcriptLengths: number[] = [];
 
   while (transcriptLengths.filter((len: number) => len < PAGE_SIZE).length === 0) {
@@ -31,7 +31,11 @@ export const parseGongStep = async (offset: number = 0) => {
       return transcripts.status === "fulfilled" ? transcripts.value.length : PAGE_SIZE;
     });
 
-    curOffset += MAX_WORKERS * PAGE_SIZE;
+    if (offset !== undefined) {
+      break;
+    } else {
+      curOffset += MAX_WORKERS * PAGE_SIZE;
+    }
   }
 }
 
@@ -110,7 +114,7 @@ ${md.join("")}`,
     await upsertSyncTask({
       integration: "Gong",
       status: "FAILED",
-      inputs: JSON.stringify({ offset: curOffset }),
+      inputs: JSON.stringify({ offset: curOffset, error: e }),
       step: "parse"
     });
   }
