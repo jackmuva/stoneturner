@@ -32,7 +32,7 @@ const parseThreadMessages = async (
   while (threadArray.length > 0) {
     let curIndex = 0;
     while (curIndex < threadArray.length) {
-      let { workerQueue, newIndex } = fillWorkerQueue(incremental, threadArray, curIndex, lastArtifactDate)
+      let { workerQueue, newIndex } = fillWorkerQueue(incremental, threadArray, curIndex, lastArtifactDate);
       curIndex = newIndex;
       if (cursor) workerQueue = workerQueue.filter((work) => work.channelId === cursor.channelId);
       await Promise.allSettled(workerQueue.map(async (threadObj) => {

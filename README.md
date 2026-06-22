@@ -60,6 +60,7 @@ Set these variables in `.env`:
 | `BUN_PUBLIC_BACKEND_BASE_URL` | Yes | Backend URL, inlined at build time (e.g. `http://localhost:9000`) |
 | `FRONTEND_BASE_URL` | Yes | Frontend URL, used for CORS (e.g. `http://localhost:9000`) |
 | `AI_GATEWAY_API_KEY` | No | API key if using an AI gateway |
+| `BUN_PUBLIC_DEV_MODE` | No | Set to `true` to create a test database for developing new integrations (default: `false`) |
 
 ### Database setup
 
@@ -141,12 +142,15 @@ export const myConfig: IntegrationConfig = {
   integration: "MyIntegration",
   icon: "/assets/my-integration.png",
   integrationType: "API_KEY",        // "BASIC_TOKEN" | "OAUTH" | "API_KEY"
+  description: "My integration description",
   docs: "https://docs.my-integration.com/api",
   inputs: [
     { input: "accessKey", label: "Access Key" },
     { input: "secretKey", label: "Secret Key" },
     { input: "baseUrl", label: "API Base URL" },
   ],
+  installUrl: "https://app.my-integration.com/install",
+  oauthAuthorizationUrl: "https://app.my-integration.com/oauth/authorize",
 };
 ```
 
@@ -163,10 +167,23 @@ export const myIntegration: Integration = {
   sync: async () => { /* full sync */ },
   syncUpdates: async () => { /* incremental sync */ },
   deleteSync: async () => { /* clean up all data */ },
+  handleRedirect: async (req) => { /* handle OAuth redirect */ },
+  refreshAccessTokens: async () => { /* refresh OAuth tokens */ },
 };
 ```
 
-### 4. Register the integration
+### 5. Define database schemas and migrate
+
+Add your integration's tables in `src/integrations/my-integration/db/schema.ts`, then generate and apply migrations:
+
+```bash
+bun run generate
+bun run migrate
+```
+
+This updates the local `stoneturner.db`. In dev mode (`BUN_PUBLIC_DEV_MODE=true`), a separate test database is created so you can iterate without affecting production data.
+
+### 6. Register the integration
 
 Add your config to `src/integrations/config-registry.ts`:
 
@@ -192,4 +209,4 @@ export const supportedIntegrations: Integration[] = [
 
 ## License
 
-MIT
+Apache 2.0
