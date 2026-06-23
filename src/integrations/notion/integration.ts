@@ -19,7 +19,7 @@ const handleOauthRedirect = async (req: BunRequest) => {
   const clientId = process.env.BUN_PUBLIC_NOTION_CLIENT_ID ?? "";
   const clientSecret = process.env.NOTION_CLIENT_SECRET ?? "";
 
-  const res = await fetch(`${NOTION_BASE_API}/oauth2/token`, {
+  const res = await fetch(`${NOTION_BASE_API}/oauth/token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -49,7 +49,7 @@ const handleOauthRedirect = async (req: BunRequest) => {
 
   await upsertIntegrationCredential({
     id: crypto.randomUUID(),
-    integration: "discord",
+    integration: "notion",
     integrationType: "OAUTH",
     accessToken: token.access_token,
     refreshToken: token.refresh_token,

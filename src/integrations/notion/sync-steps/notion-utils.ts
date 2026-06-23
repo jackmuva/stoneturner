@@ -2,6 +2,11 @@ import { getIntegrationCredentialByIntegration, upsertIntegrationCredential, ups
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 
 export const NOTION_BASE_API = "https://api.notion.com/v1";
+export const NOTION_VERSION = "2026-03-11";
+
+export const getNotionCredentials = async () => {
+  return await getIntegrationCredentialByIntegration("notion");
+}
 
 export const handleNotionRefresh = async () => {
   const cred: IntegrationCredential | undefined = await getIntegrationCredentialByIntegration("notion");
@@ -10,7 +15,7 @@ export const handleNotionRefresh = async () => {
   const clientId = process.env.BUN_PUBLIC_NOTION_CLIENT_ID ?? "";
   const clientSecret = process.env.NOTION_CLIENT_SECRET ?? "";
 
-  const res = await fetch(`${NOTION_BASE_API}/oauth2/token`, {
+  const res = await fetch(`${NOTION_BASE_API}/oauth/token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

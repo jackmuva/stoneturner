@@ -9,7 +9,7 @@ import { syncChannels } from "./sync-steps/sync-channels";
 import { syncMessages } from "./sync-steps/sync-messages";
 import { parseDiscordMessages } from "./sync-steps/parse-message-threads";
 import type { DiscordGuild } from "./models/models";
-import { batchInsertDiscordGuild } from "./db/queries";
+import { batchInsertDiscordGuild, deleteAllDiscordData } from "./db/queries";
 
 export const syncDiscordPipeline = async (incremental: boolean = true) => {
   await syncChannels();
@@ -120,6 +120,7 @@ export const discordIntegration: Integration = {
   sync: async () => await syncDiscordPipeline(false),
   syncUpdates: async () => await syncDiscordPipeline(true),
   deleteSync: async () => {
+    await deleteAllDiscordData();
     await deleteSyncTasksByIntegration("discord");
     await deleteMdArtifactsByIntegration("discord");
     await deleteEmbeddingByIntegration("discord");
