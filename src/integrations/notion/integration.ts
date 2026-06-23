@@ -2,9 +2,9 @@ import type { Integration } from "@/core/models/models";
 import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration, upsertIntegrationCredential } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
-import { notionConfig} from "./config";
+import { notionConfig } from "./config";
 import type { BunRequest } from "bun";
-import type { DiscordGuild } from "./models/models";
+import { handleNotionRefresh, NOTION_BASE_API } from "./sync-steps/notion-utils";
 
 export const syncNotionPipeline = async (incremental: boolean = true) => {
   await indexVectorDbStep("notion", incremental);
@@ -16,20 +16,20 @@ const handleOauthRedirect = async (req: BunRequest) => {
     return Response.json({ error: "missing code" }, { status: 400 });
   }
 
-  const clientId = process.env.BUN_PUBLIC_DISCORD_CLIENT_ID ?? "";
-  const clientSecret = process.env.DISCORD_CLIENT_SECRET ?? "";
+  const clientId = process.env.BUN_PUBLIC_NOTION_CLIENT_ID ?? "";
+  const clientSecret = process.env.NOTION_CLIENT_SECRET ?? "";
 
-  const res = await fetch(`${NOTION_API_ENDPOINT}/oauth2/token`, {
+  const res = await fetch(`${NOTION_BASE_API}/oauth2/token`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
+      "Content-Type": "application/json",
       Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
     },
-    body: new URLSearchParams({
+    body: JSON.stringify({
       grant_type: "authorization_code",
       code,
-      redirect_uri: `${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/oauth/discord`,
-    }).toString(),
+      redirect_uri: `${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/oauth/notion`,
+    }),
   });
 
   if (!res.ok) {
@@ -38,32 +38,27 @@ const handleOauthRedirect = async (req: BunRequest) => {
 
   const token = await res.json() as {
     access_token: string;
-    refresh_token?: string;
-    expires_in: number;
-    token_type: string;
-    scope: string;
-    guild: DiscordGuild;
+    refresh_token: string;
+    bot_id: string;
+    owner: any;
+    workspace_icon: string;
+    workspace_id: string;
+    workspace_name: string;
   };
 
-  const tokenExpiration = new Date(Date.now() + token.expires_in * 1000).toISOString();
 
   await upsertIntegrationCredential({
     id: crypto.randomUUID(),
     integration: "discord",
     integrationType: "OAUTH",
-    apiKey: null,
     accessToken: token.access_token,
-    refreshToken: token.refresh_token ?? null,
-    accessKey: null,
-    secretKey: null,
-    baseUrl: DISCORD_API_ENDPOINT,
-    tokenExpiration,
+    refreshToken: token.refresh_token,
   });
 
-    return Response.redirect(process.env.BUN_PUBLIC_BACKEND_BASE_URL!, 302);
+  return Response.redirect(process.env.BUN_PUBLIC_BACKEND_BASE_URL!, 302);
 }
 
-export const discordIntegration: Integration = {
+export const notionIntegration: Integration = {
   config: notionConfig,
   sync: async () => await syncNotionPipeline(false),
   syncUpdates: async () => await syncNotionPipeline(true),
@@ -73,5 +68,5 @@ export const discordIntegration: Integration = {
     await deleteEmbeddingByIntegration("notion");
   },
   handleRedirect: handleOauthRedirect,
-  refreshAccessTokens: () => {},
+  refreshAccessTokens: handleNotionRefresh,
 }

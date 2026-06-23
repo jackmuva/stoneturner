@@ -59,11 +59,8 @@ const handleOauthRedirect = async (req: BunRequest) => {
     id: crypto.randomUUID(),
     integration: "discord",
     integrationType: "OAUTH",
-    apiKey: null,
     accessToken: token.access_token,
     refreshToken: token.refresh_token ?? null,
-    accessKey: null,
-    secretKey: null,
     baseUrl: DISCORD_API_ENDPOINT,
     tokenExpiration,
   });

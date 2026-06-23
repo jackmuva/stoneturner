@@ -1,4 +1,4 @@
-import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact } from '@/core/db/schema/schema';
+import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact, type IntegrationCredentialInsert } from '@/core/db/schema/schema';
 import { and, eq, gte, like, lte, gt, or, asc, desc, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import { db } from '@/core/db/db';
@@ -13,7 +13,7 @@ export const getIntegrationCredentialByIntegration = async (integrationName: str
   return record;
 }
 
-export const upsertIntegrationCredential = async (integrationData: IntegrationCredential): Promise<void> => {
+export const upsertIntegrationCredential = async (integrationData: IntegrationCredentialInsert): Promise<void> => {
   const existing = await getIntegrationCredentialByIntegration(integrationData.integration);
   if (existing) {
     await db.update(integrationCredential).set({
