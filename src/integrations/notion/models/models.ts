@@ -228,4 +228,3 @@ export type NotionBlocks = {
   type: "block",
   block: Record<string, never>,
 }
-

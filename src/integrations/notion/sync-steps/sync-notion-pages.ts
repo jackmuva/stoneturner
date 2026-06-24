@@ -115,5 +115,6 @@ export const getPage = async (cursor?: string): Promise<NotionSearchResponse> =>
     })
     if (!res.ok) throw new Error(JSON.stringify(await res.json()));
   }
-  return await res.json() as NotionSearchResponse;
+  const pages = await res.json() as NotionSearchResponse;
+  return pages;
 }

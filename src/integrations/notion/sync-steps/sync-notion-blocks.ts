@@ -1,25 +1,31 @@
 import { MAX_WORKERS, PAGE_SIZE } from "@/lib/constants";
-import { getNotionPages } from "../db/queries";
-import type { NotionPageSelect } from "../db/schema";
+import { appendNotionBlockChildren, batchInsertNotionBlock, getNotionBlockById, getNotionPages } from "../db/queries";
+import type { NotionBlockInsert, NotionPageSelect } from "../db/schema";
 import { getNotionCredentials, handleNotionRefresh, NOTION_BASE_API, NOTION_VERSION } from "./notion-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import type { NotionBlocks } from "../models/models";
 
-export const syncNotionBlocks = async (incremental: boolean = false, cursor?: string) => {
+export const syncNotionBlocks = async (incremental?: { lastEditedDate: string | null }, cursor?: string) => {
   let curOffset: number = 0;
   let notionPages: NotionPageSelect[] = await getNotionPages(curOffset);
-  let notionPageIndex = 0;
 
   while (notionPages.length > 0) {
-    const workerQueue: NotionPageSelect[] = [];
+    let notionPageIndex = 0;
     while (notionPageIndex < notionPages.length) {
-      while (workerQueue.length < MAX_WORKERS) {
-        workerQueue.push(notionPages[notionPageIndex]!);
+      let workerQueue: NotionPageSelect[] = [];
+      while (workerQueue.length < MAX_WORKERS && notionPageIndex < notionPages.length) {
+        if (incremental) {
+          if (notionPages[notionPageIndex]?.lastEditedTime && notionPages[notionPageIndex]!.lastEditedTime! >= incremental!.lastEditedDate) {
+            workerQueue.push(notionPages[notionPageIndex]!);
+          }
+        } else {
+          workerQueue.push(notionPages[notionPageIndex]!);
+        }
         notionPageIndex += 1;
       }
       await Promise.allSettled(workerQueue.map((page) => {
-        return syncNotionBlocksById(page.pageId, true);
+        return syncNotionBlocksById(page.pageId);
       }));
     }
     curOffset += PAGE_SIZE;
@@ -27,10 +33,14 @@ export const syncNotionBlocks = async (incremental: boolean = false, cursor?: st
   }
 }
 
-const syncNotionBlocksById = async (blockId: string, isPage: boolean) => {
+const syncNotionBlocksById = async (blockId: string, nextCursor?: string) => {
+  const url = nextCursor
+    ? `${NOTION_BASE_API}/blocks/${blockId}/children?start_cursor=${nextCursor}`
+    : `${NOTION_BASE_API}/blocks/${blockId}/children`;
+
   let cred = await getNotionCredentials();
   if (!cred?.accessToken) throw new Error("Missing Notion credential");
-  let res = await fetch(`${NOTION_BASE_API}/blocks/${blockId}/children`, {
+  let res = await fetch(url, {
     method: "GET",
     headers: {
       "Authorization": `Bearer ${cred.accessToken}`,
@@ -42,7 +52,7 @@ const syncNotionBlocksById = async (blockId: string, isPage: boolean) => {
     await handleNotionRefresh();
     cred = await getNotionCredentials();
     if (!cred?.accessToken) throw new Error("Missing Notion credential");
-    res = await fetch(`${NOTION_BASE_API}/blocks/${blockId}`, {
+    res = await fetch(url, {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${cred.accessToken}`,
@@ -52,8 +62,31 @@ const syncNotionBlocksById = async (blockId: string, isPage: boolean) => {
     if (!res.ok) throw new Error(JSON.stringify(await res.json()));
   }
 
-  const blockChildren = await res.json() as NotionBlocks;
-  blockChildren.results
-  blockChildren.has_more
-  blockChildren.next_cursor
+  const notionBlock = await res.json() as NotionBlocks;
+  const childrenBlockIds = notionBlock.results.map((child) => child.id);
+
+  const childBlocks: NotionBlockInsert[] = notionBlock.results.map((childBlock) => ({
+    blockId: childBlock.id,
+    type: childBlock.type,
+    hasChildren: childBlock.has_children,
+    // text: parseNotionText(childBlock),
+    lastEditedTime: childBlock.last_edited_time,
+  }));
+  if (childBlocks.length > 0) {
+    await batchInsertNotionBlock(childBlocks);
+  }
+  await appendNotionBlockChildren(blockId, childrenBlockIds, {
+    nextCursor: notionBlock.next_cursor,
+    hasMore: notionBlock.has_more,
+  });
+
+  if (notionBlock.has_more && notionBlock.next_cursor) {
+    await syncNotionBlocksById(blockId, notionBlock.next_cursor);
+  }
+
+  for (const childBlock of notionBlock.results) {
+    if (childBlock.has_children) {
+      await syncNotionBlocksById(childBlock.id);
+    }
+  }
 }
