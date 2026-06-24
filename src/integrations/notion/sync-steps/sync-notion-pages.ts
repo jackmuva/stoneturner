@@ -1,5 +1,5 @@
 import type { NotionPage } from "../models/models";
-import { NOTION_BASE_API, NOTION_VERSION, getNotionCredentials } from "./notion-utils";
+import { NOTION_BASE_API, NOTION_VERSION, getNotionCredentials, handleNotionRefresh } from "./notion-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
@@ -13,25 +13,14 @@ type NotionSearchResponse = {
   next_cursor: string | null,
 };
 
-export const getNotionPages = async (incremental: boolean = false, cursor?: string) => {
-  const cred = await getNotionCredentials();
-  if (!cred?.accessToken) {
-    await upsertSyncTask({
-      integration: "notion",
-      status: "FAILED",
-      step: "notion-sync-pages",
-      inputs: { error: "missing notion credentials" },
-    });
-    return;
-  }
-
+export const syncNotionPages = async (incremental: boolean = false, cursor?: string) => {
   let nextCursor: string | undefined = cursor;
 
   while (true) {
     let response: NotionSearchResponse | null = null;
     try {
       response = await retry(async () => {
-        return await getPage(cred.accessToken!, nextCursor);
+        return await getPage(nextCursor);
       }, 3, 1);
     } catch (e) {
       await upsertSyncTask({
@@ -88,11 +77,13 @@ const upsertPages = async (pages: NotionPage[]): Promise<void> => {
   return;
 }
 
-export const getPage = async (accessToken: string, cursor?: string): Promise<NotionSearchResponse> => {
-  const res = await fetch(`${NOTION_BASE_API}/search`, {
+export const getPage = async (cursor?: string): Promise<NotionSearchResponse> => {
+  let cred = await getNotionCredentials();
+  if (!cred?.accessToken) throw new Error("Missing Notion credential");
+  let res = await fetch(`${NOTION_BASE_API}/search`, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${accessToken}`,
+      "Authorization": `Bearer ${cred.accessToken}`,
       "Notion-Version": NOTION_VERSION,
       "Content-Type": "application/json",
     },
@@ -105,8 +96,24 @@ export const getPage = async (accessToken: string, cursor?: string): Promise<Not
   });
 
   if (!res.ok) {
-    throw new Error(JSON.stringify(await res.json()));
+    await handleNotionRefresh();
+    cred = await getNotionCredentials();
+    if (!cred?.accessToken) throw new Error("Missing Notion credential");
+    res = await fetch(`${NOTION_BASE_API}/search`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${cred.accessToken}`,
+        "Notion-Version": NOTION_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        filter: { property: "object", value: "page" },
+        sort: { direction: "descending", timestamp: "last_edited_time" },
+        page_size: PAGE_SIZE,
+        ...(cursor ? { start_cursor: cursor } : {}),
+      }),
+    })
+    if (!res.ok) throw new Error(JSON.stringify(await res.json()));
   }
-
   return await res.json() as NotionSearchResponse;
 }
