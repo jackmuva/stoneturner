@@ -85,11 +85,6 @@ export const getNotionBlocks = async (offset: number = 0): Promise<NotionBlockSe
     .offset(offset);
 }
 
-export const getNotionBlockById = async (id: string): Promise<NotionBlockSelect | undefined> => {
-  const [block] = await db.select().from(notionBlock).where(eq(notionBlock.blockId, id));
-  return block;
-}
-
 export const deleteNotionData = async() => {
 
   await db.delete(notionPage);
