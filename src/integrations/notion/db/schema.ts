@@ -39,7 +39,7 @@ export const notionBlock = sqliteTable("notionBlock", {
   nextCursor: text("nextCursor"),
   hasMore: integer("hasMore", { mode: "boolean" }),
   hasChildren: integer("hasChildren", { mode: "boolean" }),
-  childrenBlockIds: text("childrenBlockIds", { mode: "json" }).$type<string[]>(),
+  childrenBlockIds: text("childrenBlockIds", { mode: "json" }).$type<string[]>().$defaultFn(() => []),
   text: text("text"),
   lastEditedTime: text("lastEditedTime"),
 },

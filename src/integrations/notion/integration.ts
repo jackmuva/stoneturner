@@ -13,7 +13,7 @@ import { notionToMarkdown } from "./sync-steps/notion-to-markdown";
 export const syncNotionPipeline = async (incremental: boolean = true) => {
   const lastEditedDate: string | null = await getMostRecentEditedTime();
   // await syncNotionPages();
-  await syncNotionBlocks(incremental ? {lastEditedDate} : undefined);
+  // await syncNotionBlocks(incremental ? {lastEditedDate} : undefined);
   await notionToMarkdown(incremental ? {lastEditedDate} : undefined);
   // await indexVectorDbStep("notion", incremental);
 }

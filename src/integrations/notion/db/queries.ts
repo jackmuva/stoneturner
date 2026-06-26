@@ -47,12 +47,12 @@ export const batchInsertNotionBlock = async (blocks: NotionBlockInsert[]): Promi
       target: notionBlock.blockId,
       set: {
         type: sql`excluded.type`,
-        nextCursor: sql`excluded.nextCursor`,
-        hasMore: sql`excluded.hasMore`,
         hasChildren: sql`excluded.hasChildren`,
-        childrenBlockIds: sql`excluded.childrenBlockIds`,
         text: sql`excluded.text`,
         lastEditedTime: sql`excluded.lastEditedTime`,
+        nextCursor: sql`excluded.nextCursor`,
+        hasMore: sql`excluded.hasMore`,
+        childrenBlockIds: sql`excluded.childrenBlockIds`,
       }
     });
 }
@@ -62,18 +62,17 @@ export const appendNotionBlockChildren = async (
   childrenBlockIds: string[],
   cursor: { nextCursor: string | null; hasMore: boolean },
 ): Promise<void> => {
-  const existing = await db.select({ childrenBlockIds: notionBlock.childrenBlockIds })
-    .from(notionBlock)
+  const existing = await db.select().from(notionBlock)
     .where(eq(notionBlock.blockId, blockId))
     .limit(1);
 
-  const merged = [...(existing[0]?.childrenBlockIds ?? []), ...childrenBlockIds];
+  const merged = [...new Set([...(existing[0]?.childrenBlockIds ?? []), ...childrenBlockIds])];
 
   await db.update(notionBlock).set({
     childrenBlockIds: merged,
     nextCursor: cursor.nextCursor,
     hasMore: cursor.hasMore,
-  }).where(eq(notionBlock.blockId, blockId));
+  }).where(sql`"blockId" = ${blockId}`);
 }
 
 export const getNotionBlocks = async (offset: number = 0): Promise<NotionBlockSelect[]> => {

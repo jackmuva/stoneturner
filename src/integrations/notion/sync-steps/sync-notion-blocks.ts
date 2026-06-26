@@ -33,16 +33,26 @@ export const syncNotionBlocks = async (incremental?: { lastEditedDate: string | 
         if (parentBlocks.length > 0) {
           await batchInsertNotionBlock(parentBlocks);
         }
-        await Promise.allSettled(workerQueue.map((page) => {
+        const results = await Promise.allSettled(workerQueue.map((page) => {
           return syncNotionBlocksById(page.pageId);
         }));
+        const rejected = results.filter((r) => r.status === "rejected") as PromiseRejectedResult[];
 
-        upsertSyncTask({
-          integration: "notion",
-          status: "SUCCESS",
-          step: "notion-sync-blocks",
-          inputs: { cursor: curOffset},
-        })
+        if (rejected.length > 0) {
+          upsertSyncTask({
+            integration: "notion",
+            status: "FAILED",
+            step: "notion-sync-blocks",
+            inputs: { cursor: curOffset, errors: rejected.map((r) => String(r.reason)) },
+          })
+        } else {
+          upsertSyncTask({
+            integration: "notion",
+            status: "SUCCESS",
+            step: "notion-sync-blocks",
+            inputs: { cursor: curOffset },
+          })
+        }
       } catch (e) {
         upsertSyncTask({
           integration: "notion",
@@ -100,6 +110,7 @@ const syncNotionBlocksById = async (blockId: string, nextCursor?: string) => {
   if (childBlocks.length > 0) {
     await batchInsertNotionBlock(childBlocks);
   }
+
   await appendNotionBlockChildren(blockId, childrenBlockIds, {
     nextCursor: notionBlocks.next_cursor,
     hasMore: notionBlocks.has_more,
