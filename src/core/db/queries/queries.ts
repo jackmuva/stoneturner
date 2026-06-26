@@ -179,23 +179,23 @@ export const upsertMdArtifact = async (markdownArtifact: MdArtifactInsert): Prom
 }
 
 export const deleteMdArtifactById = async (id: string): Promise<void> => {
-  await db.delete(mdArtifact).where(eq(mdArtifact.id, id));
+  await db.delete(mdArtifact).where(sql`"id" = ${id}`);
 }
 
 export const deleteMdArtifactsByIntegration = async (integration: string): Promise<void> => {
-  await db.delete(mdArtifact).where(eq(lower(mdArtifact.integration), integration.toLowerCase()));
+  await db.delete(mdArtifact).where(sql`LOWER("integration") = ${integration.toLowerCase()}`);
 }
 
 export const deleteSyncTasksByIntegration = async (integration: string): Promise<void> => {
-  await db.delete(syncTask).where(eq(lower(syncTask.integration), integration.toLowerCase()));
+  await db.delete(syncTask).where(sql`LOWER("integration") = ${integration.toLowerCase()}`);
 }
 
 export const deleteSyncTasksPriorToDate = async (date: string): Promise<void> => {
-  await db.delete(syncTask).where(lte(syncTask.updateDate, date));
+  await db.delete(syncTask).where(sql`"updateDate" <= ${date}`);
 }
 
 export const deleteIntegrationCredentialByIntegration = async (integration: string): Promise<void> => {
-  await db.delete(integrationCredential).where(eq(lower(integrationCredential.integration), integration.toLowerCase()));
+  await db.delete(integrationCredential).where(sql`LOWER("integration") = ${integration.toLowerCase()}`);
 }
 
 export const getLastArtifactDateByIntegration = async (integration: string): Promise<string | undefined> => {

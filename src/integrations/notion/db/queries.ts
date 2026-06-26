@@ -2,6 +2,7 @@ import { notionPage, type NotionPageInsert, type NotionPageSelect, notionPageMar
 import { eq, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import { db } from '@/core/db/db';
+import { deleteMdArtifactsByIntegration } from '@/core/db/queries/queries';
 
 export const batchInsertNotionPage = async (pages: NotionPageInsert[]): Promise<void> => {
   await db.insert(notionPage)
@@ -61,7 +62,6 @@ export const getNotionPageMarkdownById = async (pageId: string): Promise<NotionP
 }
 
 export const deleteNotionData = async () => {
-
   await db.delete(notionPage);
   await db.delete(notionPageMarkdown);
 }

@@ -68,7 +68,7 @@ const analyzePageMarkdown = async (page: NotionPageSelect): Promise<void> => {
 For each category, provide a comprehensive list with clear, concise entries.
 
 Notion page content:
-${pageMarkdown.markdown}`;
+${"# " + page.title + "\n" + pageMarkdown.markdown}`;
 
   const { output: analysis } = await retry(async () => await generateText({
     model: SUMMARIZATION_MODEL,
@@ -86,7 +86,7 @@ ${pageMarkdown.markdown}`;
     integrationArtifactId: page.pageId,
     integration: "notion",
     artifactDate: page.lastEditedTime,
-    markdown: pageMarkdown.markdown,
+    markdown: "# " + page.title + "\n" + pageMarkdown.markdown,
     keyPoints: analysis.keyPoints,
     questionsAnswered: analysis.questionsAnswered,
     entities: analysis.entities,

@@ -23,6 +23,7 @@ export const notionPage = sqliteTable("notionPage", {
   parent: text("parent", { mode: "json" }).$type<PageParent>(),
   url: text("url"),
   publicUrl: text("publicUrl"),
+  title: text("title"),
 },
   (table) => [
     uniqueIndex("notionPage_pageId_unique_idx").on(table.pageId),

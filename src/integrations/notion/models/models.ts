@@ -1,3 +1,17 @@
+export type NotionSearchResponse = {
+  object: "list",
+  results: NotionPage[],
+  has_more: boolean,
+  next_cursor: string | null,
+};
+
+export type NotionChildPageBlock = {
+  object: "block",
+  id: string,
+  type: "child_page",
+  child_page: { title: string },
+};
+
 export type PartialUser = {
   object: "user",
   id: string,
@@ -62,6 +76,7 @@ export type NotionPage = {
   parent: PageParent,
   url: string,
   public_url: string | null,
+  title?: string,
 }
 
 export type PagePropertyValue = {

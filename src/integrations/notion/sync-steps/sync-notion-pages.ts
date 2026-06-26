@@ -1,17 +1,10 @@
-import type { NotionPage } from "../models/models";
+import type { NotionChildPageBlock, NotionPage, NotionSearchResponse } from "../models/models";
 import { NOTION_BASE_API, NOTION_VERSION, getNotionCredentials, handleNotionRefresh } from "./notion-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
 import { retry } from "@/lib/utils";
-import { PAGE_SIZE } from "@/lib/constants";
+import { MAX_WORKERS, PAGE_SIZE } from "@/lib/constants";
 import { batchInsertNotionPage } from "../db/queries";
 import type { NotionPageInsert } from "../db/schema";
-
-type NotionSearchResponse = {
-  object: "list",
-  results: NotionPage[],
-  has_more: boolean,
-  next_cursor: string | null,
-};
 
 export const syncNotionPages = async (incremental: boolean = false, cursor?: string) => {
   let nextCursor: string | undefined = cursor;
@@ -20,7 +13,7 @@ export const syncNotionPages = async (incremental: boolean = false, cursor?: str
     let response: NotionSearchResponse | null = null;
     try {
       response = await retry(async () => {
-        return await getPage(nextCursor);
+        return await getPages(nextCursor);
       }, 3, 1);
     } catch (e) {
       await upsertSyncTask({
@@ -57,6 +50,20 @@ export const syncNotionPages = async (incremental: boolean = false, cursor?: str
 const upsertPages = async (pages: NotionPage[]): Promise<void> => {
   if (pages.length === 0) return;
 
+  const titles = new Map<string, string | undefined>();
+  let pageIndex = 0;
+  while (pageIndex < pages.length) {
+    const workerQueue: NotionPage[] = [];
+    while (workerQueue.length < MAX_WORKERS && pageIndex < pages.length) {
+      workerQueue.push(pages[pageIndex]!);
+      pageIndex += 1;
+    }
+    await Promise.allSettled(workerQueue.map(async (page) => {
+      const title = await retry(async () => getPage(page.id), 3, 1);
+      titles.set(page.id, title);
+    }));
+  }
+
   const rows: NotionPageInsert[] = pages.map((page) => ({
     pageId: page.id,
     createdTime: page.created_time,
@@ -71,13 +78,14 @@ const upsertPages = async (pages: NotionPage[]): Promise<void> => {
     parent: page.parent,
     url: page.url,
     publicUrl: page.public_url,
+    title: titles.get(page.id),
   }));
   await batchInsertNotionPage(rows);
 
   return;
 }
 
-export const getPage = async (cursor?: string): Promise<NotionSearchResponse> => {
+export const getPages = async (cursor?: string): Promise<NotionSearchResponse> => {
   let cred = await getNotionCredentials();
   if (!cred?.accessToken) throw new Error("Missing Notion credential");
   let res = await fetch(`${NOTION_BASE_API}/search`, {
@@ -117,4 +125,35 @@ export const getPage = async (cursor?: string): Promise<NotionSearchResponse> =>
   }
   const pages = await res.json() as NotionSearchResponse;
   return pages;
+}
+
+export const getPage = async (pageId: string): Promise<string | undefined> => {
+  const url = `${NOTION_BASE_API}/blocks/${pageId}`;
+
+  let cred = await getNotionCredentials();
+  if (!cred?.accessToken) throw new Error("Missing Notion credential");
+  let res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${cred.accessToken}`,
+      "Notion-Version": NOTION_VERSION,
+    },
+  });
+
+  if (!res.ok) {
+    await handleNotionRefresh();
+    cred = await getNotionCredentials();
+    if (!cred?.accessToken) throw new Error("Missing Notion credential");
+    res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${cred.accessToken}`,
+        "Notion-Version": NOTION_VERSION,
+      },
+    });
+    if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  }
+
+  const block = await res.json() as NotionChildPageBlock;
+  return block.type === "child_page" ? block.child_page?.title : undefined;
 }

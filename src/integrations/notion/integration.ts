@@ -6,7 +6,7 @@ import { notionConfig } from "./config";
 import type { BunRequest } from "bun";
 import { handleNotionRefresh, NOTION_BASE_API } from "./sync-steps/notion-utils";
 import { syncNotionPages } from "./sync-steps/sync-notion-pages";
-import { getMostRecentEditedTime } from "./db/queries";
+import { deleteNotionData, getMostRecentEditedTime } from "./db/queries";
 import { syncNotionMarkdown } from "./sync-steps/sync-notion-markdown";
 import { notionMarkdownToArtifact } from "./sync-steps/notion-markdown-to-artifact";
 
@@ -71,6 +71,7 @@ export const notionIntegration: Integration = {
   sync: async () => await syncNotionPipeline(false),
   syncUpdates: async () => await syncNotionPipeline(true),
   deleteSync: async () => {
+    await deleteNotionData();
     await deleteSyncTasksByIntegration("notion");
     await deleteMdArtifactsByIntegration("notion");
     await deleteEmbeddingByIntegration("notion");
