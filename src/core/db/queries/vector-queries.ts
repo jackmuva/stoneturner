@@ -191,13 +191,13 @@ export const searchQuestionsAnsweredEmbeddingByCosine = async (
 };
 
 export const deleteEmbeddingByIntegration = async (integration: string): Promise<void> => {
-  await db.delete(contentEmbedding).where(eq(lower(contentEmbedding.integration), integration.toLowerCase()));
-  await db.delete(keyPointsEmbedding).where(eq(lower(keyPointsEmbedding.integration), integration.toLowerCase()));
-  await db.delete(questionsAnsweredEmbedding).where(eq(lower(questionsAnsweredEmbedding.integration), integration.toLowerCase()));
+  await db.delete(contentEmbedding).where(sql`LOWER("integration") = ${integration.toLowerCase()}`);
+  await db.delete(keyPointsEmbedding).where(sql`LOWER("integration") = ${integration.toLowerCase()}`);
+  await db.delete(questionsAnsweredEmbedding).where(sql`LOWER("integration") = ${integration.toLowerCase()}`);
 };
 
 export const deleteEmbeddingsByIntegrationArtifactId = async (integrationArtifactId: string): Promise<void> => {
-  await db.delete(contentEmbedding).where(eq(contentEmbedding.integrationArtifactId, integrationArtifactId));
-  await db.delete(keyPointsEmbedding).where(eq(keyPointsEmbedding.integrationArtifactId, integrationArtifactId));
-  await db.delete(questionsAnsweredEmbedding).where(eq(questionsAnsweredEmbedding.integrationArtifactId, integrationArtifactId));
+  await db.delete(contentEmbedding).where(sql`"integrationArtifactId" = ${integrationArtifactId}`);
+  await db.delete(keyPointsEmbedding).where(sql`"integrationArtifactId" = ${integrationArtifactId}`);
+  await db.delete(questionsAnsweredEmbedding).where(sql`"integrationArtifactId" = ${integrationArtifactId}`);
 };

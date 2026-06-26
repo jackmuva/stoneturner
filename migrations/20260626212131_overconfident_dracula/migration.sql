@@ -1,0 +1,1 @@
+ALTER TABLE `notionPage` ADD `title` text;

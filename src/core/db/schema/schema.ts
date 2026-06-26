@@ -15,6 +15,7 @@ export const integrationCredential = sqliteTable("integrationCredential", {
 });
 
 export type IntegrationCredential = InferSelectModel<typeof integrationCredential>;
+export type IntegrationCredentialInsert = InferInsertModel<typeof integrationCredential>;
 
 export const syncTask = sqliteTable("syncTask", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),

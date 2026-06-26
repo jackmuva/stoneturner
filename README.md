@@ -1,6 +1,6 @@
 # <img src="src/assets/stoneturner.png" alt="stoneturner" width="30" style="vertical-align:middle" /> Stoneturner
 
-The unifying context layer for agents.
+The unifying data sync & search layer for agents.
 
 Stoneturner syncs data from external integrations, converts it into structured markdown, vectorizes it, and exposes it to agents via an MCP server. Agents can search across all your integrated context semantically, retrieve raw artifacts, and trigger syncs — all through standard MCP tool calls.
 
@@ -37,12 +37,12 @@ The MCP server (Streamable HTTP at `/mcp`) exposes five tools:
 ### Prerequisites
 
 - [Bun](https://bun.com) v1.3+
-- An [OpenAI API key](https://platform.openai.com/api-keys) (for embeddings)
+- An [Vercel AI Gateway API key](https://vercel.com/ai-gateway) (for embeddings)
 
 ### Install
 
 ```bash
-git clone https://github.com/anomalyco/stoneturner.git
+git clone https://github.com/jackmuva/stoneturner.git
 cd stoneturner
 bun install
 ```
@@ -57,10 +57,9 @@ Set these variables in `.env`:
 
 | Variable | Required | Description |
 |---|---|---|
-| `OPENAI_API_KEY` | Yes | OpenAI API key for `text-embedding-3-small` embeddings and the summarization model |
 | `BUN_PUBLIC_BACKEND_BASE_URL` | Yes | Backend URL, inlined at build time (e.g. `http://localhost:9000`) |
 | `FRONTEND_BASE_URL` | Yes | Frontend URL, used for CORS (e.g. `http://localhost:9000`) |
-| `AI_GATEWAY_API_KEY` | No | API key if using an AI gateway |
+| `AI_GATEWAY_API_KEY` | Yes | API key if using an AI gateway |
 | `BUN_PUBLIC_DEV_MODE` | No | Set to `true` to create a test database for developing new integrations (default: `false`) |
 
 ### Database setup
