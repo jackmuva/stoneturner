@@ -33,7 +33,7 @@ export const notionToMarkdown = async (incremental?: { lastEditedDate: string | 
         }).filter((obj) => obj.value);
 
 
-        await Promise.allSettled(markdownObj.map(async (obj) => {
+        const saveResults = await Promise.allSettled(markdownObj.map(async (obj) => {
           const artifactId = workerQueue[obj.workerI]!.pageId;
           const existing = await getMdArtifactByIntegrationArtifactId(artifactId);
           if (existing && existing.markdown === obj.value) return;
@@ -70,18 +70,21 @@ ${obj.value}`;
             questionsAnswered: analysis.questionsAnswered,
             entities: analysis.entities,
           });
-
-
         }));
 
-        upsertSyncTask({
+        const failures = [
+          ...markdownResults.filter((r) => r.status === "rejected"),
+          ...saveResults.filter((r) => r.status === "rejected"),
+        ].map((r) => String((r as PromiseRejectedResult).reason));
+
+        await upsertSyncTask({
           integration: "notion",
-          status: "SUCCESS",
+          status: failures.length ? "FAILED" : "SUCCESS",
           step: "notion-to-markdown",
-          inputs: { cursor: curOffset },
+          inputs: failures.length ? { cursor: curOffset, errors: failures } : { cursor: curOffset },
         })
       } catch (e) {
-        upsertSyncTask({
+        await upsertSyncTask({
           integration: "notion",
           status: "FAILED",
           step: "notion-to-markdown",
@@ -89,7 +92,7 @@ ${obj.value}`;
         })
       }
     }
-    if (cursor) break;
+    if (cursor !== undefined) break;
     curOffset += PAGE_SIZE;
     notionPages = await getNotionPages(curOffset);
   }
@@ -99,9 +102,9 @@ const traverseBlockTree = async (blockId: string): Promise<string> => {
   const block = await getNotionBlockById(blockId);
   if (!block) return "";
   let res = block.text ?? "";
-  if (!block || !block.childrenBlockIds || block.childrenBlockIds.length === 0) return res;
+  if (!block.childrenBlockIds || block.childrenBlockIds.length === 0) return res;
   for (const childBlock of block.childrenBlockIds) {
-    res += await traverseBlockTree(childBlock);
+    res += await traverseBlockTree(childBlock) + "\n";
   }
   return res;
 }

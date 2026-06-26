@@ -8,11 +8,13 @@ import { handleNotionRefresh, NOTION_BASE_API } from "./sync-steps/notion-utils"
 import { syncNotionPages } from "./sync-steps/sync-notion-pages";
 import { syncNotionBlocks } from "./sync-steps/sync-notion-blocks";
 import { getMostRecentEditedTime } from "./db/queries";
+import { notionToMarkdown } from "./sync-steps/notion-to-markdown";
 
 export const syncNotionPipeline = async (incremental: boolean = true) => {
   const lastEditedDate: string | null = await getMostRecentEditedTime();
   // await syncNotionPages();
-  await syncNotionBlocks(incremental ? {lastEditedDate} : undefined);
+  // await syncNotionBlocks(incremental ? {lastEditedDate} : undefined);
+  await notionToMarkdown(incremental ? {lastEditedDate} : undefined);
   // await indexVectorDbStep("notion", incremental);
 }
 

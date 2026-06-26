@@ -3,7 +3,6 @@ import { appendNotionBlockChildren, batchInsertNotionBlock, getNotionPages } fro
 import type { NotionBlockInsert, NotionPageSelect } from "../db/schema";
 import { getNotionCredentials, handleNotionRefresh, NOTION_BASE_API, NOTION_VERSION } from "./notion-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import type { IntegrationCredential } from "@/core/db/schema/schema";
 import type { FileObject, NotionBlock, NotionBlocks, RichTextItem } from "../models/models";
 
 export const syncNotionBlocks = async (incremental?: { lastEditedDate: string | null }, cursor?: number) => {

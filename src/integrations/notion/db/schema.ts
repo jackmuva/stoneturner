@@ -31,6 +31,7 @@ export const notionPage = sqliteTable("notionPage", {
 export type NotionPageSelect = InferSelectModel<typeof notionPage>;
 export type NotionPageInsert = InferInsertModel<typeof notionPage>;
 
+//NOTE: Consider adding pageId to batch select blocks
 export const notionBlock = sqliteTable("notionBlock", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   blockId: text("blockId").unique().notNull(),
