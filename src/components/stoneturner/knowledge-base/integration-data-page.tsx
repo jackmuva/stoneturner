@@ -29,6 +29,8 @@ export const IntegrationDataPage = () => {
   const [selectedArtifact, setSelectedArtifact] = useState<MdArtifactSelect | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [reauthOpen, setReauthOpen] = useState<boolean>(false);
+  const [optimisticSync, setOptimisticSync] = useState<boolean>(false);
+  const [optimisticDelete, setOptimisticDelete] = useState<boolean>(false);
 
   const intConfig = configRegistry.find(
     (config) => config.integration.toLowerCase() === integration?.toLowerCase()
@@ -54,7 +56,8 @@ export const IntegrationDataPage = () => {
     keepPreviousData: true,
   });
 
-  const { data: syncTasks, mutate: syncTaskMutate, isLoading: syncsIsLoading } = useSWR<SyncTaskSelect[]>(`syncTasks`, async () => {
+  const { data: syncTasks } = useSWR<SyncTaskSelect[]>(`syncTasks`, async () => {
+    setOptimisticSync(false);
     const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/syncTasks/recent`, {
       method: "GET",
     });
@@ -82,7 +85,7 @@ export const IntegrationDataPage = () => {
           method: "POST",
         });
         setConfirmAction(null);
-        syncTaskMutate();
+        setOptimisticSync(true);
       },
     },
     syncUpdates: {
@@ -92,7 +95,7 @@ export const IntegrationDataPage = () => {
           method: "POST",
         });
         setConfirmAction(null);
-        syncTaskMutate();
+        setOptimisticSync(true);
       },
     },
     delete: {
@@ -102,6 +105,7 @@ export const IntegrationDataPage = () => {
           method: "DELETE",
         });
         setConfirmAction(null);
+        setOptimisticDelete(true);
       },
     },
   };
@@ -157,7 +161,7 @@ export const IntegrationDataPage = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             </ButtonGroup>
-            {syncTasks && syncTasks.length > 0 && <div className="w-52 flex gap-1 items-center">
+            {(optimisticSync || (syncTasks && syncTasks.length > 0)) && <div className="w-52 flex gap-1 items-center">
               <span className="text-sm animate-pulse">Syncing...</span>
               <span className="animate-left-right">
                 <img src={"/assets/stoneturner.png"} alt="stoneturner-logo" className="animate-roll" width={25} height={25} />
@@ -175,7 +179,7 @@ export const IntegrationDataPage = () => {
           </div>
           <ArtifactTable
             setPage={setPage}
-            artifacts={artifacts ?? []}
+            artifacts={optimisticDelete ? [] : (artifacts ?? [])}
             isLoading={artifactsIsLoading}
             sortBy={sortBy}
             sortOrder={sortOrder}
