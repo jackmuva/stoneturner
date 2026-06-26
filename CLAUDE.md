@@ -14,7 +14,7 @@
 
 - `src/index.ts` — single `Bun.serve()` with routes + HMIR in dev, port 9000.
 - `@/*` alias → `src/*`.
-- `src/core/` — shared plumbing; `src/integrations/<name>/` — one folder per integration (only Gong today).
+- `src/core/` — shared plumbing; `src/integrations/<name>/` — one folder per integration
 - To add an integration: create folder with `config.ts`, `db/`, `handlers/`, `models/`, `sync-steps/`, export `IntegrationConfig` + `Integration`, register in both `src/integrations/config-registry.ts` (frontend UI) and `src/integrations/sync-registry.ts` (sync dispatch), add route in `src/index.ts`.
 - Directory is actually called `middlware/` (typo, not `middleware/`).
 - Bun-first: `Bun.serve()`, `Bun.file`, `bunx`. No express/vite/webpack. Exception: database is Turso/libSQL via Drizzle (`@tursodatabase/database`), not `bun:sqlite`.
@@ -38,7 +38,6 @@ Fire-and-forget from HTTP handler (no `await`). Each step writes `syncTask` rows
 - Turso/libSQL via `drizzle-orm/tursodatabase/database` (not `bun:sqlite`).
 - Local file `stoneturner.db`. Vector tables use `vector32()` / `vector_distance_cos()`.
 - Relational schemas: `integrationCredential`, `syncTask`, `mdArtifacts` (note table name — upper/lower casing).
-- Gong schemas: `gongCall`, `gongTranscript`.
 - Vector schemas: `contentEmbedding`, `keyPointsEmbedding`, `questionsAnsweredEmbedding`.
 
 ## Frontend
@@ -50,4 +49,4 @@ Fire-and-forget from HTTP handler (no `await`). Each step writes `syncTask` rows
 
 ## Env
 
-`.env.example` is sparse. Required at runtime: `OPENAI_API_KEY` for embeddings + provider key for `SUMMARIZATION_MODEL` (defaults to `zai/glm-5`), `FRONTEND_BASE_URL` (CORS allowlist), `BUN_PUBLIC_BACKEND_BASE_URL`. Turso is local-file today, no remote URL/token needed.
+`.env.example` is sparse. Required at runtime: `API_GATEWAY_API_KEY` for embeddings + provider key for `SUMMARIZATION_MODEL` (defaults to `zai/glm-5`), `FRONTEND_BASE_URL` (CORS allowlist), `BUN_PUBLIC_BACKEND_BASE_URL`. Turso is local-file today, no remote URL/token needed.
