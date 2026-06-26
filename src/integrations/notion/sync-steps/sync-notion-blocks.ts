@@ -6,8 +6,8 @@ import { upsertSyncTask } from "@/core/db/queries/queries";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import type { FileObject, NotionBlock, NotionBlocks, RichTextItem } from "../models/models";
 
-export const syncNotionBlocks = async (incremental?: { lastEditedDate: string | null }, cursor?: string) => {
-  let curOffset: number = 0;
+export const syncNotionBlocks = async (incremental?: { lastEditedDate: string | null }, cursor?: number) => {
+  let curOffset: number = cursor ? cursor : 0;
   let notionPages: NotionPageSelect[] = await getNotionPages(curOffset);
 
   while (notionPages.length > 0) {
@@ -15,8 +15,8 @@ export const syncNotionBlocks = async (incremental?: { lastEditedDate: string | 
     while (notionPageIndex < notionPages.length) {
       let workerQueue: NotionPageSelect[] = [];
       while (workerQueue.length < MAX_WORKERS && notionPageIndex < notionPages.length) {
-        if (incremental) {
-          if (notionPages[notionPageIndex]?.lastEditedTime && notionPages[notionPageIndex]!.lastEditedTime! >= incremental!.lastEditedDate) {
+        if (incremental && incremental.lastEditedDate) {
+          if (notionPages[notionPageIndex]?.lastEditedTime && notionPages[notionPageIndex]!.lastEditedTime! >= incremental.lastEditedDate) {
             workerQueue.push(notionPages[notionPageIndex]!);
           }
         } else {
@@ -24,10 +24,36 @@ export const syncNotionBlocks = async (incremental?: { lastEditedDate: string | 
         }
         notionPageIndex += 1;
       }
-      await Promise.allSettled(workerQueue.map((page) => {
-        return syncNotionBlocksById(page.pageId);
-      }));
+      try {
+        const parentBlocks: NotionBlockInsert[] = workerQueue.map((page) => ({
+          blockId: page.pageId,
+          type: "child_page",
+          hasChildren: true,
+          lastEditedTime: page.lastEditedTime,
+        }));
+        if (parentBlocks.length > 0) {
+          await batchInsertNotionBlock(parentBlocks);
+        }
+        await Promise.allSettled(workerQueue.map((page) => {
+          return syncNotionBlocksById(page.pageId);
+        }));
+
+        upsertSyncTask({
+          integration: "notion",
+          status: "SUCCESS",
+          step: "notion-sync-blocks",
+          inputs: { cursor: curOffset},
+        })
+      } catch (e) {
+        upsertSyncTask({
+          integration: "notion",
+          status: "FAILED",
+          step: "notion-sync-blocks",
+          inputs: { cursor: curOffset, error: e },
+        })
+      }
     }
+    if (cursor) break;
     curOffset += PAGE_SIZE;
     notionPages = await getNotionPages(curOffset);
   }
@@ -62,10 +88,10 @@ const syncNotionBlocksById = async (blockId: string, nextCursor?: string) => {
     if (!res.ok) throw new Error(JSON.stringify(await res.json()));
   }
 
-  const notionBlock = await res.json() as NotionBlocks;
-  const childrenBlockIds = notionBlock.results.map((child) => child.id);
+  const notionBlocks = await res.json() as NotionBlocks;
+  const childrenBlockIds = notionBlocks.results.map((child) => child.id);
 
-  const childBlocks: NotionBlockInsert[] = notionBlock.results.map((childBlock) => ({
+  const childBlocks: NotionBlockInsert[] = notionBlocks.results.map((childBlock) => ({
     blockId: childBlock.id,
     type: childBlock.type,
     hasChildren: childBlock.has_children,
@@ -76,15 +102,15 @@ const syncNotionBlocksById = async (blockId: string, nextCursor?: string) => {
     await batchInsertNotionBlock(childBlocks);
   }
   await appendNotionBlockChildren(blockId, childrenBlockIds, {
-    nextCursor: notionBlock.next_cursor,
-    hasMore: notionBlock.has_more,
+    nextCursor: notionBlocks.next_cursor,
+    hasMore: notionBlocks.has_more,
   });
 
-  if (notionBlock.has_more && notionBlock.next_cursor) {
-    await syncNotionBlocksById(blockId, notionBlock.next_cursor);
+  if (notionBlocks.has_more && notionBlocks.next_cursor) {
+    await syncNotionBlocksById(blockId, notionBlocks.next_cursor);
   }
 
-  for (const childBlock of notionBlock.results) {
+  for (const childBlock of notionBlocks.results) {
     if (childBlock.has_children) {
       await syncNotionBlocksById(childBlock.id);
     }
@@ -226,5 +252,3 @@ const fileUrl = (file: FileObject): string => {
       return file.file_upload.id;
   }
 };
-
-

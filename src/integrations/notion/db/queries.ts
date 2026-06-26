@@ -33,7 +33,7 @@ export const getNotionPages = async (offset: number = 0): Promise<NotionPageSele
 }
 
 export const getMostRecentEditedTime = async (): Promise<string | null> => {
-  const result = await db.select({ lastEditedTime: notionPage.lastEditedTime }) .from(notionPage)
+  const result = await db.select({ lastEditedTime: notionPage.lastEditedTime }).from(notionPage)
     .orderBy(sql`${notionPage.lastEditedTime} desc`)
     .limit(1);
 
@@ -69,23 +69,23 @@ export const appendNotionBlockChildren = async (
 
   const merged = [...(existing[0]?.childrenBlockIds ?? []), ...childrenBlockIds];
 
-  await db.update(notionBlock)
-    .set({
-      childrenBlockIds: merged,
-      nextCursor: cursor.nextCursor,
-      hasMore: cursor.hasMore,
-    })
-    .where(eq(notionBlock.blockId, blockId));
+  await db.update(notionBlock).set({
+    childrenBlockIds: merged,
+    nextCursor: cursor.nextCursor,
+    hasMore: cursor.hasMore,
+  }).where(eq(notionBlock.blockId, blockId));
 }
 
 export const getNotionBlocks = async (offset: number = 0): Promise<NotionBlockSelect[]> => {
-  return await db.select()
-    .from(notionBlock)
-    .limit(PAGE_SIZE)
-    .offset(offset);
+  return await db.select().from(notionBlock).limit(PAGE_SIZE).offset(offset);
 }
 
-export const deleteNotionData = async() => {
+export const getNotionBlockById = async (id: string): Promise<NotionBlockSelect | undefined> => {
+  const [block] = await db.select().from(notionBlock).where(eq(notionBlock.blockId, id));
+  return block;
+}
+
+export const deleteNotionData = async () => {
 
   await db.delete(notionPage);
   await db.delete(notionBlock);

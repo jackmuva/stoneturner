@@ -31,7 +31,6 @@ export const notionPage = sqliteTable("notionPage", {
 export type NotionPageSelect = InferSelectModel<typeof notionPage>;
 export type NotionPageInsert = InferInsertModel<typeof notionPage>;
 
-//TODO:I need to figure out what this is modeling, the Blocks or the Block
 export const notionBlock = sqliteTable("notionBlock", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   blockId: text("blockId").unique().notNull(),
@@ -44,6 +43,7 @@ export const notionBlock = sqliteTable("notionBlock", {
   lastEditedTime: text("lastEditedTime"),
 },
   (table) => [
+    uniqueIndex("notionBlock_blockId_unique_idx").on(table.blockId),
   ]);
 
 export type NotionBlockSelect = InferSelectModel<typeof notionBlock>;

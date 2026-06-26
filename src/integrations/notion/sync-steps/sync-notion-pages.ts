@@ -27,7 +27,7 @@ export const syncNotionPages = async (incremental: boolean = false, cursor?: str
         integration: "notion",
         status: "FAILED",
         step: "notion-sync-pages",
-        inputs: { cursor: cursor, error: e },
+        inputs: { cursor: nextCursor, error: e },
       })
       break;
     }
@@ -39,14 +39,14 @@ export const syncNotionPages = async (incremental: boolean = false, cursor?: str
         integration: "notion",
         status: "SUCCESS",
         step: "notion-sync-pages",
-        inputs: { cursor: cursor },
+        inputs: { cursor: nextCursor },
       });
     } catch (e) {
       await upsertSyncTask({
         integration: "notion",
         status: "FAILED",
         step: "notion-sync-pages",
-        inputs: { cursor: cursor, error: e },
+        inputs: { cursor: nextCursor, error: e },
       })
       if (!response.next_cursor) break;
     }

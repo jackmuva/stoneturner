@@ -35,15 +35,10 @@ export const IntegrationCard = ({
             !syncing ? (
               <div className="w-3 h-3 rounded-full bg-green-500" />
             ) : (
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-indigo-500 animate-pulse" />
-                <div>
-                  Syncing
-                </div>
-              </div>
+              <div className="w-3 h-3 rounded-full bg-indigo-500 animate-pulse" />
             )
           ) : (
-              <div className="w-3 h-3 rounded-full bg-foreground" />
+            <div className="w-3 h-3 rounded-full bg-foreground" />
           )}
         </CardTitle>
       </CardHeader>
@@ -57,7 +52,7 @@ export const IntegrationCard = ({
             </Button>
           </div>
         ) : (
-          <IntegrationDialog intConfig={intConfig} integrationsMutate={integrationsMutate} defaultOpen={openDialog}/>
+          <IntegrationDialog intConfig={intConfig} integrationsMutate={integrationsMutate} defaultOpen={openDialog} />
         )}
       </CardContent>
     </Card>
