@@ -24,6 +24,7 @@ export const syncNotionBlocks = async (incremental?: { lastEditedDate: string | 
         notionPageIndex += 1;
       }
       try {
+        //TODO: For parent, I need to use get block to get the page information
         const parentBlocks: NotionBlockInsert[] = workerQueue.map((page) => ({
           blockId: page.pageId,
           type: "child_page",
