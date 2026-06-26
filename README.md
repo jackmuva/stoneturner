@@ -22,12 +22,13 @@ All network and LLM calls are wrapped in retry logic with quadratic backoff. Syn
 
 ## MCP tools
 
-The MCP server (Streamable HTTP at `/mcp`) exposes four tools:
+The MCP server (Streamable HTTP at `/mcp`) exposes five tools:
 
 | Tool | Description |
 |---|---|
 | `semantic_search` | Semantic search across indexed content, key points, and questions answered. Supports filtering by integration, date range, and entities. |
 | `get_md_artifact_by_id` | Retrieve a single markdown artifact by ID — full content, key points, questions, entities, and metadata. |
+| `run_sql_query` | Run a single read-only `SELECT` statement against the underlying SQLite (libSQL/Turso) database. Returns rows as JSON. Only `SELECT` (and `WITH ... SELECT`) statements are permitted — any mutating or schema-modifying statement is rejected. |
 | `get_integration_sources` | List all registered integrations and their credential status. |
 | `sync_source` | Trigger a full or incremental sync for an integration. Returns a credential URL if not yet configured. |
 
