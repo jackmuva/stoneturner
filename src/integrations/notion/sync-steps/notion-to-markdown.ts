@@ -100,11 +100,13 @@ ${obj.value}`;
 
 const traverseBlockTree = async (blockId: string): Promise<string> => {
   const block = await getNotionBlockById(blockId);
+  console.log("block: ", block);
   if (!block) return "";
   let res = block.text ?? "";
   if (!block.childrenBlockIds || block.childrenBlockIds.length === 0) return res;
   for (const childBlock of block.childrenBlockIds) {
     res += await traverseBlockTree(childBlock) + "\n";
   }
+  console.log("text: ", res);
   return res;
 }
