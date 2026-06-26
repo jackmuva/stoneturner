@@ -6,15 +6,15 @@ import { notionConfig } from "./config";
 import type { BunRequest } from "bun";
 import { handleNotionRefresh, NOTION_BASE_API } from "./sync-steps/notion-utils";
 import { syncNotionPages } from "./sync-steps/sync-notion-pages";
-import { syncNotionBlocks } from "./sync-steps/sync-notion-blocks";
 import { getMostRecentEditedTime } from "./db/queries";
-import { notionToMarkdown } from "./sync-steps/notion-to-markdown";
+import { syncNotionMarkdown } from "./sync-steps/sync-notion-markdown";
+import { notionMarkdownToArtifact } from "./sync-steps/notion-markdown-to-artifact";
 
 export const syncNotionPipeline = async (incremental: boolean = true) => {
   const lastEditedDate: string | null = await getMostRecentEditedTime();
   await syncNotionPages();
-  await syncNotionBlocks(incremental ? {lastEditedDate} : undefined);
-  await notionToMarkdown(incremental ? {lastEditedDate} : undefined);
+  await syncNotionMarkdown(incremental ? {lastEditedDate} : undefined);
+  await notionMarkdownToArtifact(incremental ? {lastEditedDate} : undefined);
   await indexVectorDbStep("notion", incremental);
 }
 

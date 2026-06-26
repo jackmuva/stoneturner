@@ -1,4 +1,4 @@
-import { notionPage, type NotionPageInsert, type NotionPageSelect, notionBlock, type NotionBlockInsert, type NotionBlockSelect } from './schema';
+import { notionPage, type NotionPageInsert, type NotionPageSelect, notionPageMarkdown, type NotionPageMarkdownInsert, type NotionPageMarkdownSelect } from './schema';
 import { eq, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import { db } from '@/core/db/db';
@@ -40,52 +40,28 @@ export const getMostRecentEditedTime = async (): Promise<string | null> => {
   return result[0]?.lastEditedTime ?? null;
 }
 
-export const batchInsertNotionBlock = async (blocks: NotionBlockInsert[]): Promise<void> => {
-  await db.insert(notionBlock)
-    .values(blocks)
+export const batchInsertNotionPageMarkdown = async (records: NotionPageMarkdownInsert[]): Promise<void> => {
+  await db.insert(notionPageMarkdown)
+    .values(records)
     .onConflictDoUpdate({
-      target: notionBlock.blockId,
+      target: notionPageMarkdown.pageId,
       set: {
-        type: sql`excluded.type`,
-        hasChildren: sql`excluded.hasChildren`,
-        text: sql`excluded.text`,
+        object: sql`excluded.object`,
+        markdown: sql`excluded.markdown`,
+        truncated: sql`excluded.truncated`,
+        unknownBlockIds: sql`excluded.unknownBlockIds`,
         lastEditedTime: sql`excluded.lastEditedTime`,
-        nextCursor: sql`excluded.nextCursor`,
-        hasMore: sql`excluded.hasMore`,
-        childrenBlockIds: sql`excluded.childrenBlockIds`,
       }
     });
 }
 
-export const appendNotionBlockChildren = async (
-  blockId: string,
-  childrenBlockIds: string[],
-  cursor: { nextCursor: string | null; hasMore: boolean },
-): Promise<void> => {
-  const existing = await db.select().from(notionBlock)
-    .where(eq(notionBlock.blockId, blockId))
-    .limit(1);
-
-  const merged = [...new Set([...(existing[0]?.childrenBlockIds ?? []), ...childrenBlockIds])];
-
-  await db.update(notionBlock).set({
-    childrenBlockIds: merged,
-    nextCursor: cursor.nextCursor,
-    hasMore: cursor.hasMore,
-  }).where(sql`"blockId" = ${blockId}`);
-}
-
-export const getNotionBlocks = async (offset: number = 0): Promise<NotionBlockSelect[]> => {
-  return await db.select().from(notionBlock).limit(PAGE_SIZE).offset(offset);
-}
-
-export const getNotionBlockById = async (id: string): Promise<NotionBlockSelect | undefined> => {
-  const [block] = await db.select().from(notionBlock).where(eq(notionBlock.blockId, id));
-  return block;
+export const getNotionPageMarkdownById = async (pageId: string): Promise<NotionPageMarkdownSelect | undefined> => {
+  const [record] = await db.select().from(notionPageMarkdown).where(eq(notionPageMarkdown.pageId, pageId));
+  return record;
 }
 
 export const deleteNotionData = async () => {
 
   await db.delete(notionPage);
-  await db.delete(notionBlock);
+  await db.delete(notionPageMarkdown);
 }

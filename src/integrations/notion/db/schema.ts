@@ -31,21 +31,18 @@ export const notionPage = sqliteTable("notionPage", {
 export type NotionPageSelect = InferSelectModel<typeof notionPage>;
 export type NotionPageInsert = InferInsertModel<typeof notionPage>;
 
-//NOTE: Consider adding pageId to batch select blocks
-export const notionBlock = sqliteTable("notionBlock", {
+export const notionPageMarkdown = sqliteTable("notionPageMarkdown", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  blockId: text("blockId").unique().notNull(),
-  type: text("type").notNull(),
-  nextCursor: text("nextCursor"),
-  hasMore: integer("hasMore", { mode: "boolean" }),
-  hasChildren: integer("hasChildren", { mode: "boolean" }),
-  childrenBlockIds: text("childrenBlockIds", { mode: "json" }).$type<string[]>().$defaultFn(() => []),
-  text: text("text"),
+  pageId: text("pageId").unique().notNull(),
+  object: text("object"),
+  markdown: text("markdown"),
+  truncated: integer("truncated", { mode: "boolean" }),
+  unknownBlockIds: text("unknownBlockIds", { mode: "json" }).$type<string[]>().$defaultFn(() => []),
   lastEditedTime: text("lastEditedTime"),
 },
   (table) => [
-    uniqueIndex("notionBlock_blockId_unique_idx").on(table.blockId),
+    uniqueIndex("notionPageMarkdown_pageId_unique_idx").on(table.pageId),
   ]);
 
-export type NotionBlockSelect = InferSelectModel<typeof notionBlock>;
-export type NotionBlockInsert = InferInsertModel<typeof notionBlock>;
+export type NotionPageMarkdownSelect = InferSelectModel<typeof notionPageMarkdown>;
+export type NotionPageMarkdownInsert = InferInsertModel<typeof notionPageMarkdown>;

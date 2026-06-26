@@ -1,0 +1,103 @@
+import { MAX_WORKERS, PAGE_SIZE } from "@/lib/constants";
+import type { NotionPageMarkdownInsert, NotionPageSelect } from "../db/schema";
+import { batchInsertNotionPageMarkdown, getNotionPages } from "../db/queries";
+import { getNotionCredentials, handleNotionRefresh, NOTION_BASE_API, NOTION_VERSION } from "./notion-utils";
+import { upsertSyncTask } from "@/core/db/queries/queries";
+import type { NotionPageMarkdown } from "../models/models";
+
+export const syncNotionMarkdown = async (incremental?: { lastEditedDate: string | null }, cursor?: number) => {
+  let curOffset: number = cursor ? cursor : 0;
+  let notionPages: NotionPageSelect[] = await getNotionPages(curOffset);
+
+  while (notionPages.length > 0) {
+    let notionPageIndex = 0;
+    while (notionPageIndex < notionPages.length) {
+      let workerQueue: NotionPageSelect[] = [];
+      while (workerQueue.length < MAX_WORKERS && notionPageIndex < notionPages.length) {
+        if (incremental && incremental.lastEditedDate) {
+          if (notionPages[notionPageIndex]?.lastEditedTime && notionPages[notionPageIndex]!.lastEditedTime! >= incremental.lastEditedDate) {
+            workerQueue.push(notionPages[notionPageIndex]!);
+          }
+        } else {
+          workerQueue.push(notionPages[notionPageIndex]!);
+        }
+        notionPageIndex += 1;
+      }
+      try {
+        const markdownResults = await Promise.allSettled(workerQueue.map(async (page) => {
+          const result = await retrievePageMarkdown(page.pageId);
+          const record: NotionPageMarkdownInsert = {
+            pageId: page.pageId,
+            object: result.object,
+            markdown: result.markdown,
+            truncated: result.truncated,
+            unknownBlockIds: result.unknown_block_ids,
+            lastEditedTime: page.lastEditedTime,
+          };
+          await batchInsertNotionPageMarkdown([record]);
+        }));
+
+        const failures = markdownResults
+          .filter((r) => r.status === "rejected")
+          .map((r) => String((r as PromiseRejectedResult).reason));
+
+        await upsertSyncTask({
+          integration: "notion",
+          status: failures.length ? "FAILED" : "SUCCESS",
+          step: "notion-sync-markdown",
+          inputs: failures.length ? { cursor: curOffset, errors: failures } : { cursor: curOffset },
+        })
+      } catch (e) {
+        await upsertSyncTask({
+          integration: "notion",
+          status: "FAILED",
+          step: "notion-sync-markdown",
+          inputs: { cursor: curOffset, error: e },
+        })
+      }
+    }
+    if (cursor !== undefined) break;
+    curOffset += PAGE_SIZE;
+    notionPages = await getNotionPages(curOffset);
+  }
+}
+
+const retrievePageMarkdown = async (pageId: string): Promise<NotionPageMarkdown> => {
+  const url = `${NOTION_BASE_API}/pages/${pageId}/markdown`;
+
+  let cred = await getNotionCredentials();
+  if (!cred?.accessToken) throw new Error("Missing Notion credential");
+  let res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${cred.accessToken}`,
+      "Notion-Version": NOTION_VERSION,
+    },
+  });
+
+  if (!res.ok) {
+    await handleNotionRefresh();
+    cred = await getNotionCredentials();
+    if (!cred?.accessToken) throw new Error("Missing Notion credential");
+    res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${cred.accessToken}`,
+        "Notion-Version": NOTION_VERSION,
+      },
+    });
+    if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  }
+
+  const pageMarkdown = await res.json() as NotionPageMarkdown;
+  if (pageMarkdown.truncated && pageMarkdown.unknown_block_ids?.length) {
+    let markdown = pageMarkdown.markdown;
+    for (const blockId of pageMarkdown.unknown_block_ids) {
+      const subtree = await retrievePageMarkdown(blockId);
+      markdown += `\n${subtree.markdown}`;
+    }
+    return { ...pageMarkdown, markdown };
+  }
+
+  return pageMarkdown;
+}
