@@ -143,14 +143,13 @@ export const myConfig: IntegrationConfig = {
   icon: "/assets/my-integration.png",
   integrationType: "API_KEY",        // "BASIC_TOKEN" | "OAUTH" | "API_KEY"
   description: "My integration description",
-  docs: "https://docs.my-integration.com/api",
   inputs: [
     { input: "accessKey", label: "Access Key" },
     { input: "secretKey", label: "Secret Key" },
     { input: "baseUrl", label: "API Base URL" },
-  ],
-  installUrl: "https://app.my-integration.com/install",
-  oauthAuthorizationUrl: "https://app.my-integration.com/oauth/authorize",
+  ],//optional
+  installUrl: "https://app.my-integration.com/install",//optional
+  oauthAuthorizationUrl: "https://app.my-integration.com/oauth/authorize", //optional, but necessary for OAuth
 };
 ```
 
@@ -174,7 +173,24 @@ export const myIntegration: Integration = {
 
 ### 5. Define database schemas and migrate
 
-Add your integration's tables in `src/integrations/my-integration/db/schema.ts`, then generate and apply migrations:
+Add your integration's tables in `src/integrations/my-integration/db/schema.ts`. 
+
+Point drizzle to your new schemas in `drizzle.config.ts`.
+
+```typescript
+export default defineConfig({
+  schema: [
+    './src/core/db/schema/*',
+    './src/integrations/gong/db/schema.ts',
+    './src/integrations/discord/db/schema.ts',
+    './src/integrations/notion/db/schema.ts',
+    //...
+  ],
+  //...
+}
+```
+
+Then generate and apply migrations:
 
 ```bash
 bun run generate
