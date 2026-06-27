@@ -22,7 +22,7 @@ export const indexVectorDbStep = async (integration: string, incremental: boolea
     await Promise.allSettled(
       artifacts.map((artifact) => aiGatewayBottleneck.schedule(() => chunkMd(artifact, curOffset, incremental)))
     );
-    if(offset !== undefined)break;
+    if (offset !== undefined) break;
     curOffset += PAGE_SIZE;
   }
 }
