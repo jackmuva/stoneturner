@@ -1,7 +1,7 @@
 import type { DiscordMessage } from "../models/models"
-import { DISCORD_API_ENDPOINT } from "./discord-utils";
+import { DISCORD_API_ENDPOINT, discordApiBottleneck } from "./discord-utils";
 import { retry } from "@/lib/utils";
-import { PAGE_SIZE, MAX_WORKERS } from "@/lib/constants";
+import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertDiscordMessage, getDiscordChannels, getLastMessageByChannelId } from "../db/queries";
 import { upsertSyncTask } from "@/core/db/queries/queries";
 import type { DiscordChannelSelect } from "../db/schema";
@@ -13,13 +13,10 @@ export const syncMessages = async (incremental: boolean = true, cursor?: { chann
   while (true) {
     const channels = await getDiscordChannels(offset);
     if (channels.length === 0) break;
-    for (let i = 0; i < channels.length; i += MAX_WORKERS) {
-      let chunk = channels.slice(i, i + MAX_WORKERS);
-      if (cursor) {
-        chunk = chunk.filter((channel) => channel.id === cursor.channelId);
-      }
-      await Promise.all(chunk.map((channel) => upsertMessages(channel, incremental, cursor?.lastMessageId)));
-    }
+    const workerQueue = cursor ? channels.filter((channel) => channel.id === cursor.channelId) : channels;
+    await Promise.all(workerQueue.map((channel) =>
+      discordApiBottleneck.schedule(() => upsertMessages(channel, incremental, cursor?.lastMessageId))
+    ));
     if (channels.length < PAGE_SIZE) break;
     offset += PAGE_SIZE;
   }

@@ -45,7 +45,6 @@ export async function streamCsv(
     }
   };
 
-  // @ts-expect-error - async iteration over Bun's ReadableStream
   for await (const chunk of stream) {
     await processChunk(decoder.decode(chunk, { stream: true }));
   }

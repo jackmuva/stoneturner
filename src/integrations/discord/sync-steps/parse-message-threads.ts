@@ -1,10 +1,11 @@
 import { getLastArtifactDateByIntegration, getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
 import { getDiscordChannelById, getDiscordChannels, getDiscordThreadIds, getMessagesByThreadId, getMessageTimestampRangeByChannelId, getTopLevelMessagesByChannelId } from "../db/queries";
 import type { DiscordChannelSelect, DiscordMessageSelect } from "../db/schema";
-import { MAX_WORKERS, PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
+import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import { retry } from "@/lib/utils";
 import { generateText, Output } from "ai";
 import * as z from "zod";
+import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 
 export const parseDiscordMessages = async (
   incremental: boolean,
@@ -30,41 +31,24 @@ const parseThreadMessages = async (
   let threadArray: { channelId: string, threadId: string; lastMessageDate: string }[] = await getDiscordThreadIds(curOffset);
 
   while (threadArray.length > 0) {
-    let curIndex = 0;
-    while (curIndex < threadArray.length) {
-      let { workerQueue, newIndex } = fillWorkerQueue(incremental, threadArray, curIndex, lastArtifactDate);
-      curIndex = newIndex;
-      if (cursor) workerQueue = workerQueue.filter((work) => work.channelId === cursor.channelId);
-      await Promise.allSettled(workerQueue.map(async (threadObj) => {
+    let workerQueue = threadArray.filter((threadObj) =>
+      !incremental || (lastArtifactDate !== undefined && lastArtifactDate < threadObj.lastMessageDate)
+    );
+    if (cursor) workerQueue = workerQueue.filter((work) => work.channelId === cursor.channelId);
+
+    await Promise.allSettled(workerQueue.map((threadObj) =>
+      aiGatewayBottleneck.schedule(async () => {
         const channel = await getDiscordChannelById(threadObj.channelId);
         return processMessages(true, threadObj.threadId, channel?.name ?? threadObj.channelId,
           (new Date(threadObj.lastMessageDate)).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
           threadObj.lastMessageDate
         )
-      }));
-    }
+      })
+    ));
+
     curOffset += PAGE_SIZE;
     threadArray = await getDiscordThreadIds(curOffset);
   }
-}
-
-const fillWorkerQueue = (
-  incremental: boolean,
-  threadArray: { channelId: string, threadId: string; lastMessageDate: string }[],
-  lastIndex: number,
-  lastArtifactDate?: string,
-) => {
-  let curIndex = lastIndex;
-  let workerQueue: { channelId: string, threadId: string; lastMessageDate: string }[] = [];
-  while (workerQueue.length < MAX_WORKERS && curIndex < threadArray.length) {
-    if (!incremental) {
-      workerQueue.push(threadArray[curIndex]!);
-    } else if (lastArtifactDate && lastArtifactDate < threadArray[curIndex]!.lastMessageDate) {
-      workerQueue.push(threadArray[curIndex]!);
-    }
-    curIndex += 1;
-  }
-  return { workerQueue, newIndex: curIndex };
 }
 
 const parseChannelMessages = async (
@@ -86,47 +70,21 @@ const parseChannelMessages = async (
 
       if (cursor && dayArray) dayArray = dayArray.filter((day) => day[Object.keys(day)[0]!]?.start === cursor.start);
 
-      let curDayIndex = 0;
+      const workDays = dayArray.filter((dayObj) =>
+        !incremental || (lastArtifactDate !== undefined && Object.values(dayObj)[0]!.start >= lastArtifactDate)
+      );
 
-      while (curDayIndex < dayArray.length) {
-        const { workDays, newIndex } = fillWorkDays(incremental, curDayIndex, dayArray, lastArtifactDate);
-        curDayIndex = newIndex;
-
-        await Promise.allSettled(workDays.map((dayObj) => {
+      await Promise.allSettled(workDays.map((dayObj) =>
+        aiGatewayBottleneck.schedule(() => {
           const readableDay = Object.keys(dayObj)[0]!
           const day = dayObj[readableDay]!
           return processMessages(false, channel.id, channel?.name ?? channel.id, readableDay, day.start, day.end);
-        }));
-      }
+        })
+      ));
     }
     curOffset += PAGE_SIZE;
     channels = await getDiscordChannels(curOffset);
   }
-}
-
-const fillWorkDays = (
-  incremental: boolean,
-  existingIndex: number,
-  dayArray: {
-    [day: string]: {
-      start: string;
-      end: string;
-    };
-  }[],
-  lastArtifactDate?: string,
-) => {
-  let curDayIndex = existingIndex;
-  const workDays: { [day: string]: { start: string, end: string } }[] = [];
-  while (workDays.length < MAX_WORKERS && curDayIndex < dayArray.length) {
-    const dayObj = dayArray[curDayIndex];
-    if (dayObj) {
-      if (!incremental || (lastArtifactDate && Object.values(dayObj)[0]!.start >= lastArtifactDate)) {
-        workDays.push(dayObj);
-      }
-    }
-    curDayIndex += 1;
-  }
-  return { workDays, newIndex: curDayIndex };
 }
 
 const processMessages = async (thread: boolean, channelId: string, channelName: string, readableDate: string, start: string, end?: string) => {

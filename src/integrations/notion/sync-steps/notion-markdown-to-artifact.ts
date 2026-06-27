@@ -1,50 +1,43 @@
-import { MAX_WORKERS, PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
+import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import type { NotionPageSelect } from "../db/schema";
 import { getNotionPageMarkdownById, getNotionPages } from "../db/queries";
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
 import { retry } from "@/lib/utils";
 import { generateText, Output } from "ai";
 import * as z from "zod";
+import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 
 export const notionMarkdownToArtifact = async (incremental?: { lastEditedDate: string | null }, cursor?: number) => {
   let curOffset: number = cursor ? cursor : 0;
   let notionPages: NotionPageSelect[] = await getNotionPages(curOffset);
 
   while (notionPages.length > 0) {
-    let notionPageIndex = 0;
-    while (notionPageIndex < notionPages.length) {
-      let workerQueue: NotionPageSelect[] = [];
-      while (workerQueue.length < MAX_WORKERS && notionPageIndex < notionPages.length) {
-        if (incremental && incremental.lastEditedDate) {
-          if (notionPages[notionPageIndex]?.lastEditedTime && notionPages[notionPageIndex]!.lastEditedTime! >= incremental.lastEditedDate) {
-            workerQueue.push(notionPages[notionPageIndex]!);
-          }
-        } else {
-          workerQueue.push(notionPages[notionPageIndex]!);
-        }
-        notionPageIndex += 1;
-      }
-      try {
-        const results = await Promise.allSettled(workerQueue.map((page) => analyzePageMarkdown(page)));
+    const workerQueue = notionPages.filter((page) =>
+      !incremental || !incremental.lastEditedDate ||
+      (page.lastEditedTime !== null && page.lastEditedTime >= incremental.lastEditedDate)
+    );
+    try {
+      const results = await Promise.allSettled(
+        workerQueue.map((page) => aiGatewayBottleneck.schedule(() => analyzePageMarkdown(page)))
+      );
 
-        const failures = results
-          .filter((r) => r.status === "rejected")
-          .map((r) => String((r as PromiseRejectedResult).reason));
+      const failures = results
+        .filter((r) => r.status === "rejected")
+        .map((r) => String((r as PromiseRejectedResult).reason));
 
-        await upsertSyncTask({
-          integration: "notion",
-          status: failures.length ? "FAILED" : "SUCCESS",
-          step: "notion-markdown-to-artifact",
-          inputs: failures.length ? { cursor: curOffset, errors: failures } : { cursor: curOffset },
-        })
-      } catch (e) {
-        await upsertSyncTask({
-          integration: "notion",
-          status: "FAILED",
-          step: "notion-markdown-to-artifact",
-          inputs: { cursor: curOffset, error: e },
-        })
-      }
+      await upsertSyncTask({
+        integration: "notion",
+        status: failures.length ? "FAILED" : "SUCCESS",
+        step: "notion-markdown-to-artifact",
+        inputs: failures.length ? { cursor: curOffset, errors: failures } : { cursor: curOffset },
+      })
+    } catch (e) {
+      await upsertSyncTask({
+        integration: "notion",
+        status: "FAILED",
+        step: "notion-markdown-to-artifact",
+        inputs: { cursor: curOffset, error: e },
+      })
     }
     if (cursor !== undefined) break;
     curOffset += PAGE_SIZE;

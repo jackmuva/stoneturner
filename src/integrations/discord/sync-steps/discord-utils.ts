@@ -1,4 +1,10 @@
 import { getIntegrationCredentialByIntegration, upsertIntegrationCredential } from "@/core/db/queries/queries";
+import Bottleneck from "bottleneck";
+
+export const discordApiBottleneck = new Bottleneck({
+  maxConcurrent: 5,
+  minTime: 200
+});
 
 export const DISCORD_API_ENDPOINT = "https://discord.com/api/v10";
 

@@ -1,7 +1,7 @@
-import { MAX_WORKERS, PAGE_SIZE } from "@/lib/constants";
+import { PAGE_SIZE } from "@/lib/constants";
 import type { NotionPageMarkdownInsert, NotionPageSelect } from "../db/schema";
 import { batchInsertNotionPageMarkdown, getNotionPages } from "../db/queries";
-import { getNotionCredentials, handleNotionRefresh, NOTION_BASE_API, NOTION_VERSION } from "./notion-utils";
+import { getNotionCredentials, handleNotionRefresh, NOTION_BASE_API, NOTION_VERSION, notionApiBottleneck } from "./notion-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
 import type { NotionPageMarkdown } from "../models/models";
 
@@ -10,21 +10,13 @@ export const syncNotionMarkdown = async (incremental?: { lastEditedDate: string 
   let notionPages: NotionPageSelect[] = await getNotionPages(curOffset);
 
   while (notionPages.length > 0) {
-    let notionPageIndex = 0;
-    while (notionPageIndex < notionPages.length) {
-      let workerQueue: NotionPageSelect[] = [];
-      while (workerQueue.length < MAX_WORKERS && notionPageIndex < notionPages.length) {
-        if (incremental && incremental.lastEditedDate) {
-          if (notionPages[notionPageIndex]?.lastEditedTime && notionPages[notionPageIndex]!.lastEditedTime! >= incremental.lastEditedDate) {
-            workerQueue.push(notionPages[notionPageIndex]!);
-          }
-        } else {
-          workerQueue.push(notionPages[notionPageIndex]!);
-        }
-        notionPageIndex += 1;
-      }
-      try {
-        const markdownResults = await Promise.allSettled(workerQueue.map(async (page) => {
+    const workerQueue = notionPages.filter((page) =>
+      !incremental || !incremental.lastEditedDate ||
+      (page.lastEditedTime !== null && page.lastEditedTime >= incremental.lastEditedDate)
+    );
+    try {
+      const markdownResults = await Promise.allSettled(workerQueue.map((page) =>
+        notionApiBottleneck.schedule(async () => {
           const result = await retrievePageMarkdown(page.pageId);
           const record: NotionPageMarkdownInsert = {
             pageId: page.pageId,
@@ -35,26 +27,26 @@ export const syncNotionMarkdown = async (incremental?: { lastEditedDate: string 
             lastEditedTime: page.lastEditedTime,
           };
           await batchInsertNotionPageMarkdown([record]);
-        }));
-
-        const failures = markdownResults
-          .filter((r) => r.status === "rejected")
-          .map((r) => String((r as PromiseRejectedResult).reason));
-
-        await upsertSyncTask({
-          integration: "notion",
-          status: failures.length ? "FAILED" : "SUCCESS",
-          step: "notion-sync-markdown",
-          inputs: failures.length ? { cursor: curOffset, errors: failures } : { cursor: curOffset },
         })
-      } catch (e) {
-        await upsertSyncTask({
-          integration: "notion",
-          status: "FAILED",
-          step: "notion-sync-markdown",
-          inputs: { cursor: curOffset, error: e },
-        })
-      }
+      ));
+
+      const failures = markdownResults
+        .filter((r) => r.status === "rejected")
+        .map((r) => String((r as PromiseRejectedResult).reason));
+
+      await upsertSyncTask({
+        integration: "notion",
+        status: failures.length ? "FAILED" : "SUCCESS",
+        step: "notion-sync-markdown",
+        inputs: failures.length ? { cursor: curOffset, errors: failures } : { cursor: curOffset },
+      })
+    } catch (e) {
+      await upsertSyncTask({
+        integration: "notion",
+        status: "FAILED",
+        step: "notion-sync-markdown",
+        inputs: { cursor: curOffset, error: e },
+      })
     }
     if (cursor !== undefined) break;
     curOffset += PAGE_SIZE;
