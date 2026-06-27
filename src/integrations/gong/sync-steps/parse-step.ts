@@ -16,14 +16,18 @@ export const parseGongStep = async (offset?: number) => {
     firstIteration = false;
     try {
       transcripts = await getGongTranscripts(curOffset);
-      for (const transcript of transcripts) {
-        await aiGatewayBottleneck.schedule(() => generateMdArtifact(transcript))
-      }
+      const results = await Promise.allSettled(
+        transcripts.map((t) => aiGatewayBottleneck.schedule(() => generateMdArtifact(t)))
+      );
+      const failures = results
+        .filter((r) => r.status === "rejected")
+        .map((r) => String((r as PromiseRejectedResult).reason));
+
       await upsertSyncTask({
         integration: "Gong",
-        status: "SUCCESS",
-        inputs: JSON.stringify({ offset: curOffset }),
-        step: "parse"
+        status: failures.length ? "FAILED" : "SUCCESS",
+        inputs: JSON.stringify(failures.length ? { offset: curOffset, errors: failures } : { offset: curOffset }),
+        step: "parse",
       });
     } catch (e) {
       await upsertSyncTask({
