@@ -1,8 +1,8 @@
 import type { NotionChildPageBlock, NotionPage, NotionSearchResponse } from "../models/models";
-import { NOTION_BASE_API, NOTION_VERSION, getNotionCredentials, handleNotionRefresh } from "./notion-utils";
+import { NOTION_BASE_API, NOTION_VERSION, getNotionCredentials, handleNotionRefresh, notionApiBottleneck } from "./notion-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
 import { retry } from "@/lib/utils";
-import { MAX_WORKERS, PAGE_SIZE } from "@/lib/constants";
+import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertNotionPage } from "../db/queries";
 import type { NotionPageInsert } from "../db/schema";
 
@@ -51,18 +51,12 @@ const upsertPages = async (pages: NotionPage[]): Promise<void> => {
   if (pages.length === 0) return;
 
   const titles = new Map<string, string | undefined>();
-  let pageIndex = 0;
-  while (pageIndex < pages.length) {
-    const workerQueue: NotionPage[] = [];
-    while (workerQueue.length < MAX_WORKERS && pageIndex < pages.length) {
-      workerQueue.push(pages[pageIndex]!);
-      pageIndex += 1;
-    }
-    await Promise.allSettled(workerQueue.map(async (page) => {
+  await Promise.allSettled(pages.map((page) =>
+    notionApiBottleneck.schedule(async () => {
       const title = await retry(async () => getPage(page.id), 3, 1);
       titles.set(page.id, title);
-    }));
-  }
+    })
+  ));
 
   const rows: NotionPageInsert[] = pages.map((page) => ({
     pageId: page.id,

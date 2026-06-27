@@ -1,5 +1,11 @@
 import { getIntegrationCredentialByIntegration, upsertIntegrationCredential, upsertSyncTask } from "@/core/db/queries/queries";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
+import Bottleneck from "bottleneck";
+
+export const notionApiBottleneck = new Bottleneck({
+  maxConcurrent: 5,
+  minTime: 200
+});
 
 export const NOTION_BASE_API = "https://api.notion.com/v1";
 export const NOTION_VERSION = "2026-03-11";

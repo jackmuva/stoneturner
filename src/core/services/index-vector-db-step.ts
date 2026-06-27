@@ -1,4 +1,4 @@
-import { getMdArtifactsByIntegration, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
+import { getMdArtifactsByIntegration, upsertSyncTask } from "@/core/db/queries/queries";
 import type { MdArtifactSelect } from "@/core/db/schema/schema";
 import {
   getEmbeddingsByIntegrationArtifactId,
@@ -7,116 +7,98 @@ import {
   upsertQuestionsAnsweredEmbedding,
 } from "@/core/db/queries/vector-queries";
 import { embedTexts } from "@/core/services/embedding";
-import { PAGE_SIZE, MAX_WORKERS } from "@/lib/constants";
+import { PAGE_SIZE } from "@/lib/constants";
 import { retry } from "@/lib/utils";
+import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 
-export const indexVectorDbStep = async (integration: string, incremental: boolean = true) => {
-  let curOffset: number = 0;
-  let artifactLengths: number[] = [];
+export const indexVectorDbStep = async (integration: string, incremental: boolean = true, offset?: number) => {
+  let curOffset: number = offset ? offset : 0;
+  let artifacts: MdArtifactSelect[] = [];
+  let firstIteration = true;
 
-  while (artifactLengths.filter((len: number) => len < PAGE_SIZE).length === 0) {
-    const offsets: number[] = [];
-    for (let i = 0; i < MAX_WORKERS; i++) {
-      offsets.push(curOffset + i * PAGE_SIZE);
-    }
-
-    const artifactsList = await Promise.allSettled(
-      offsets.map((offset) => getMdArtifacts(integration, offset))
-    );
-
+  while (artifacts.length > 0 || firstIteration) {
+    firstIteration = false;
+    artifacts = await getMdArtifactsByIntegration(integration, offset);
     await Promise.allSettled(
-      artifactsList
-        .map((artifacts, i) => { return { artifacts: artifacts, index: i } })
-        .filter((artifactObj) => artifactObj.artifacts.status === "fulfilled")
-        .map((artifactObj) => chunkMd(artifactObj.artifacts.status === "fulfilled" ? artifactObj.artifacts.value : [], offsets[artifactObj.index]!, incremental))
+      artifacts.map((artifact) => aiGatewayBottleneck.schedule(() => chunkMd(artifact, curOffset, incremental)))
     );
-
-    artifactLengths = artifactsList.map((artifacts) => {
-      return artifacts.status === "fulfilled" ? artifacts.value.length : PAGE_SIZE;
-    });
-
-    curOffset += MAX_WORKERS * PAGE_SIZE;
+    if(offset !== undefined)break;
+    curOffset += PAGE_SIZE;
   }
 }
 
-export const getMdArtifacts = async (integration: string, offset: number): Promise<MdArtifactSelect[]> => {
-  return await getMdArtifactsByIntegration(integration, offset)
-}
+export const chunkMd = async (artifact: MdArtifactSelect, curOffset: number, incremental: boolean) => {
+  try {
+    if (!artifact.markdown) return;
 
-export const chunkMd = async (artifacts: MdArtifactSelect[], curOffset: number, incremental: boolean) => {
-  for (const artifact of artifacts) {
-    try {
-      if (!artifact.markdown) continue;
-
-      if (!incremental) {
-        const embeddings = await getEmbeddingsByIntegrationArtifactId(artifact.integrationArtifactId);
-        if (embeddings.length > 0) continue;
-      }
-
-      const lines = artifact.markdown.split("\n").filter((line) => line.trim() !== "");
-      const chunks = chunkLines(lines, 250);
-
-      if (chunks.length === 0) continue;
-
-      const keyPoints = (artifact.keyPoints || []).filter((kp) => kp.trim() !== "");
-      const questionsAnswered = (artifact.questionsAnswered || []).filter((qa) => qa.trim() !== "");
-
-      await Promise.all([
-        retry(async () => {
-          const embeddings = await embedTexts(chunks.map((c) => c.text));
-          await Promise.all(chunks.map((c, i) => upsertContentEmbedding({
-            id: `${artifact.id}-lines-${c.startLine}-${c.endLine}`,
-            integrationArtifactId: artifact.integrationArtifactId,
-            integration: artifact.integration,
-            artifactDate: artifact.artifactDate,
-            content: c.text,
-            entities: artifact.entities,
-            embedding: embeddings[i]!,
-          })));
-        }, 3, 1),
-        retry(async () => {
-          if (keyPoints.length === 0) return;
-          const embeddings = await embedTexts(keyPoints);
-          await Promise.all(keyPoints.map((kp, i) => upsertKeyPointsEmbedding({
-            id: `${artifact.id}-kp-${i}`,
-            integrationArtifactId: artifact.integrationArtifactId,
-            integration: artifact.integration,
-            artifactDate: artifact.artifactDate,
-            content: kp,
-            entities: artifact.entities,
-            embedding: embeddings[i]!,
-          })));
-        }, 3, 1),
-        retry(async () => {
-          if (questionsAnswered.length === 0) return;
-          const embeddings = await embedTexts(questionsAnswered);
-          await Promise.all(questionsAnswered.map((qa, i) => upsertQuestionsAnsweredEmbedding({
-            id: `${artifact.id}-qa-${i}`,
-            integrationArtifactId: artifact.integrationArtifactId,
-            integration: artifact.integration,
-            artifactDate: artifact.artifactDate,
-            content: qa,
-            entities: artifact.entities,
-            embedding: embeddings[i]!,
-          })));
-        }, 3, 1),
-      ]);
-
-      await upsertSyncTask({
-        integration: artifact.integration,
-        status: "SUCCESS",
-        inputs: JSON.stringify({ offset: curOffset }),
-        step: "index-vector",
-      });
-    } catch (e) {
-      console.error("[ERROR INDEXING]", e);
-      await upsertSyncTask({
-        integration: artifact.integration,
-        status: "FAILED",
-        inputs: JSON.stringify({ offset: curOffset }),
-        step: "index-vector",
-      });
+    if (!incremental) {
+      const embeddings = await getEmbeddingsByIntegrationArtifactId(artifact.integrationArtifactId);
+      if (embeddings.length > 0) return;
     }
+
+    const lines = artifact.markdown.split("\n").filter((line) => line.trim() !== "");
+    const chunks = chunkLines(lines, 250);
+
+    if (chunks.length === 0) return;
+
+    const keyPoints = (artifact.keyPoints || []).filter((kp) => kp.trim() !== "");
+    const questionsAnswered = (artifact.questionsAnswered || []).filter((qa) => qa.trim() !== "");
+
+    await Promise.all([
+      retry(async () => {
+        const embeddings = await embedTexts(chunks.map((c) => c.text));
+        await Promise.all(chunks.map((c, i) => upsertContentEmbedding({
+          id: `${artifact.id}-lines-${c.startLine}-${c.endLine}`,
+          integrationArtifactId: artifact.integrationArtifactId,
+          integration: artifact.integration,
+          artifactDate: artifact.artifactDate,
+          content: c.text,
+          entities: artifact.entities,
+          embedding: embeddings[i]!,
+        })));
+      }, 3, 1),
+      retry(async () => {
+        if (keyPoints.length === 0) return;
+        const embeddings = await embedTexts(keyPoints);
+        await Promise.all(keyPoints.map((kp, i) => upsertKeyPointsEmbedding({
+          id: `${artifact.id}-kp-${i}`,
+          integrationArtifactId: artifact.integrationArtifactId,
+          integration: artifact.integration,
+          artifactDate: artifact.artifactDate,
+          content: kp,
+          entities: artifact.entities,
+          embedding: embeddings[i]!,
+        })));
+      }, 3, 1),
+      retry(async () => {
+        if (questionsAnswered.length === 0) return;
+        const embeddings = await embedTexts(questionsAnswered);
+        await Promise.all(questionsAnswered.map((qa, i) => upsertQuestionsAnsweredEmbedding({
+          id: `${artifact.id}-qa-${i}`,
+          integrationArtifactId: artifact.integrationArtifactId,
+          integration: artifact.integration,
+          artifactDate: artifact.artifactDate,
+          content: qa,
+          entities: artifact.entities,
+          embedding: embeddings[i]!,
+        })));
+      }, 3, 1),
+    ]);
+
+    await upsertSyncTask({
+      integration: artifact.integration,
+      status: "SUCCESS",
+      inputs: JSON.stringify({ offset: curOffset }),
+      step: "index-vector",
+    });
+  } catch (e) {
+    console.error("[ERROR INDEXING]", e);
+    await upsertSyncTask({
+      integration: artifact.integration,
+      status: "FAILED",
+      inputs: JSON.stringify({ offset: curOffset }),
+      step: "index-vector",
+    });
   }
 }
 

@@ -1,90 +1,88 @@
 import type { DiscordChannel } from "../models/models";
-import { DISCORD_API_ENDPOINT } from "./discord-utils";
+import { DISCORD_API_ENDPOINT, discordApiBottleneck } from "./discord-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
 import { retry } from "@/lib/utils";
-import { PAGE_SIZE, MAX_WORKERS } from "@/lib/constants";
+import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertDiscordChannel, getDiscordGuilds } from "../db/queries";
 import type { DiscordGuildSelect } from "../db/schema";
 
 export const syncChannels = async (incremental: boolean = true, guildId?: string) => {
   let curOffset = 0;
+  let guilds: DiscordGuildSelect[] = await getDiscordGuilds(curOffset);
 
-  while (true) {
-    const offsets = Array.from({ length: MAX_WORKERS }, (_, i) => curOffset + (i * PAGE_SIZE));
-    let guildLists = await Promise.all(offsets.map((offset) => getDiscordGuilds(offset)));
-    if (guildId) {
-      guildLists = guildLists.map((guildList) => guildList.filter((guild) => guild.id === guildId));
-    }
-    await Promise.all(guildLists.map((guildList) => upsertChannels(guildList)));
+  while (guilds.length > 0) {
+    const workerQueue = guildId ? guilds.filter((guild) => guild.id === guildId) : guilds;
+    await Promise.allSettled(workerQueue.map((guild) =>
+      discordApiBottleneck.schedule(() => upsertChannels(guild))
+    ));
 
-    if (guildLists.some((guildList) => guildList.length < PAGE_SIZE)) break;
-    curOffset += MAX_WORKERS * PAGE_SIZE;
+    if (guilds.length < PAGE_SIZE) break;
+    curOffset += PAGE_SIZE;
+    guilds = await getDiscordGuilds(curOffset);
   }
   return;
 }
 
-const upsertChannels = async (guilds: DiscordGuildSelect[]): Promise<void> => {
-  for (const guild of guilds) {
-    try {
-      const channels: DiscordChannel[] = await retry(async () => {
-        return await getChannelsByGuild(guild.id);
-      }, 3, 1);
+const upsertChannels = async (guild: DiscordGuildSelect): Promise<void> => {
+  try {
+    const channels: DiscordChannel[] = await retry(async () => {
+      return await getChannelsByGuild(guild.id);
+    }, 3, 1);
 
-      if (channels.length === 0) continue;
-      await batchInsertDiscordChannel(channels.map((channel) => {
-        return {
-          id: channel.id,
-          type: channel.type,
-          guildId: channel.guild_id,
-          position: channel.position,
-          permissionOverwrites: channel.permission_overwrites,
-          name: channel.name,
-          topic: channel.topic,
-          nsfw: channel.nsfw,
-          lastMessageId: channel.last_message_id,
-          bitrate: channel.bitrate,
-          userLimit: channel.user_limit,
-          rateLimitPerUser: channel.rate_limit_per_user,
-          recipients: channel.recipients,
-          icon: channel.icon,
-          ownerId: channel.owner_id,
-          applicationId: channel.application_id,
-          managed: channel.managed,
-          parentId: channel.parent_id,
-          lastPinTimestamp: channel.last_pin_timestamp,
-          rtcRegion: channel.rtc_region,
-          videoQualityMode: channel.video_quality_mode,
-          messageCount: channel.message_count,
-          memberCount: channel.member_count,
-          threadMetadata: channel.thread_metadata,
-          member: channel.member,
-          defaultAutoArchiveDuration: channel.default_auto_archive_duration,
-          permissions: channel.permissions,
-          flags: channel.flags,
-          totalMessageSent: channel.total_message_sent,
-          availableTags: channel.available_tags,
-          appliedTags: channel.applied_tags,
-          defaultReactionEmoji: channel.default_reaction_emoji,
-          defaultThreadRateLimitPerUser: channel.default_thread_rate_limit_per_user,
-          defaultSortOrder: channel.default_sort_order,
-          defaultForumLayout: channel.default_forum_layout,
-        }
-      }));
+    if (channels.length === 0) return;
+    await batchInsertDiscordChannel(channels.map((channel) => {
+      return {
+        id: channel.id,
+        type: channel.type,
+        guildId: channel.guild_id,
+        position: channel.position,
+        permissionOverwrites: channel.permission_overwrites,
+        name: channel.name,
+        topic: channel.topic,
+        nsfw: channel.nsfw,
+        lastMessageId: channel.last_message_id,
+        bitrate: channel.bitrate,
+        userLimit: channel.user_limit,
+        rateLimitPerUser: channel.rate_limit_per_user,
+        recipients: channel.recipients,
+        icon: channel.icon,
+        ownerId: channel.owner_id,
+        applicationId: channel.application_id,
+        managed: channel.managed,
+        parentId: channel.parent_id,
+        lastPinTimestamp: channel.last_pin_timestamp,
+        rtcRegion: channel.rtc_region,
+        videoQualityMode: channel.video_quality_mode,
+        messageCount: channel.message_count,
+        memberCount: channel.member_count,
+        threadMetadata: channel.thread_metadata,
+        member: channel.member,
+        defaultAutoArchiveDuration: channel.default_auto_archive_duration,
+        permissions: channel.permissions,
+        flags: channel.flags,
+        totalMessageSent: channel.total_message_sent,
+        availableTags: channel.available_tags,
+        appliedTags: channel.applied_tags,
+        defaultReactionEmoji: channel.default_reaction_emoji,
+        defaultThreadRateLimitPerUser: channel.default_thread_rate_limit_per_user,
+        defaultSortOrder: channel.default_sort_order,
+        defaultForumLayout: channel.default_forum_layout,
+      }
+    }));
 
-      await upsertSyncTask({
-        integration: "discord",
-        status: "SUCCESS",
-        step: "discord-sync-channel-by-guild",
-        inputs: JSON.stringify({ guildId: guild.id }),
-      });
-    } catch (e) {
-      await upsertSyncTask({
-        integration: "discord",
-        status: "FAILED",
-        step: "discord-sync-channel-by-guild",
-        inputs: JSON.stringify({ guildId: guild.id, error: e }),
-      });
-    }
+    await upsertSyncTask({
+      integration: "discord",
+      status: "SUCCESS",
+      step: "discord-sync-channel-by-guild",
+      inputs: JSON.stringify({ guildId: guild.id }),
+    });
+  } catch (e) {
+    await upsertSyncTask({
+      integration: "discord",
+      status: "FAILED",
+      step: "discord-sync-channel-by-guild",
+      inputs: JSON.stringify({ guildId: guild.id, error: e }),
+    });
   }
   return;
 }
