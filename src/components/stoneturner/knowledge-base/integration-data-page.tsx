@@ -161,7 +161,7 @@ export const IntegrationDataPage = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             </ButtonGroup>
-            {(optimisticSync || (syncTasks && syncTasks.length > 0)) && <div className="w-52 flex gap-1 items-center">
+            {(optimisticSync || (syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)) && <div className="w-52 flex gap-1 items-center">
               <span className="text-sm animate-pulse">Syncing...</span>
               <span className="animate-left-right">
                 <img src={"/assets/stoneturner.png"} alt="stoneturner-logo" className="animate-roll" width={25} height={25} />
