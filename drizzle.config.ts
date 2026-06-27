@@ -6,6 +6,7 @@ export default defineConfig({
     './src/integrations/gong/db/schema.ts',
     './src/integrations/discord/db/schema.ts',
     './src/integrations/notion/db/schema.ts',
+    './src/integrations/plaud/db/schema.ts',
   ],
   out: './migrations',
   dialect: 'turso',
