@@ -1,6 +1,7 @@
 import { getIntegrationCredentialByIntegration, upsertIntegrationCredential, upsertSyncTask } from "@/core/db/queries/queries";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import Bottleneck from "bottleneck";
+import type { BunRequest } from "bun";
 
 export const notionApiBottleneck = new Bottleneck({
   maxConcurrent: 5,
@@ -55,4 +56,52 @@ export const handleNotionRefresh = async () => {
     accessToken: token.access_token,
     refreshToken: token.refresh_token,
   });
+}
+
+export const handleOauthRedirect = async (req: BunRequest) => {
+  const code = new URL(req.url).searchParams.get("code");
+  if (!code) {
+    return Response.json({ error: "missing code" }, { status: 400 });
+  }
+
+  const clientId = process.env.BUN_PUBLIC_NOTION_CLIENT_ID ?? "";
+  const clientSecret = process.env.NOTION_CLIENT_SECRET ?? "";
+
+  const res = await fetch(`${NOTION_BASE_API}/oauth/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+    },
+    body: JSON.stringify({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: `${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/oauth/notion`,
+    }),
+  });
+
+  if (!res.ok) {
+    return Response.json({ error: "token exchange failed" }, { status: 502 });
+  }
+
+  const token = await res.json() as {
+    access_token: string;
+    refresh_token: string;
+    bot_id: string;
+    owner: any;
+    workspace_icon: string;
+    workspace_id: string;
+    workspace_name: string;
+  };
+
+
+  await upsertIntegrationCredential({
+    id: crypto.randomUUID(),
+    integration: "notion",
+    integrationType: "OAUTH",
+    accessToken: token.access_token,
+    refreshToken: token.refresh_token,
+  });
+
+  return Response.redirect(process.env.BUN_PUBLIC_BACKEND_BASE_URL!, 302);
 }
