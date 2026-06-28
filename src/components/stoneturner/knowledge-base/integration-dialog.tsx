@@ -29,9 +29,14 @@ export const IntegrationDialog = ({
     onOpenChange?.(value);
   };
   const [intInputs, setIntInputs] = useState<Record<string, string>>({});
-  const allFieldsFilled = intConfig.inputs?.every(
+  const [intOptions, setIntOptions] = useState<Record<string, string>>({});
+  const inputsFilled = (intConfig.inputs ?? []).every(
     (input) => (intInputs[input.input]?.trim().length ?? 0) > 0
   );
+  const optionsFilled = (intConfig.optionInputs ?? []).every(
+    (option) => (intOptions[option.key]?.trim().length ?? 0) > 0
+  );
+  const allFieldsFilled = inputsFilled && optionsFilled;
 
   const upsertIntegrationCreds = async (intConfig: IntegrationConfig) => {
     if (!allFieldsFilled) return;
@@ -47,6 +52,7 @@ export const IntegrationDialog = ({
         secretKey: intInputs["secretKey"] ?? null,
         baseUrl: intInputs["baseUrl"] ?? null,
         tokenExpiration: intInputs["tokenExpiration"] ?? null,
+        options: intConfig.optionInputs?.length ? intOptions : null,
       }
 
       await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/integrations`, {
@@ -88,6 +94,16 @@ export const IntegrationDialog = ({
                 e.preventDefault();
                 setIntInputs((prev) => ({
                   ...prev, [input.input]: e.target.value
+                }))
+              }} />
+            );
+          })}
+          {intConfig.optionInputs?.map((option) => {
+            return (
+              <Input key={option.key + intConfig.integration} placeholder={option.label} onChange={(e) => {
+                e.preventDefault();
+                setIntOptions((prev) => ({
+                  ...prev, [option.key]: e.target.value
                 }))
               }} />
             );

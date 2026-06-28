@@ -3,10 +3,12 @@ import { gongConfig } from "./gong/config";
 import { discordConfig } from "./discord/config";
 import { notionConfig } from "./notion/config";
 import { plaudConfig } from "./plaud/config";
+import { firecrawlConfig } from "./firecrawl/config";
 
 export const configRegistry: IntegrationConfig[] = [
   gongConfig,
   discordConfig,
   notionConfig,
   plaudConfig,
+  firecrawlConfig,
 ];
