@@ -69,7 +69,7 @@ See `references/anatomy.md`.
 
 Pick `integrationType`: `BASIC_TOKEN`, `API_KEY`, or `OAUTH`. For token/key
 auth, declare `inputs` (allowed values: `accessKey`, `secretKey`, `baseUrl` —
-these map to columns on `integrationCredential`). For OAuth, set
+these map to columns on `integrationCredential` - all other input types should be store in **input options**). For OAuth, set
 `oauthAuthorizationUrl`. See `references/auth.md`.
 
 ### 3. Define raw-data schemas + queries (`db/`)
