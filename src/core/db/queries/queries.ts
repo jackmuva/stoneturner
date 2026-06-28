@@ -25,6 +25,7 @@ export const upsertIntegrationCredential = async (integrationData: IntegrationCr
       secretKey: integrationData.secretKey,
       baseUrl: integrationData.baseUrl,
       tokenExpiration: integrationData.tokenExpiration,
+      options: integrationData.options,
     }).where(sql`"id" = ${existing.id}`);
   } else {
     await db.insert(integrationCredential).values(integrationData);

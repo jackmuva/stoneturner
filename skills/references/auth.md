@@ -9,6 +9,7 @@ integrationCredential {
   apiKey,                          // API_KEY
   accessToken, refreshToken, tokenExpiration,   // OAUTH
   accessKey, secretKey, baseUrl,   // BASIC_TOKEN (the three allowed `inputs`)
+  options //any other inputs that may be needed (store them in a Record<string, string>)
 }
 ```
 

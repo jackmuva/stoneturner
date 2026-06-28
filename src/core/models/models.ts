@@ -9,6 +9,7 @@ export type IntegrationConfig = {
     input: "accessKey" | "baseUrl" | "secretKey",
     label: string,
   }[],
+  options?: Record<string, string>,
   oauthAuthorizationUrl?: string,
   installUrl?: string,
 };
