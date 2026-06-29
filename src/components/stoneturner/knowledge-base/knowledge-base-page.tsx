@@ -7,6 +7,7 @@ import { configRegistry } from '@/integrations/config-registry';
 import type { IntegrationCredential, SyncTaskSelect } from '@/core/db/schema/schema';
 import type { IntegrationConfig } from '@/core/models/models';
 import { useParams } from 'react-router-dom';
+import { ConnectInstructionsCard } from './connect-instructions-card';
 
 export const KnowledgeBasePage = () => {
   let { integration } = useParams();
@@ -47,7 +48,8 @@ export const KnowledgeBasePage = () => {
         onChange={(e) => setSearch(e.target.value)}
         className="max-w-sm"
       />
-      <div className="animate-appear grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="animate-appear grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <ConnectInstructionsCard />
         {configRegistry
           .filter((intConfig: IntegrationConfig) =>
             intConfig.integration.toLowerCase().includes(search.toLowerCase()))
