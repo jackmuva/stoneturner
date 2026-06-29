@@ -1,6 +1,3 @@
-import type { TursoDatabaseDatabase } from "drizzle-orm/tursodatabase/driver-core";
-import { Database } from '@tursodatabase/database';
+import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 
-export type SqliteDb = TursoDatabaseDatabase & {
-  $client: Database;
-}
+export type SqliteDb = BaseSQLiteDatabase<"async", any, any>;

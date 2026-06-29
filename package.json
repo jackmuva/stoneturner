@@ -7,6 +7,7 @@
     "dev": "bun --hot src/index.ts",
     "start": "NODE_ENV=production bun src/index.ts",
     "build": "bun run build.ts",
+    "lint": "bun tsc --noEmit",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate"
   },
@@ -40,6 +41,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "drizzle-kit": "^1.0.0-beta.22",
-    "tailwindcss": "^4.1.11"
+    "tailwindcss": "^4.1.11",
+    "typescript": "^6.0.3"
   }
 }
