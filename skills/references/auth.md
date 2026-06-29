@@ -13,9 +13,10 @@ integrationCredential {
 }
 ```
 
-Read them anywhere with
-`getIntegrationCredentialByIntegration("<Name>")` and write with
-`upsertIntegrationCredential(...)` (both in `src/core/db/queries/queries.ts`).
+Read them with `getIntegrationCredentialByIntegration("<Name>", db)` and write
+with `upsertIntegrationCredential(cred, db)` (both in
+`src/core/db/queries/queries.ts`). Both take the shared `db: SqliteDb` handle —
+it is threaded in as a parameter (see `anatomy.md`), never imported.
 
 ## BASIC_TOKEN
 
@@ -24,8 +25,8 @@ collects them; you assemble the auth header. From Gong
 (`src/integrations/gong/sync-steps/sync-calls-step.ts`):
 
 ```ts
-export const getCredentials = async () => {
-  const cred = await getIntegrationCredentialByIntegration("Gong");
+export const getCredentials = async (db: SqliteDb) => {
+  const cred = await getIntegrationCredentialByIntegration("Gong", db);
   const basicToken = btoa(cred?.accessKey + ":" + cred?.secretKey);  // base64(access:secret)
   return { basicToken, baseUrl: cred?.baseUrl };
 };
@@ -70,8 +71,9 @@ From Notion (`src/integrations/notion/integration.ts`):
 ```ts
 import type { BunRequest } from "bun";
 import { upsertIntegrationCredential } from "@/core/db/queries/queries";
+import type { SqliteDb } from "@/core/models/db-models";
 
-const handleOauthRedirect = async (req: BunRequest) => {
+const handleOauthRedirect = async (req: BunRequest, db: SqliteDb) => {
   const code = new URL(req.url).searchParams.get("code");
   if (!code) return Response.json({ error: "missing code" }, { status: 400 });
 
@@ -100,7 +102,7 @@ const handleOauthRedirect = async (req: BunRequest) => {
     integrationType: "OAUTH",
     accessToken: token.access_token,
     refreshToken: token.refresh_token,
-  });
+  }, db);
 
   return Response.redirect(process.env.BUN_PUBLIC_BACKEND_BASE_URL!, 302);
 };
@@ -111,15 +113,15 @@ const handleOauthRedirect = async (req: BunRequest) => {
 ```ts
 export const notionIntegration: Integration = {
   config: notionConfig,
-  sync: async () => await syncNotionPipeline(false),
-  syncUpdates: async () => await syncNotionPipeline(true),
-  deleteSync: async () => { /* purge data + syncTasks + artifacts + embeddings */ },
-  handleRedirect: handleOauthRedirect, // implement in <name>-utils.ts
-  refreshAccessTokens: handleNotionRefresh,   // implement in <name>-utils.ts
+  sync: async (db: SqliteDb) => await syncNotionPipeline(false, db),
+  syncUpdates: async (db: SqliteDb) => await syncNotionPipeline(true, db),
+  deleteSync: async (db: SqliteDb) => { /* purge data + syncTasks + artifacts + embeddings */ },
+  handleRedirect: handleOauthRedirect,        // (req, db) — implement in <name>-utils.ts
+  refreshAccessTokens: handleNotionRefresh,   // (db)      — implement in <name>-utils.ts
 };
 ```
 
-`refreshAccessTokens` uses the stored `refreshToken` to mint a new
+`refreshAccessTokens(db)` uses the stored `refreshToken` to mint a new
 `accessToken` and `upsertIntegrationCredential`s it back. Implement it in a
 `sync-steps/<name>-utils.ts` helper (see Notion's `handleNotionRefresh`).
 

@@ -9,19 +9,18 @@ Stoneturner is a data sync & search layer for agents: it syncs external integrat
 - `bun dev` — run server with hot reload (`bun --hot src/index.ts`), port 9000
 - `bun run build` — bundle frontend to `dist/`
 - `bun start` — production server (`NODE_ENV=production`)
-- `bunx tsc --noEmit` — typecheck (no lint script exists)
-- `bun run generate` — `drizzle-kit generate` (schema → migration files)
+- `bun run lint` — typecheck (`bun tsc --noEmit`); the only "lint" — there is no ESLint
+- `bun run generate` — `drizzle-kit generate` (schema → migration files in `migrations/`)
 - `bun run migrate` — `drizzle-kit migrate` (apply pending migrations)
 - No test files exist yet. Set `BUN_PUBLIC_DEV_MODE=true` to point the app at `test-stoneturner.db` instead of `stoneturner.db` (see `src/core/db/db.ts`).
-- `scripts/` holds one-off bulk importers (`import-gong-calls.ts`, `import-md-artifacts.ts`, etc.) run directly with `bun scripts/<file>.ts`.
+- `scripts/` holds one-off bulk importers/utilities (`import-gong-calls.ts`, `import-gong-transcripts.ts`, `import-md-artifacts.ts`, `import-sync-tasks.ts`, `csv-stream.ts`) run directly with `bun scripts/<file>.ts`.
 
 ## Architecture
 
 - `src/index.ts` — single `Bun.serve()` with all routes + HMR in dev, port 9000.
 - `@/*` alias → `src/*`.
-- `src/core/` — shared plumbing; `src/integrations/<name>/` — one folder per integration (gong, discord, notion).
+- `src/core/` — shared plumbing; `src/integrations/<name>/` — one folder per integration (gong, discord, notion, plaud, firecrawl).
 - Bun-first: `Bun.serve()`, `Bun.file`, `bunx`. No express/vite/webpack. Exception: database is Turso/libSQL via Drizzle (`@tursodatabase/database`), not `bun:sqlite`.
-- Directory is actually called `middlware/` (typo, not `middleware/`).
 
 ### Adding an integration
 
@@ -30,7 +29,9 @@ Create `src/integrations/<name>/` with `config.ts`, `integration.ts`, `db/`, `mo
 - `sync()` — full sync, `syncUpdates()` — incremental sync (both usually call one pipeline fn with an `incremental` flag), `deleteSync()` — purge syncTasks + artifacts + embeddings + integration tables.
 - optional `handleRedirect(req)` — OAuth callback, `refreshAccessTokens()`.
 
-Then register in `src/integrations/sync-registry.ts` (sync dispatch) and `src/integrations/config-registry.ts` (frontend UI). Routes in `src/index.ts` dispatch by matching the `:integration` path param against `config.integration` (case-insensitive): `POST /api/sync/:integration` → `sync()`, `DELETE` → `deleteSync()`, `POST /api/sync/updates/:integration` → `syncUpdates()`, `GET /api/oauth/:integration` → `handleRedirect()`.
+Then register in `src/integrations/sync-registry.ts` (sync dispatch), `src/integrations/config-registry.ts` (frontend UI), and add the integration's `db/schema.ts` to the `schema` array in `drizzle.config.ts` so migrations pick it up. Routes in `src/index.ts` dispatch by matching the `:integration` path param against `config.integration` (case-insensitive): `POST /api/sync/:integration` → `sync()`, `DELETE` → `deleteSync()`, `POST /api/sync/updates/:integration` → `syncUpdates()`, `GET /api/oauth/:integration` → `handleRedirect()`.
+
+There is a `build-stoneturner-integration` skill (`skills/`) that scaffolds a new integration end-to-end; `integration-specs/` holds per-integration spec docs (e.g. `firecrawl-spec.md`, `plaud-spec.md`) used as input when building one.
 
 ## Sync pipeline
 

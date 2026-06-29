@@ -32,7 +32,7 @@ sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector
 2. **parse** — read those rows, render markdown, call the summarization LLM to
    extract `keyPoints` / `questionsAnswered` / `entities`, and upsert one
    `mdArtifact` per logical item.
-3. **index-vector** — `indexVectorDbStep(integration, incremental)` from
+3. **index-vector** — `indexVectorDbStep(integration, incremental, db)` from
    `src/core/services/index-vector-db-step.ts`. **This step is shared — you do
    not write it.** It chunks each artifact's markdown, embeds content / key
    points / questions, and upserts the vector rows.
@@ -40,6 +40,12 @@ sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector
 Syncs are **fire-and-forget** from the HTTP handler (no `await` — see
 `src/index.ts`), so all error handling must live inside your steps and be
 recorded as `syncTask` rows.
+
+The shared drizzle handle `db: SqliteDb` (`src/core/models/db-models.ts`) is
+created once in `src/core/db/db.ts`, passed in at the route layer, and threaded
+as an explicit parameter through every `Integration` method, pipeline function,
+sync/parse step, and query helper. Accept `db` as a parameter — do **not**
+`import { db } from "@/core/db/db"` inside integration code.
 
 ## Steps
 
@@ -80,7 +86,9 @@ register the schema path in `drizzle.config.ts`. See `references/anatomy.md`.
 
 ### 4. Write the sync steps (`sync-steps/`)
 
-- Read credentials via `getIntegrationCredentialByIntegration("<Name>")`.
+- Take `db: SqliteDb` as a parameter (by convention last, before trailing
+  optional args) and pass it to every query call.
+- Read credentials via `getIntegrationCredentialByIntegration("<Name>", db)`.
 - Wrap every network/LLM call in `retry()` (`src/lib/utils.ts`).
 - Throttle **all** AI Gateway calls through `aiGatewayBottleneck.schedule(...)`.
 - Support an `incremental` flag (fetch only new/updated items).
@@ -92,10 +100,10 @@ See `references/sync-pipeline.md`.
 
 ### 5. Assemble the pipeline + `Integration` (`integration.ts`)
 
-Compose your steps into one `syncPipeline(incremental)` function, then export an
-`Integration` whose `sync` calls it with `false`, `syncUpdates` with `true`, and
-`deleteSync` purges syncTasks + artifacts + embeddings + your own tables. Add
-`handleRedirect` / `refreshAccessTokens` only for OAuth.
+Compose your steps into one `syncPipeline(incremental, db)` function, then export
+an `Integration` whose `sync(db)` calls it with `false`, `syncUpdates(db)` with
+`true`, and `deleteSync(db)` purges syncTasks + artifacts + embeddings + your own
+tables. Add `handleRedirect(req, db)` / `refreshAccessTokens(db)` only for OAuth.
 
 ### 6. Register it
 
@@ -120,7 +128,7 @@ UI. See `references/checklist.md`.
 
 - `@/*` is the alias for `src/*`.
 - The shared vector step is `index-vector-db-step.ts` — reuse it, don't fork it.
-- The middleware directory is misspelled `middlware/` on purpose; don't "fix" it.
+- Thread `db: SqliteDb` through every method/step/query; never `import { db }`.
 - Keep the value passed to `indexVectorDbStep(...)` identical to
   `config.integration` and to the integration string you write on every
   `mdArtifact` / `syncTask` — they're matched as plain strings.

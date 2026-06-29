@@ -8,6 +8,10 @@ Each step writes `syncTask` rows so the web UI can show progress. Syncs are
 fire-and-forget, so a step must never throw to the caller — catch, log a FAILED
 `syncTask`, and continue.
 
+Every step and query takes the shared `db: SqliteDb` handle as a parameter (it
+is threaded down from the route — see `anatomy.md`). Never import `db` directly;
+accept it and pass it through.
+
 ## Shared building blocks
 
 | Helper | Location | Use |
@@ -17,9 +21,9 @@ fire-and-forget, so a step must never throw to the caller — catch, log a FAILE
 | `embedTexts(strings)` | `src/core/services/embedding.ts` | embeddings (`openai/text-embedding-3-small`) |
 | `SUMMARIZATION_MODEL` | `src/lib/constants.ts` | `google/gemini-3-flash` for parsing |
 | `PAGE_SIZE` | `src/lib/constants.ts` | `20` — standard pagination window |
-| `upsertSyncTask(...)` | `src/core/db/queries/queries.ts` | record step status |
-| `upsertMdArtifact(...)` | `src/core/db/queries/queries.ts` | write the parse output |
-| `indexVectorDbStep(integration, incremental)` | `src/core/services/index-vector-db-step.ts` | the entire vector step — **reuse, don't rewrite** |
+| `upsertSyncTask(task, db)` | `src/core/db/queries/queries.ts` | record step status |
+| `upsertMdArtifact(artifact, db)` | `src/core/db/queries/queries.ts` | write the parse output |
+| `indexVectorDbStep(integration, incremental, db)` | `src/core/services/index-vector-db-step.ts` | the entire vector step — **reuse, don't rewrite** |
 
 ## Step 1 — sync-data
 
@@ -31,26 +35,27 @@ from `src/integrations/gong/sync-steps/sync-calls-step.ts`:
 import { getIntegrationCredentialByIntegration, upsertSyncTask } from "@/core/db/queries/queries";
 import { retry } from "@/lib/utils";
 import { batchInsertGongCall, getLatestGongCall } from "../db/queries";
+import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncGongCallsStep = async (incremental: boolean = false) => {
+export const syncGongCallsStep = async (incremental: boolean = false, db: SqliteDb) => {
   // incremental: only fetch items newer than what we already have
   let latestDate: string | null = null;
   if (incremental) {
-    const latestCall = await getLatestGongCall();
+    const latestCall = await getLatestGongCall(db);
     if (latestCall) latestDate = latestCall.started;
   }
 
-  const { basicToken, baseUrl } = await getCredentials();
+  const { basicToken, baseUrl } = await getCredentials(db);
 
   let cursor: string | null = null;
   let first = true;
   while ((cursor || first) && baseUrl) {
     first = false;
-    cursor = await fetchPage(basicToken, baseUrl, cursor, latestDate);  // returns next cursor
+    cursor = await fetchPage(db, basicToken, baseUrl, cursor, latestDate);  // returns next cursor
   }
 };
 
-const fetchPage = async (token, baseUrl, cursor, startDate): Promise<string | null> => {
+const fetchPage = async (db, token, baseUrl, cursor, startDate): Promise<string | null> => {
   try {
     const url = new URL(`${baseUrl}/v2/calls`);
     if (cursor) url.searchParams.append("cursor", cursor);
@@ -62,22 +67,22 @@ const fetchPage = async (token, baseUrl, cursor, startDate): Promise<string | nu
     }));
     const body = await res.json();
 
-    await batchInsertGongCall(body.calls.map(c => ({ callId: c.id, title: c.title, started: c.started /* ... */ })));
+    await batchInsertGongCall(body.calls.map(c => ({ callId: c.id, title: c.title, started: c.started /* ... */ })), db);
 
-    await upsertSyncTask({ integration: "Gong", status: "SUCCESS", inputs: JSON.stringify({ cursor }), step: "gong-sync-call" });
+    await upsertSyncTask({ integration: "Gong", status: "SUCCESS", inputs: JSON.stringify({ cursor }), step: "gong-sync-call" }, db);
     return body.records.cursor;       // null when done
   } catch (e) {
-    await upsertSyncTask({ integration: "Gong", status: "FAILED", inputs: JSON.stringify({ cursor, error: e }), step: "gong-sync-call" });
+    await upsertSyncTask({ integration: "Gong", status: "FAILED", inputs: JSON.stringify({ cursor, error: e }), step: "gong-sync-call" }, db);
     return null;
   }
 };
 ```
 
-Reading credentials (`getCredentials` in the same file) — `BASIC_TOKEN` builds a
-base64 token from `accessKey:secretKey`:
+Reading credentials (`getCredentials(db)` in the same file) — `BASIC_TOKEN`
+builds a base64 token from `accessKey:secretKey`:
 
 ```ts
-const cred = await getIntegrationCredentialByIntegration("Gong");
+const cred = await getIntegrationCredentialByIntegration("Gong", db);
 const basicToken = btoa(cred?.accessKey + ":" + cred?.secretKey);
 ```
 
@@ -97,17 +102,18 @@ import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import { generateText, Output } from "ai";
 import * as z from "zod";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
+import type { SqliteDb } from "@/core/models/db-models";
 
-export const parseGongStep = async () => {
+export const parseGongStep = async (db: SqliteDb) => {
   let offset = 0;
   let rows = [];
   let first = true;
   while (rows.length > 0 || first) {
     first = false;
-    rows = await getGongTranscripts(offset);
+    rows = await getGongTranscripts(offset, db);
     // schedule each LLM job through the shared limiter; settle all
     const results = await Promise.allSettled(
-      rows.map((t) => aiGatewayBottleneck.schedule(() => generateMdArtifact(t)))
+      rows.map((t) => aiGatewayBottleneck.schedule(() => generateMdArtifact(t, db)))
     );
     const failures = results.filter(r => r.status === "rejected").map(r => String(r.reason));
     await upsertSyncTask({
@@ -115,16 +121,16 @@ export const parseGongStep = async () => {
       status: failures.length ? "FAILED" : "SUCCESS",
       inputs: JSON.stringify(failures.length ? { offset, errors: failures } : { offset }),
       step: "parse",
-    });
+    }, db);
     offset += PAGE_SIZE;
   }
 };
 
-const generateMdArtifact = async (row): Promise<void> => {
+const generateMdArtifact = async (row, db: SqliteDb): Promise<void> => {
   const markdown = renderMarkdown(row);   // build the markdown string from raw data
 
   // idempotency: skip re-summarizing unchanged artifacts
-  const existing = await getMdArtifactByIntegrationArtifactId(row.callId);
+  const existing = await getMdArtifactByIntegrationArtifactId(row.callId, db);
   if (existing && existing.markdown === markdown) return;
 
   const { output: analysis } = await retry(async () => await generateText({
@@ -150,7 +156,7 @@ ${markdown}`,
     keyPoints: analysis.keyPoints,
     questionsAnswered: analysis.questionsAnswered,
     entities: analysis.entities,
-  });
+  }, db);
 };
 ```
 
@@ -175,7 +181,7 @@ Call the shared step from your pipeline:
 
 ```ts
 import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
-await indexVectorDbStep("Gong", incremental);
+await indexVectorDbStep("Gong", incremental, db);
 ```
 
 `indexVectorDbStep` (`src/core/services/index-vector-db-step.ts`) pages through
@@ -184,8 +190,8 @@ words/chunk), embeds content + key points + questions via `embedTexts` (each
 scheduled through `aiGatewayBottleneck` and wrapped in `retry`), and upserts
 `contentEmbedding` / `keyPointsEmbedding` / `questionsAnsweredEmbedding`. When
 `incremental` is `false` it skips artifacts that already have embeddings. It
-writes its own `index-vector` syncTask rows. You pass the integration string and
-the flag — nothing else.
+writes its own `index-vector` syncTask rows. You pass the integration string,
+the flag, and `db` — nothing else.
 
 ## Rate limiting & retries — the rules
 

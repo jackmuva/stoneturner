@@ -14,24 +14,43 @@ export type IntegrationConfig = {
     input: "accessKey" | "baseUrl" | "secretKey",      // these are the ONLY allowed keys
     label: string,
   }[],
+  optionInputs?: { key: string, label: string }[],      // extra fields → stored in `options`
+  options?: Record<string, string>,                     // any non-column inputs
   oauthAuthorizationUrl?: string,                       // OAUTH only
   installUrl?: string,
 };
 
 export type Integration = {
   config: IntegrationConfig,
-  sync: () => Promise<void> | void,                     // full sync
-  syncUpdates: () => Promise<void> | void,              // incremental sync
-  deleteSync: () => Promise<void> | void,               // purge everything
-  handleRedirect?: (req: BunRequest) => Promise<Response> | Response,  // OAuth callback
-  refreshAccessTokens?: () => Promise<void> | void,     // OAuth token refresh
+  sync: (db: SqliteDb) => Promise<void> | void,         // full sync
+  syncUpdates: (db: SqliteDb) => Promise<void> | void,  // incremental sync
+  deleteSync: (db: SqliteDb) => Promise<void> | void,   // purge everything
+  handleRedirect?: (req: BunRequest, db: SqliteDb) => Promise<Response> | Response,  // OAuth callback
+  refreshAccessTokens?: (db: SqliteDb) => Promise<void> | void,  // OAuth token refresh
 };
 ```
 
 The `inputs[].input` union is fixed because each value maps to a column on the
 shared `integrationCredential` table (`accessKey`, `secretKey`, `baseUrl`). You
 cannot invent new input names; reuse these three (or use `API_KEY` /`OAUTH`,
-which store `apiKey` / `accessToken` + `refreshToken`).
+which store `apiKey` / `accessToken` + `refreshToken`). Any other field goes in
+`optionInputs` and is persisted to the `options` JSON column.
+
+## The `db` handle is threaded everywhere
+
+`SqliteDb` (`= BaseSQLiteDatabase<"async", any, any>`, defined in
+`src/core/models/db-models.ts`) is the drizzle handle. A single instance is
+created in `src/core/db/db.ts` and **passed in at the route layer**
+(`src/index.ts`), then threaded down as an explicit parameter through every
+`Integration` method, pipeline function, sync/parse step, and query helper. Do
+**not** `import { db } from "@/core/db/db"` inside integration code — accept
+`db: SqliteDb` as a parameter instead.
+
+By convention `db` is the last positional argument, before any trailing optional
+args (e.g. `syncStep(incremental, db, cursor?)`, `parseStep(db, offset?)`,
+`getRows(offset, db)`, `upsertSyncTask(task, db)`). A few core helpers take it
+first (`getMdArtifactsByIntegration(db, integration, offset, opts)`) — match the
+signature of the helper you're calling.
 
 ## Folder layout
 
@@ -86,25 +105,26 @@ import { gongConfig } from "./config";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { deleteAllGongData } from "./db/queries";
+import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncGongPipeline = async (incremental: boolean = false) => {
+export const syncGongPipeline = async (incremental: boolean = false, db: SqliteDb) => {
   await Promise.all([
-    syncGongCallsStep(incremental),
-    syncGongTranscriptsStep(incremental),
-  ]);                                   // parallel fetches
-  await parseGongStep();                // raw rows → mdArtifact
-  await indexVectorDbStep("Gong", incremental);  // shared embed + upsert
+    syncGongCallsStep(incremental, db),
+    syncGongTranscriptsStep(incremental, db),
+  ]);                                       // parallel fetches
+  await parseGongStep(db);                  // raw rows → mdArtifact
+  await indexVectorDbStep("Gong", incremental, db);  // shared embed + upsert
 };
 
 export const gongIntegration: Integration = {
   config: gongConfig,
-  sync: async () => await syncGongPipeline(false),
-  syncUpdates: async () => await syncGongPipeline(true),
-  deleteSync: async () => {
-    await deleteSyncTasksByIntegration("Gong");
-    await deleteMdArtifactsByIntegration("Gong");
-    await deleteEmbeddingByIntegration("Gong");
-    await deleteAllGongData();          // your own raw tables
+  sync: async (db: SqliteDb) => await syncGongPipeline(false, db),
+  syncUpdates: async (db: SqliteDb) => await syncGongPipeline(true, db),
+  deleteSync: async (db: SqliteDb) => {
+    await deleteSyncTasksByIntegration("Gong", db);
+    await deleteMdArtifactsByIntegration("Gong", db);
+    await deleteEmbeddingByIntegration("Gong", db);
+    await deleteAllGongData(db);             // your own raw tables
   },
 };
 ```
@@ -145,18 +165,21 @@ Store nested JSON with `text("col", { mode: "json" }).$type<MyType[]>()` (see
 Use `onConflictDoUpdate` keyed on the unique business key so re-syncs upsert
 rather than duplicate (`src/integrations/gong/db/queries.ts`):
 
-```ts
-import { db } from "@/core/db/db";
-import { sql } from "drizzle-orm";
+Note: `db` is **not** imported here — it arrives as a parameter (see "The `db`
+handle is threaded everywhere" above).
 
-export const batchInsertGongCall = async (calls: GongCallInsert[]): Promise<void> => {
+```ts
+import { sql } from "drizzle-orm";
+import type { SqliteDb } from "@/core/models/db-models";
+
+export const batchInsertGongCall = async (calls: GongCallInsert[], db: SqliteDb): Promise<void> => {
   await db.insert(gongCall).values(calls).onConflictDoUpdate({
     target: gongCall.callId,
     set: { title: sql`excluded.title`, started: sql`excluded.started` /* ... */ },
   });
 };
 
-export const deleteAllGongData = async (): Promise<void> => {
+export const deleteAllGongData = async (db: SqliteDb): Promise<void> => {
   await db.delete(gongTranscript);
   await db.delete(gongCall);
 };
@@ -198,16 +221,21 @@ export const supportedIntegrations: Integration[] = [gongIntegration, /* ... */ 
 `src/index.ts` matches the `:integration` path param against
 `config.integration` case-insensitively — no per-integration route wiring:
 
+The shared `db` (imported from `@/core/db/db` in `src/index.ts`) is passed into
+the dispatched method — that is where the threading starts:
+
 ```ts
+import { db } from "./core/db/db";
+// ...
 const target = decodeURIComponent(req.params.integration).toLowerCase();
 const index = supportedIntegrations.findIndex(
   (integ) => integ.config.integration.toLowerCase() === target);
-supportedIntegrations[index]!.sync();   // fire-and-forget, NOT awaited
+supportedIntegrations[index]!.sync(db);   // fire-and-forget, NOT awaited
 ```
 
 | Route | Method | Calls |
 |---|---|---|
-| `/api/sync/:integration` | POST | `sync()` |
-| `/api/sync/updates/:integration` | POST | `syncUpdates()` |
-| `/api/sync/:integration` | DELETE | `deleteSync()` |
-| `/api/oauth/:integration` | GET | `handleRedirect(req)` |
+| `/api/sync/:integration` | POST | `sync(db)` |
+| `/api/sync/updates/:integration` | POST | `syncUpdates(db)` |
+| `/api/sync/:integration` | DELETE | `deleteSync(db)` |
+| `/api/oauth/:integration` | GET | `handleRedirect(req, db)` |

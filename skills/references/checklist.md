@@ -3,16 +3,21 @@
 Work top to bottom. File paths assume the integration is named `<name>` (use the
 exact `config.integration` string consistently everywhere it appears).
 
+Every query helper, sync/parse step, pipeline fn, and `Integration` method takes
+the shared `db: SqliteDb` (`@/core/models/db-models`) as a parameter — thread it
+down, never `import { db }`. See `anatomy.md` → "The `db` handle is threaded
+everywhere".
+
 ## Files to create
 
 - [ ] `src/integrations/<name>/config.ts` — export `<name>Config: IntegrationConfig`.
 - [ ] `src/integrations/<name>/models/models.ts` — types for the external API JSON.
 - [ ] `src/integrations/<name>/db/schema.ts` — drizzle tables (unique business key per row) + `InferInsert/SelectModel` exports.
-- [ ] `src/integrations/<name>/db/queries.ts` — `batchInsert*` (with `onConflictDoUpdate`), `get*`, `getLatest*`/`getMostRecent*` (for incremental), and a `delete*Data` that purges your tables.
-- [ ] `src/integrations/<name>/sync-steps/sync-*-step.ts` — fetch + insert; paginated; `retry()`-wrapped; logs `syncTask`.
-- [ ] `src/integrations/<name>/sync-steps/parse-step.ts` — raw rows → `upsertMdArtifact`; LLM via `aiGatewayBottleneck.schedule(...)`.
-- [ ] `src/integrations/<name>/integration.ts` — `syncPipeline(incremental)` + the `Integration` object (incl. `deleteSync`).
-- [ ] OAuth only: `handleRedirect` + `refreshAccessTokens` (see `auth.md`).
+- [ ] `src/integrations/<name>/db/queries.ts` — `batchInsert*` (with `onConflictDoUpdate`), `get*`, `getLatest*`/`getMostRecent*` (for incremental), and a `delete*Data` that purges your tables. Each takes `db: SqliteDb`.
+- [ ] `src/integrations/<name>/sync-steps/sync-*-step.ts` — fetch + insert; paginated; `retry()`-wrapped; logs `syncTask`. Signature `(incremental, db, ...)`.
+- [ ] `src/integrations/<name>/sync-steps/parse-step.ts` — raw rows → `upsertMdArtifact`; LLM via `aiGatewayBottleneck.schedule(...)`. Signature `(db, offset?)`.
+- [ ] `src/integrations/<name>/integration.ts` — `syncPipeline(incremental, db)` + the `Integration` object (incl. `deleteSync(db)`).
+- [ ] OAuth only: `handleRedirect(req, db)` + `refreshAccessTokens(db)` (see `auth.md`).
 
 ## Files to edit
 
@@ -25,10 +30,10 @@ exact `config.integration` string consistently everywhere it appears).
 ## `deleteSync` must purge all four
 
 ```ts
-await deleteSyncTasksByIntegration("<name>");     // @/core/db/queries/queries
-await deleteMdArtifactsByIntegration("<name>");   // @/core/db/queries/queries
-await deleteEmbeddingByIntegration("<name>");     // @/core/db/queries/vector-queries
-await delete<Name>Data();                          // your own db/queries.ts
+await deleteSyncTasksByIntegration("<name>", db);   // @/core/db/queries/queries
+await deleteMdArtifactsByIntegration("<name>", db); // @/core/db/queries/queries
+await deleteEmbeddingByIntegration("<name>", db);   // @/core/db/queries/vector-queries
+await delete<Name>Data(db);                          // your own db/queries.ts
 ```
 
 ## Commands
@@ -36,7 +41,7 @@ await delete<Name>Data();                          // your own db/queries.ts
 ```bash
 bun run generate     # schema → migration files (drizzle-kit generate)
 bun run migrate      # apply pending migrations
-bunx tsc --noEmit    # typecheck (there is no lint script)
+bun run lint         # typecheck (bun tsc --noEmit; the only "lint")
 bun dev              # hot-reload server on :9000
 ```
 
@@ -67,7 +72,8 @@ of `stoneturner.db`.
 - Don't `await` the sync from a handler — it's fire-and-forget; all errors must
   be caught inside steps and logged as FAILED `syncTask`s.
 - Don't fork `index-vector-db-step.ts`; call the shared one.
-- The middleware dir is spelled `middlware/` — intentional.
+- Don't `import { db } from "@/core/db/db"` in integration code — accept
+  `db: SqliteDb` as a parameter and thread it through.
 - Every AI Gateway call (embeddings + LLM) must go through `aiGatewayBottleneck`.
 - Give each artifact a stable `integrationArtifactId` so re-syncs upsert instead
   of duplicating, and so the parse step's unchanged-markdown skip works.
