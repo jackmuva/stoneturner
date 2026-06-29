@@ -1,5 +1,4 @@
 import { getIntegrationCredentialByIntegration, upsertSyncTask } from "@/core/db/queries/queries";
-import { db } from "@/core/db/db";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import { retry } from "@/lib/utils";
 import { batchInsertFirecrawlPage } from "../db/queries";
@@ -9,6 +8,7 @@ import type {
   FirecrawlCrawlStatusResponse,
   FirecrawlPage,
 } from "../models/models";
+import type { SqliteDb } from "@/core/models/db-models";
 
 const FIRECRAWL_API = "https://api.firecrawl.dev/v2/crawl";
 const POLL_INTERVAL_MS = 10_000;
@@ -23,7 +23,7 @@ interface FirecrawlCredentials {
   limit: number | undefined;
 }
 
-export const getCredentials = async (): Promise<FirecrawlCredentials> => {
+export const getCredentials = async (db: SqliteDb): Promise<FirecrawlCredentials> => {
   const cred: IntegrationCredential | undefined = await getIntegrationCredentialByIntegration("Firecrawl", db);
   const options = cred?.options ?? {};
   const urls = (options.urls ?? "")
@@ -88,7 +88,7 @@ const fetchCrawlStatus = async (apiKey: string, statusUrl: string): Promise<Fire
 }
 
 // Crawl one seed URL: initiate, poll to completion, persist pages (following `next` pagination).
-const crawlUrl = async (apiKey: string, seedUrl: string, maxDepth?: number, limit?: number): Promise<void> => {
+const crawlUrl = async (apiKey: string, seedUrl: string, db: SqliteDb, maxDepth?: number, limit?: number): Promise<void> => {
   try {
     const initiated = await initiateCrawl(apiKey, seedUrl, maxDepth, limit);
     if (!initiated.success || !initiated.id) {
@@ -120,7 +120,7 @@ const crawlUrl = async (apiKey: string, seedUrl: string, maxDepth?: number, limi
     let batch: FirecrawlCrawlStatusResponse | null = terminal;
     while (batch) {
       const inserts = toPageInserts(batch.data ?? [], seedUrl, crawledAt);
-      await batchInsertFirecrawlPage(inserts);
+      await batchInsertFirecrawlPage(inserts, db);
       pageCount += inserts.length;
       if (!batch.next) break;
       batch = await fetchCrawlStatus(apiKey, batch.next);
@@ -142,8 +142,8 @@ const crawlUrl = async (apiKey: string, seedUrl: string, maxDepth?: number, limi
   }
 }
 
-export const syncFirecrawlCrawlStep = async (_incremental: boolean = false): Promise<void> => {
-  const { apiKey, urls, maxDepth, limit } = await getCredentials();
+export const syncFirecrawlCrawlStep = async (_incremental: boolean = false, db: SqliteDb): Promise<void> => {
+  const { apiKey, urls, maxDepth, limit } = await getCredentials(db);
 
   if (!apiKey || urls.length === 0) {
     await upsertSyncTask({
@@ -158,6 +158,6 @@ export const syncFirecrawlCrawlStep = async (_incremental: boolean = false): Pro
   // Firecrawl has no "changed-since" API, so every sync re-crawls all URLs.
   // Upserts on the page URL keep re-crawls idempotent.
   for (const url of urls) {
-    await crawlUrl(apiKey, url, maxDepth, limit);
+    await crawlUrl(apiKey, url, db, maxDepth, limit);
   }
 }

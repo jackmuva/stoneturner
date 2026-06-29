@@ -4,30 +4,30 @@ import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertDiscordMessage, getDiscordChannels, getLastMessageByChannelId } from "../db/queries";
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { db } from "@/core/db/db";
 import type { DiscordChannelSelect } from "../db/schema";
+import type { SqliteDb } from "@/core/models/db-models";
 
 const MAX_MESSAGES = 100;
 
-export const syncMessages = async (incremental: boolean = true, cursor?: { channelId: string, lastMessageId: string }) => {
+export const syncMessages = async (incremental: boolean = true, db: SqliteDb, cursor?: { channelId: string, lastMessageId: string }) => {
   let offset = 0;
   while (true) {
-    const channels = await getDiscordChannels(offset);
+    const channels = await getDiscordChannels(offset, db);
     if (channels.length === 0) break;
     const workerQueue = cursor ? channels.filter((channel) => channel.id === cursor.channelId) : channels;
     await Promise.all(workerQueue.map((channel) =>
-      discordApiBottleneck.schedule(() => upsertMessages(channel, incremental, cursor?.lastMessageId))
+      discordApiBottleneck.schedule(() => upsertMessages(channel, incremental, db, cursor?.lastMessageId))
     ));
     if (channels.length < PAGE_SIZE) break;
     offset += PAGE_SIZE;
   }
 }
 
-const upsertMessages = async (channel: DiscordChannelSelect, incremental: boolean, cursor?: string): Promise<void> => {
+const upsertMessages = async (channel: DiscordChannelSelect, incremental: boolean, db: SqliteDb, cursor?: string): Promise<void> => {
   let lastMessageId: undefined | string = cursor;
   try {
     if (incremental) {
-      const lastMessage = await getLastMessageByChannelId(channel.id);
+      const lastMessage = await getLastMessageByChannelId(channel.id, db);
       if (lastMessage) lastMessageId = lastMessage.id;
     }
 
@@ -77,7 +77,7 @@ const upsertMessages = async (channel: DiscordChannelSelect, incremental: boolea
         call: message.call,
         sharedClientTheme: message.shared_client_theme,
       }
-    }));
+    }), db);
 
     await upsertSyncTask({
       integration: "discord",
@@ -87,7 +87,7 @@ const upsertMessages = async (channel: DiscordChannelSelect, incremental: boolea
     }, db);
 
     if (messages.length === MAX_MESSAGES) {
-      await upsertMessages(channel, incremental, messages.at(-1)!.id);
+      await upsertMessages(channel, incremental, db, messages.at(-1)!.id);
     }
   } catch (e) {
     await upsertSyncTask({

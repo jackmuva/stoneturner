@@ -1,29 +1,29 @@
 import type { Integration } from "@/core/models/models";
+import type { SqliteDb } from "@/core/models/db-models";
 import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
-import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration, upsertIntegrationCredential } from "@/core/db/queries/queries";
+import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
-import { db } from "@/core/db/db";
 import { notionConfig } from "./config";
-import { handleNotionRefresh, handleOauthRedirect, NOTION_BASE_API } from "./sync-steps/notion-utils";
+import { handleNotionRefresh, handleOauthRedirect } from "./sync-steps/notion-utils";
 import { syncNotionPages } from "./sync-steps/sync-notion-pages";
 import { deleteNotionData, getMostRecentEditedTime } from "./db/queries";
 import { syncNotionMarkdown } from "./sync-steps/sync-notion-markdown";
 import { notionMarkdownToArtifact } from "./sync-steps/notion-markdown-to-artifact";
 
-export const syncNotionPipeline = async (incremental: boolean = true) => {
-  const lastEditedDate: string | null = await getMostRecentEditedTime();
-  await syncNotionPages();
-  await syncNotionMarkdown(incremental ? {lastEditedDate} : undefined);
-  await notionMarkdownToArtifact(incremental ? {lastEditedDate} : undefined);
-  await indexVectorDbStep("notion", incremental);
+export const syncNotionPipeline = async (incremental: boolean = true, db: SqliteDb) => {
+  const lastEditedDate: string | null = await getMostRecentEditedTime(db);
+  await syncNotionPages(incremental, db);
+  await syncNotionMarkdown(db, incremental ? {lastEditedDate} : undefined);
+  await notionMarkdownToArtifact(db, incremental ? {lastEditedDate} : undefined);
+  await indexVectorDbStep("notion", incremental, db);
 }
 
 export const notionIntegration: Integration = {
   config: notionConfig,
-  sync: async () => await syncNotionPipeline(false),
-  syncUpdates: async () => await syncNotionPipeline(true),
-  deleteSync: async () => {
-    await deleteNotionData();
+  sync: async (db: SqliteDb) => await syncNotionPipeline(false, db),
+  syncUpdates: async (db: SqliteDb) => await syncNotionPipeline(true, db),
+  deleteSync: async (db: SqliteDb) => {
+    await deleteNotionData(db);
     await deleteSyncTasksByIntegration("notion", db);
     await deleteMdArtifactsByIntegration("notion", db);
     await deleteEmbeddingByIntegration("notion", db);

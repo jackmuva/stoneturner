@@ -1,6 +1,7 @@
 import type { BunRequest } from "bun";
 import { dispatchMcp } from "@/core/services/mcp-server";
 import { JSON_RPC, type JsonRpcRequest } from "@/core/models/mcp-models";
+import type { SqliteDb } from "../models/db-models";
 
 const rpcError = (code: number, message: string, status: number): Response =>
   Response.json({ jsonrpc: "2.0", id: null, error: { code, message } }, { status });
@@ -9,8 +10,11 @@ const rpcError = (code: number, message: string, status: number): Response =>
  * Streamable HTTP MCP endpoint. Stateless: a POST containing a JSON-RPC request
  * gets a single application/json response; notifications get a 202; we never
  * open a server→client SSE stream, so GET/DELETE are not allowed.
+ *
+ * `ctx` is supplied by `withMcpAuth`, which verifies the bearer token before we
+ * are called — so by here the caller is already authenticated.
  */
-export async function handleMcp(req: BunRequest): Promise<Response> {
+export async function handleMcp(req: BunRequest, db?: SqliteDb): Promise<Response> {
   if (req.method !== "POST") {
     return new Response(null, { status: 405, headers: { Allow: "POST" } });
   }
@@ -30,7 +34,7 @@ export async function handleMcp(req: BunRequest): Promise<Response> {
     return rpcError(JSON_RPC.INVALID_REQUEST, "Invalid request", 400);
   }
 
-  const result = await dispatchMcp(body as JsonRpcRequest);
+  const result = await dispatchMcp(body as JsonRpcRequest, db);
   if (result === null) {
     return new Response(null, { status: 202 }); // notification — no response body
   }

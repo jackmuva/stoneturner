@@ -101,6 +101,7 @@ export type MdArtifactSortField = "updateDate" | "artifactDate";
 export type SortOrder = "asc" | "desc";
 
 export const getMdArtifactsByIntegration = async (
+  db: SqliteDb,
   integration: string,
   offset: number = 0,
   options?: {
@@ -108,7 +109,6 @@ export const getMdArtifactsByIntegration = async (
     sortBy?: MdArtifactSortField,
     sortOrder?: SortOrder,
   },
-  db: SqliteDb = defaultDb,
 ): Promise<MdArtifactSelect[]> => {
   const conditions = [eq(lower(mdArtifact.integration), integration.toLowerCase())];
   if (options?.search) {

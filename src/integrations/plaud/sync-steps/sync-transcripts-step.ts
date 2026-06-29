@@ -1,12 +1,12 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { db } from "@/core/db/db";
 import { retry } from "@/lib/utils";
 import { getPlaudFilesWithoutTranscript, upsertPlaudTranscript } from "../db/queries";
 import type { PlaudFileSelect } from "../db/schema";
 import type { PlaudFileDetail, PlaudTranscriptSegment } from "../models/models";
 import { PLAUD_BASE_API, getPlaudCredentials, handlePlaudRefresh, plaudApiBottleneck } from "./plaud-utils";
+import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncPlaudTranscriptsStep = async (): Promise<void> => {
+export const syncPlaudTranscriptsStep = async (db: SqliteDb): Promise<void> => {
   let files: PlaudFileSelect[] = [];
   let firstIteration = true;
 
@@ -15,11 +15,11 @@ export const syncPlaudTranscriptsStep = async (): Promise<void> => {
   while (files.length > 0 || firstIteration) {
     firstIteration = false;
     try {
-      files = await getPlaudFilesWithoutTranscript(0);
+      files = await getPlaudFilesWithoutTranscript(0, db);
       if (files.length === 0) break;
 
       const results = await Promise.allSettled(
-        files.map((file) => plaudApiBottleneck.schedule(() => syncTranscript(file)))
+        files.map((file) => plaudApiBottleneck.schedule(() => syncTranscript(file, db)))
       );
       const failures = results
         .filter((r) => r.status === "rejected")
@@ -46,8 +46,8 @@ export const syncPlaudTranscriptsStep = async (): Promise<void> => {
   }
 }
 
-const syncTranscript = async (file: PlaudFileSelect): Promise<void> => {
-  const detail = await retry(async () => await getFileDetail(file.fileId), 3, 1);
+const syncTranscript = async (file: PlaudFileSelect, db: SqliteDb): Promise<void> => {
+  const detail = await retry(async () => await getFileDetail(file.fileId, db), 3, 1);
 
   const transactionSource = detail.source_list?.find((s) => s.data_type === "transaction");
   let segments: PlaudTranscriptSegment[] = [];
@@ -63,13 +63,13 @@ const syncTranscript = async (file: PlaudFileSelect): Promise<void> => {
     fileId: file.fileId,
     name: file.name,
     segments,
-  }]);
+  }], db);
 }
 
-const getFileDetail = async (fileId: string): Promise<PlaudFileDetail> => {
+const getFileDetail = async (fileId: string, db: SqliteDb): Promise<PlaudFileDetail> => {
   const url = `${PLAUD_BASE_API}/open/third-party/files/${fileId}`;
 
-  let cred = await getPlaudCredentials();
+  let cred = await getPlaudCredentials(db);
   if (!cred?.accessToken) throw new Error("Missing Plaud credential");
 
   let res = await fetch(url, {
@@ -78,8 +78,8 @@ const getFileDetail = async (fileId: string): Promise<PlaudFileDetail> => {
   });
 
   if (!res.ok) {
-    await handlePlaudRefresh();
-    cred = await getPlaudCredentials();
+    await handlePlaudRefresh(db);
+    cred = await getPlaudCredentials(db);
     if (!cred?.accessToken) throw new Error("Missing Plaud credential");
     res = await fetch(url, {
       method: "GET",

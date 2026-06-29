@@ -10,7 +10,7 @@ import {
   type JsonRpcSuccess,
 } from "@/core/models/mcp-models";
 import { toolsByName, tools } from "@/core/services/mcp-tools";
-import { db } from "../db/db";
+import type { SqliteDb } from "../models/db-models";
 
 const success = (id: string | number | null, result: unknown): JsonRpcSuccess => ({
   jsonrpc: "2.0",
@@ -30,7 +30,10 @@ const error = (
  */
 export async function dispatchMcp(
   message: JsonRpcRequest,
+  db?: SqliteDb
 ): Promise<JsonRpcResponse | null> {
+  if (!db) return null;
+
   // Notifications carry no id and expect no response.
   if (message.id === undefined || message.id === null) {
     return null;
@@ -78,7 +81,7 @@ export async function dispatchMcp(
         return error(id, JSON_RPC.INVALID_PARAMS, `Unknown tool: ${name}`);
       }
       try {
-        const result = await tool.handler(params?.arguments ?? {}, db);
+        const result = await tool.handler(params?.arguments ?? {}, db!);
         return success(id, result);
       } catch (err) {
         // Tool execution failures surface as a tool result, not a protocol error.

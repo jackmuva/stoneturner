@@ -1,10 +1,10 @@
 import { notionPage, type NotionPageInsert, type NotionPageSelect, notionPageMarkdown, type NotionPageMarkdownInsert, type NotionPageMarkdownSelect } from './schema';
 import { eq, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
-import { db } from '@/core/db/db';
 import { deleteMdArtifactsByIntegration } from '@/core/db/queries/queries';
+import type { SqliteDb } from '@/core/models/db-models';
 
-export const batchInsertNotionPage = async (pages: NotionPageInsert[]): Promise<void> => {
+export const batchInsertNotionPage = async (pages: NotionPageInsert[], db: SqliteDb): Promise<void> => {
   await db.insert(notionPage)
     .values(pages)
     .onConflictDoUpdate({
@@ -26,14 +26,14 @@ export const batchInsertNotionPage = async (pages: NotionPageInsert[]): Promise<
     });
 }
 
-export const getNotionPages = async (offset: number = 0): Promise<NotionPageSelect[]> => {
+export const getNotionPages = async (offset: number = 0, db: SqliteDb): Promise<NotionPageSelect[]> => {
   return await db.select()
     .from(notionPage)
     .limit(PAGE_SIZE)
     .offset(offset);
 }
 
-export const getMostRecentEditedTime = async (): Promise<string | null> => {
+export const getMostRecentEditedTime = async (db: SqliteDb): Promise<string | null> => {
   const result = await db.select({ lastEditedTime: notionPage.lastEditedTime }).from(notionPage)
     .orderBy(sql`${notionPage.lastEditedTime} desc`)
     .limit(1);
@@ -41,7 +41,7 @@ export const getMostRecentEditedTime = async (): Promise<string | null> => {
   return result[0]?.lastEditedTime ?? null;
 }
 
-export const batchInsertNotionPageMarkdown = async (records: NotionPageMarkdownInsert[]): Promise<void> => {
+export const batchInsertNotionPageMarkdown = async (records: NotionPageMarkdownInsert[], db: SqliteDb): Promise<void> => {
   await db.insert(notionPageMarkdown)
     .values(records)
     .onConflictDoUpdate({
@@ -56,12 +56,12 @@ export const batchInsertNotionPageMarkdown = async (records: NotionPageMarkdownI
     });
 }
 
-export const getNotionPageMarkdownById = async (pageId: string): Promise<NotionPageMarkdownSelect | undefined> => {
+export const getNotionPageMarkdownById = async (pageId: string, db: SqliteDb): Promise<NotionPageMarkdownSelect | undefined> => {
   const [record] = await db.select().from(notionPageMarkdown).where(eq(notionPageMarkdown.pageId, pageId));
   return record;
 }
 
-export const deleteNotionData = async () => {
+export const deleteNotionData = async (db: SqliteDb) => {
   await db.delete(notionPage);
   await db.delete(notionPageMarkdown);
 }

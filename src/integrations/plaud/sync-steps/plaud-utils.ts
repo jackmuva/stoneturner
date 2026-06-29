@@ -1,9 +1,9 @@
 import { getIntegrationCredentialByIntegration, upsertIntegrationCredential, upsertSyncTask } from "@/core/db/queries/queries";
-import { db } from "@/core/db/db";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import type { PlaudTokenResponse } from "../models/models";
 import Bottleneck from "bottleneck";
 import type { BunRequest } from "bun";
+import type { SqliteDb } from "@/core/models/db-models";
 
 export const plaudApiBottleneck = new Bottleneck({
   maxConcurrent: 5,
@@ -12,12 +12,12 @@ export const plaudApiBottleneck = new Bottleneck({
 
 export const PLAUD_BASE_API = "https://platform.plaud.ai/developer/api";
 
-export const getPlaudCredentials = async (): Promise<IntegrationCredential | undefined> => {
+export const getPlaudCredentials = async (db: SqliteDb): Promise<IntegrationCredential | undefined> => {
   return await getIntegrationCredentialByIntegration("Plaud", db);
 }
 
-export const handlePlaudRefresh = async (): Promise<void> => {
-  const cred: IntegrationCredential | undefined = await getPlaudCredentials();
+export const handlePlaudRefresh = async (db: SqliteDb): Promise<void> => {
+  const cred: IntegrationCredential | undefined = await getPlaudCredentials(db);
   if (!cred?.refreshToken) return;
 
   const res = await fetch(`${PLAUD_BASE_API}/oauth/third-party/access-token/refresh`, {
@@ -50,7 +50,7 @@ export const handlePlaudRefresh = async (): Promise<void> => {
   }, db);
 }
 
-export const handleOauthRedirect = async (req: BunRequest): Promise<Response> => {
+export const handleOauthRedirect = async (req: BunRequest, db: SqliteDb): Promise<Response> => {
   const code = new URL(req.url).searchParams.get("code");
   if (!code) {
     return Response.json({ error: "missing code" }, { status: 400 });

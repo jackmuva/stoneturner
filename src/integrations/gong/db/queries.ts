@@ -1,9 +1,9 @@
 import { gongTranscript, type GongTranscriptInsert, type GongTranscriptSelect, gongCall, type GongCallInsert, type GongCallSelect } from './schema';
 import { desc, eq, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
-import {db} from '@/core/db/db';
+import type { SqliteDb } from '@/core/models/db-models';
 
-export const batchInsertGongTranscript = async (transcripts: GongTranscriptInsert[]): Promise<void> => {
+export const batchInsertGongTranscript = async (transcripts: GongTranscriptInsert[], db: SqliteDb): Promise<void> => {
   await db.insert(gongTranscript)
     .values(transcripts)
     .onConflictDoUpdate({
@@ -14,21 +14,21 @@ export const batchInsertGongTranscript = async (transcripts: GongTranscriptInser
     });
 }
 
-export const getGongTranscripts= async (offset: number = 0): Promise<GongTranscriptSelect[]> => {
+export const getGongTranscripts= async (offset: number = 0, db: SqliteDb): Promise<GongTranscriptSelect[]> => {
   return await db.select()
     .from(gongTranscript)
     .limit(PAGE_SIZE)
     .offset(offset);
 }
 
-export const getGongTranscriptByCallId = async (callId: string): Promise<GongTranscriptSelect | undefined> => {
+export const getGongTranscriptByCallId = async (callId: string, db: SqliteDb): Promise<GongTranscriptSelect | undefined> => {
   const [result] = await db.select()
     .from(gongTranscript)
     .where(eq(gongTranscript.callId, callId));
   return result;
 }
 
-export const batchInsertGongCall = async (calls: GongCallInsert[]): Promise<void> => {
+export const batchInsertGongCall = async (calls: GongCallInsert[], db: SqliteDb): Promise<void> => {
   await db.insert(gongCall)
     .values(calls)
     .onConflictDoUpdate({
@@ -57,21 +57,21 @@ export const batchInsertGongCall = async (calls: GongCallInsert[]): Promise<void
     });
 }
 
-export const getGongCallByCallId = async (callId: string): Promise<GongCallSelect | undefined> => {
+export const getGongCallByCallId = async (callId: string, db: SqliteDb): Promise<GongCallSelect | undefined> => {
   const [result] = await db.select()
     .from(gongCall)
     .where(eq(gongCall.callId, callId));
   return result;
 }
 
-export const getGongCalls= async (cursor?: number): Promise<GongCallSelect[]> => {
+export const getGongCalls= async (cursor: number | undefined, db: SqliteDb): Promise<GongCallSelect[]> => {
   return await db.select()
     .from(gongCall)
     .limit(50)
     .offset(cursor ? 50 * cursor : 0);
 }
 
-export const getLatestGongCall= async (): Promise<GongCallSelect | null> => {
+export const getLatestGongCall= async (db: SqliteDb): Promise<GongCallSelect | null> => {
   const [call] = await db.select()
     .from(gongCall)
     .orderBy(gongCall.started, desc(gongCall.started))
@@ -79,12 +79,12 @@ export const getLatestGongCall= async (): Promise<GongCallSelect | null> => {
   return call ?? null;
 }
 
-export const deleteAllGongData = async (): Promise<void> => {
+export const deleteAllGongData = async (db: SqliteDb): Promise<void> => {
   await db.delete(gongTranscript);
   await db.delete(gongCall);
 }
 
-export const deleteGongDataByCallId = async (callId: string): Promise<void> => {
+export const deleteGongDataByCallId = async (callId: string, db: SqliteDb): Promise<void> => {
   await db.delete(gongTranscript).where(eq(gongTranscript.callId, callId));
   await db.delete(gongCall).where(eq(gongCall.callId, callId));
 }

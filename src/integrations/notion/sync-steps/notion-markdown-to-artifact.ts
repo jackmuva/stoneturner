@@ -2,15 +2,15 @@ import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import type { NotionPageSelect } from "../db/schema";
 import { getNotionPageMarkdownById, getNotionPages } from "../db/queries";
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
-import { db } from "@/core/db/db";
+import type { SqliteDb } from "@/core/models/db-models";
 import { retry } from "@/lib/utils";
 import { generateText, Output } from "ai";
 import * as z from "zod";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 
-export const notionMarkdownToArtifact = async (incremental?: { lastEditedDate: string | null }, cursor?: number) => {
+export const notionMarkdownToArtifact = async (db: SqliteDb, incremental?: { lastEditedDate: string | null }, cursor?: number) => {
   let curOffset: number = cursor ? cursor : 0;
-  let notionPages: NotionPageSelect[] = await getNotionPages(curOffset);
+  let notionPages: NotionPageSelect[] = await getNotionPages(curOffset, db);
 
   while (notionPages.length > 0) {
     const workerQueue = notionPages.filter((page) =>
@@ -19,7 +19,7 @@ export const notionMarkdownToArtifact = async (incremental?: { lastEditedDate: s
     );
     try {
       const results = await Promise.allSettled(
-        workerQueue.map((page) => aiGatewayBottleneck.schedule(() => analyzePageMarkdown(page)))
+        workerQueue.map((page) => aiGatewayBottleneck.schedule(() => analyzePageMarkdown(page, db)))
       );
 
       const failures = results
@@ -42,12 +42,12 @@ export const notionMarkdownToArtifact = async (incremental?: { lastEditedDate: s
     }
     if (cursor !== undefined) break;
     curOffset += PAGE_SIZE;
-    notionPages = await getNotionPages(curOffset);
+    notionPages = await getNotionPages(curOffset, db);
   }
 }
 
-const analyzePageMarkdown = async (page: NotionPageSelect): Promise<void> => {
-  const pageMarkdown = await getNotionPageMarkdownById(page.pageId);
+const analyzePageMarkdown = async (page: NotionPageSelect, db: SqliteDb): Promise<void> => {
+  const pageMarkdown = await getNotionPageMarkdownById(page.pageId, db);
   if (!pageMarkdown?.markdown) return;
 
   const existing = await getMdArtifactByIntegrationArtifactId(page.pageId, db);

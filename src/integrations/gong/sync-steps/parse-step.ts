@@ -6,9 +6,9 @@ import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import { generateText, Output } from "ai";
 import * as z from "zod";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
-import { db } from "@/core/db/db";
+import type { SqliteDb } from "@/core/models/db-models";
 
-export const parseGongStep = async (offset?: number) => {
+export const parseGongStep = async (db: SqliteDb, offset?: number) => {
   let curOffset: number = offset ?? 0;
   let transcripts: GongTranscriptSelect[] = [];
   let firstIteration = true;
@@ -16,9 +16,9 @@ export const parseGongStep = async (offset?: number) => {
   while (transcripts.length > 0 || firstIteration) {
     firstIteration = false;
     try {
-      transcripts = await getGongTranscripts(curOffset);
+      transcripts = await getGongTranscripts(curOffset, db);
       const results = await Promise.allSettled(
-        transcripts.map((t) => aiGatewayBottleneck.schedule(() => generateMdArtifact(t)))
+        transcripts.map((t) => aiGatewayBottleneck.schedule(() => generateMdArtifact(t, db)))
       );
       const failures = results
         .filter((r) => r.status === "rejected")
@@ -47,9 +47,9 @@ export const parseGongStep = async (offset?: number) => {
   }
 }
 
-const generateMdArtifact = async (transcript: GongTranscriptSelect): Promise<void> => {
+const generateMdArtifact = async (transcript: GongTranscriptSelect, db: SqliteDb): Promise<void> => {
   const md: string[] = [];
-  const call: GongCallSelect | undefined = await getGongCallByCallId(transcript.callId);
+  const call: GongCallSelect | undefined = await getGongCallByCallId(transcript.callId, db);
   if (call) {
     md.push(`# ${call.title}\n\n`);
   }

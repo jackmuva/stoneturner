@@ -1,9 +1,9 @@
 import { getIntegrationCredentialByIntegration, upsertIntegrationCredential } from "@/core/db/queries/queries";
-import { db } from "@/core/db/db";
 import Bottleneck from "bottleneck";
 import type { BunRequest } from "bun";
 import type { DiscordGuild } from "../models/models";
 import { batchInsertDiscordGuild } from "../db/queries";
+import type { SqliteDb } from "@/core/models/db-models";
 
 export const discordApiBottleneck = new Bottleneck({
   maxConcurrent: 5,
@@ -12,7 +12,7 @@ export const discordApiBottleneck = new Bottleneck({
 
 export const DISCORD_API_ENDPOINT = "https://discord.com/api/v10";
 
-export const refreshDiscordTokens = async () => {
+export const refreshDiscordTokens = async (db: SqliteDb) => {
   const credential = await getIntegrationCredentialByIntegration("discord", db);
   if (!credential?.refreshToken) {
     throw new Error("no discord refresh token available");
@@ -55,7 +55,7 @@ export const refreshDiscordTokens = async () => {
   }, db);
 }
 
-export const handleOauthRedirect = async (req: BunRequest) => {
+export const handleOauthRedirect = async (req: BunRequest, db: SqliteDb) => {
   const code = new URL(req.url).searchParams.get("code");
   if (!code) {
     return Response.json({ error: "missing code" }, { status: 400 });
@@ -147,7 +147,7 @@ export const handleOauthRedirect = async (req: BunRequest) => {
     premiumProgressBarEnabled: token.guild.premium_progress_bar_enabled,
     safetyAlertsChannelId: token.guild.safety_alerts_channel_id,
     incidentsData: token.guild.incidents_data ?? null,
-  }])
+  }], db)
 
   return Response.redirect(process.env.BUN_PUBLIC_BACKEND_BASE_URL!, 302);
 }

@@ -1,30 +1,30 @@
 import type { DiscordChannel } from "../models/models";
 import { DISCORD_API_ENDPOINT, discordApiBottleneck } from "./discord-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { db } from "@/core/db/db";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertDiscordChannel, getDiscordGuilds } from "../db/queries";
 import type { DiscordGuildSelect } from "../db/schema";
+import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncChannels = async (incremental: boolean = true, guildId?: string) => {
+export const syncChannels = async (db: SqliteDb, incremental: boolean = true, guildId?: string) => {
   let curOffset = 0;
-  let guilds: DiscordGuildSelect[] = await getDiscordGuilds(curOffset);
+  let guilds: DiscordGuildSelect[] = await getDiscordGuilds(curOffset, db);
 
   while (guilds.length > 0) {
     const workerQueue = guildId ? guilds.filter((guild) => guild.id === guildId) : guilds;
     await Promise.allSettled(workerQueue.map((guild) =>
-      discordApiBottleneck.schedule(() => upsertChannels(guild))
+      discordApiBottleneck.schedule(() => upsertChannels(guild, db))
     ));
 
     if (guilds.length < PAGE_SIZE) break;
     curOffset += PAGE_SIZE;
-    guilds = await getDiscordGuilds(curOffset);
+    guilds = await getDiscordGuilds(curOffset, db);
   }
   return;
 }
 
-const upsertChannels = async (guild: DiscordGuildSelect): Promise<void> => {
+const upsertChannels = async (guild: DiscordGuildSelect, db: SqliteDb): Promise<void> => {
   try {
     const channels: DiscordChannel[] = await retry(async () => {
       return await getChannelsByGuild(guild.id);
@@ -69,7 +69,7 @@ const upsertChannels = async (guild: DiscordGuildSelect): Promise<void> => {
         defaultSortOrder: channel.default_sort_order,
         defaultForumLayout: channel.default_forum_layout,
       }
-    }));
+    }), db);
 
     await upsertSyncTask({
       integration: "discord",

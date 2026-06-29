@@ -1,16 +1,16 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { db } from "@/core/db/db";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertPlaudFile, getLatestPlaudFile } from "../db/queries";
 import type { PlaudFileInsert } from "../db/schema";
 import type { PlaudFileListResponse } from "../models/models";
 import { PLAUD_BASE_API, getPlaudCredentials, handlePlaudRefresh } from "./plaud-utils";
+import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncPlaudFilesStep = async (incremental: boolean = false): Promise<void> => {
+export const syncPlaudFilesStep = async (incremental: boolean = false, db: SqliteDb): Promise<void> => {
   let latestStartAt: string | null = null;
   if (incremental) {
-    const latest = await getLatestPlaudFile();
+    const latest = await getLatestPlaudFile(db);
     latestStartAt = latest?.startAt ?? null;
   }
 
@@ -18,7 +18,7 @@ export const syncPlaudFilesStep = async (incremental: boolean = false): Promise<
   while (true) {
     let response: PlaudFileListResponse;
     try {
-      response = await retry(async () => await getFilesPage(page), 3, 1);
+      response = await retry(async () => await getFilesPage(page, db), 3, 1);
     } catch (e) {
       await upsertSyncTask({
         integration: "Plaud",
@@ -45,7 +45,7 @@ export const syncPlaudFilesStep = async (incremental: boolean = false): Promise<
         startAt: f.start_at,
         duration: f.duration,
       }));
-      await batchInsertPlaudFile(rows);
+      await batchInsertPlaudFile(rows, db);
       await upsertSyncTask({
         integration: "Plaud",
         status: "SUCCESS",
@@ -68,12 +68,12 @@ export const syncPlaudFilesStep = async (incremental: boolean = false): Promise<
   }
 }
 
-const getFilesPage = async (page: number): Promise<PlaudFileListResponse> => {
+const getFilesPage = async (page: number, db: SqliteDb): Promise<PlaudFileListResponse> => {
   const url = new URL(`${PLAUD_BASE_API}/open/third-party/files/`);
   url.searchParams.set("page", String(page));
   url.searchParams.set("page_size", String(PAGE_SIZE));
 
-  let cred = await getPlaudCredentials();
+  let cred = await getPlaudCredentials(db);
   if (!cred?.accessToken) throw new Error("Missing Plaud credential");
 
   let res = await fetch(url, {
@@ -82,8 +82,8 @@ const getFilesPage = async (page: number): Promise<PlaudFileListResponse> => {
   });
 
   if (!res.ok) {
-    await handlePlaudRefresh();
-    cred = await getPlaudCredentials();
+    await handlePlaudRefresh(db);
+    cred = await getPlaudCredentials(db);
     if (!cred?.accessToken) throw new Error("Missing Plaud credential");
     res = await fetch(url, {
       method: "GET",

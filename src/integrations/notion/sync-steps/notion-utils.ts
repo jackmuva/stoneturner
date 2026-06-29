@@ -1,6 +1,6 @@
 import { getIntegrationCredentialByIntegration, upsertIntegrationCredential, upsertSyncTask } from "@/core/db/queries/queries";
-import { db } from "@/core/db/db";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
+import type { SqliteDb } from "@/core/models/db-models";
 import Bottleneck from "bottleneck";
 import type { BunRequest } from "bun";
 
@@ -12,11 +12,11 @@ export const notionApiBottleneck = new Bottleneck({
 export const NOTION_BASE_API = "https://api.notion.com/v1";
 export const NOTION_VERSION = "2026-03-11";
 
-export const getNotionCredentials = async () => {
+export const getNotionCredentials = async (db: SqliteDb) => {
   return await getIntegrationCredentialByIntegration("notion", db);
 }
 
-export const handleNotionRefresh = async () => {
+export const handleNotionRefresh = async (db: SqliteDb) => {
   const cred: IntegrationCredential | undefined = await getIntegrationCredentialByIntegration("notion", db);
   if (!cred) return;
 
@@ -59,7 +59,7 @@ export const handleNotionRefresh = async () => {
   }, db);
 }
 
-export const handleOauthRedirect = async (req: BunRequest) => {
+export const handleOauthRedirect = async (req: BunRequest, db: SqliteDb) => {
   const code = new URL(req.url).searchParams.get("code");
   if (!code) {
     return Response.json({ error: "missing code" }, { status: 400 });

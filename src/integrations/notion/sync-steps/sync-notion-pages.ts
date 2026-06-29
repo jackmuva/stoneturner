@@ -1,20 +1,20 @@
 import type { NotionChildPageBlock, NotionPage, NotionSearchResponse } from "../models/models";
 import { NOTION_BASE_API, NOTION_VERSION, getNotionCredentials, handleNotionRefresh, notionApiBottleneck } from "./notion-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { db } from "@/core/db/db";
+import type { SqliteDb } from "@/core/models/db-models";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertNotionPage } from "../db/queries";
 import type { NotionPageInsert } from "../db/schema";
 
-export const syncNotionPages = async (incremental: boolean = false, cursor?: string) => {
+export const syncNotionPages = async (incremental: boolean = false, db: SqliteDb, cursor?: string) => {
   let nextCursor: string | undefined = cursor;
 
   while (true) {
     let response: NotionSearchResponse | null = null;
     try {
       response = await retry(async () => {
-        return await getPages(nextCursor);
+        return await getPages(db, nextCursor);
       }, 3, 1);
     } catch (e) {
       await upsertSyncTask({
@@ -26,7 +26,7 @@ export const syncNotionPages = async (incremental: boolean = false, cursor?: str
       break;
     }
     try {
-      await upsertPages(response.results);
+      await upsertPages(response.results, db);
       if (!response.has_more || !response.next_cursor) break;
       nextCursor = response.next_cursor;
       await upsertSyncTask({
@@ -48,13 +48,13 @@ export const syncNotionPages = async (incremental: boolean = false, cursor?: str
   return;
 }
 
-const upsertPages = async (pages: NotionPage[]): Promise<void> => {
+const upsertPages = async (pages: NotionPage[], db: SqliteDb): Promise<void> => {
   if (pages.length === 0) return;
 
   const titles = new Map<string, string | undefined>();
   await Promise.allSettled(pages.map((page) =>
     notionApiBottleneck.schedule(async () => {
-      const title = await retry(async () => getPage(page.id), 3, 1);
+      const title = await retry(async () => getPage(page.id, db), 3, 1);
       titles.set(page.id, title);
     })
   ));
@@ -75,13 +75,13 @@ const upsertPages = async (pages: NotionPage[]): Promise<void> => {
     publicUrl: page.public_url,
     title: titles.get(page.id),
   }));
-  await batchInsertNotionPage(rows);
+  await batchInsertNotionPage(rows, db);
 
   return;
 }
 
-export const getPages = async (cursor?: string): Promise<NotionSearchResponse> => {
-  let cred = await getNotionCredentials();
+export const getPages = async (db: SqliteDb, cursor?: string): Promise<NotionSearchResponse> => {
+  let cred = await getNotionCredentials(db);
   if (!cred?.accessToken) throw new Error("Missing Notion credential");
   let res = await fetch(`${NOTION_BASE_API}/search`, {
     method: "POST",
@@ -99,8 +99,8 @@ export const getPages = async (cursor?: string): Promise<NotionSearchResponse> =
   });
 
   if (!res.ok) {
-    await handleNotionRefresh();
-    cred = await getNotionCredentials();
+    await handleNotionRefresh(db);
+    cred = await getNotionCredentials(db);
     if (!cred?.accessToken) throw new Error("Missing Notion credential");
     res = await fetch(`${NOTION_BASE_API}/search`, {
       method: "POST",
@@ -122,10 +122,10 @@ export const getPages = async (cursor?: string): Promise<NotionSearchResponse> =
   return pages;
 }
 
-export const getPage = async (pageId: string): Promise<string | undefined> => {
+export const getPage = async (pageId: string, db: SqliteDb): Promise<string | undefined> => {
   const url = `${NOTION_BASE_API}/blocks/${pageId}`;
 
-  let cred = await getNotionCredentials();
+  let cred = await getNotionCredentials(db);
   if (!cred?.accessToken) throw new Error("Missing Notion credential");
   let res = await fetch(url, {
     method: "GET",
@@ -136,8 +136,8 @@ export const getPage = async (pageId: string): Promise<string | undefined> => {
   });
 
   if (!res.ok) {
-    await handleNotionRefresh();
-    cred = await getNotionCredentials();
+    await handleNotionRefresh(db);
+    cred = await getNotionCredentials(db);
     if (!cred?.accessToken) throw new Error("Missing Notion credential");
     res = await fetch(url, {
       method: "GET",

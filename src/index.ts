@@ -4,6 +4,7 @@ import { handleGetAllSyncTasks, handleGetArtifacts, handleGetIntegrations, handl
 import { withCors } from "./core/middleware/middleware";
 import { handleMcp } from "./core/handlers/mcp-handler";
 import { supportedIntegrations } from "./integrations/sync-registry";
+import { db } from "./core/db/db";
 
 const server = serve({
   routes: {
@@ -17,10 +18,10 @@ const server = serve({
     "/*": index,
     "/api/integrations": {
       GET: withCors(async (req) => {
-        return await handleGetIntegrations(req)
+        return await handleGetIntegrations(req, db)
       }),
       POST: withCors(async (req) => {
-        return await handleNewIntegrationCredential(req)
+        return await handleNewIntegrationCredential(req, db)
       }),
     },
     "/api/sync/updates/:integration": {
@@ -29,7 +30,7 @@ const server = serve({
           const target = req.params.integration.toLowerCase();
           const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
           if (index === -1) return Response.json(null, { status: 400 });
-          supportedIntegrations[index]!.syncUpdates();
+          supportedIntegrations[index]!.syncUpdates(db);
           return Response.json(null, { status: 200 });
         }
         return Response.json(null, { status: 400 });
@@ -41,7 +42,7 @@ const server = serve({
           const target = req.params.integration.toLowerCase();
           const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
           if (index === -1) return Response.json(null, { status: 400 });
-          supportedIntegrations[index]!.sync();
+          supportedIntegrations[index]!.sync(db);
           return Response.json(null, { status: 200 });
         }
         return Response.json(null, { status: 400 });
@@ -51,7 +52,7 @@ const server = serve({
           const target = req.params.integration.toLowerCase();
           const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
           if (index === -1) return Response.json(null, { status: 400 });
-          supportedIntegrations[index]!.deleteSync();
+          supportedIntegrations[index]!.deleteSync(db);
           return Response.json(null, { status: 200 });
         }
         return Response.json(null, { status: 400 });
@@ -59,12 +60,12 @@ const server = serve({
     },
     "/api/syncTasks": {
       GET: withCors(async (req) =>
-        handleGetAllSyncTasks(req)
+        handleGetAllSyncTasks(req, db)
       ),
     },
     "/api/syncTasks/recent": {
       GET: withCors(async (req) =>
-        handleGetRecentSyncTasks(req)
+        handleGetRecentSyncTasks(req, db)
       ),
       DELETE: withCors(async () =>
         handleDeleteStaleSyncTasks()
@@ -77,22 +78,22 @@ const server = serve({
     },
     "/api/syncTasks/:integration": {
       GET: withCors(async (req) =>
-        handleGetSyncTasks(req)
+        handleGetSyncTasks(req, db)
       )
     },
     "/api/artifacts/:integration": {
       GET: withCors(async (req) =>
-        handleGetArtifacts(req)
+        handleGetArtifacts(req, db)
       )
     },
     "/api/oauth/:integration": {
-      GET: async(req) => {
+      GET: async (req) => {
         if (req.params.integration) {
           const target = req.params.integration.toLowerCase();
           const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
           if (index === -1) return Response.json(null, { status: 400 });
           if (supportedIntegrations[index]!.handleRedirect) {
-            return await supportedIntegrations[index]!.handleRedirect(req);
+            return await supportedIntegrations[index]!.handleRedirect(req, db);
           };
           return Response.json(null, { status: 200 });
         }
@@ -103,9 +104,9 @@ const server = serve({
     // Streamable HTTP MCP endpoint (stateless JSON-RPC). Not wrapped in withCors:
     // MCP desktop/CLI clients call it server-side and don't need browser CORS.
     "/mcp": {
-      POST: handleMcp,
-      GET: handleMcp,
-      DELETE: handleMcp,
+      POST: async(req) => handleMcp(req, db),
+      GET: async(req) => handleMcp(req, db),
+      DELETE: async(req) => handleMcp(req, db),
     },
   },
   port: 9000,

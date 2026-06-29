@@ -1,5 +1,4 @@
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
-import { db } from "@/core/db/db";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import { generateText, Output } from "ai";
@@ -7,8 +6,9 @@ import * as z from "zod";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 import { getFirecrawlPages } from "../db/queries";
 import type { FirecrawlPageSelect } from "../db/schema";
+import type { SqliteDb } from "@/core/models/db-models";
 
-export const parseFirecrawlStep = async (offset?: number): Promise<void> => {
+export const parseFirecrawlStep = async (db: SqliteDb, offset?: number): Promise<void> => {
   let curOffset: number = offset ?? 0;
   let pages: FirecrawlPageSelect[] = [];
   let firstIteration = true;
@@ -16,9 +16,9 @@ export const parseFirecrawlStep = async (offset?: number): Promise<void> => {
   while (pages.length > 0 || firstIteration) {
     firstIteration = false;
     try {
-      pages = await getFirecrawlPages(curOffset);
+      pages = await getFirecrawlPages(curOffset, db);
       const results = await Promise.allSettled(
-        pages.map((p) => aiGatewayBottleneck.schedule(() => generateMdArtifact(p)))
+        pages.map((p) => aiGatewayBottleneck.schedule(() => generateMdArtifact(p, db)))
       );
       const failures = results
         .filter((r) => r.status === "rejected")
@@ -47,7 +47,7 @@ export const parseFirecrawlStep = async (offset?: number): Promise<void> => {
   }
 }
 
-const generateMdArtifact = async (page: FirecrawlPageSelect): Promise<void> => {
+const generateMdArtifact = async (page: FirecrawlPageSelect, db: SqliteDb): Promise<void> => {
   const md: string[] = [];
   if (page.title) md.push(`# ${page.title}\n\n`);
   md.push(`Source: ${page.url}\n\n`);

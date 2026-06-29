@@ -6,29 +6,29 @@ import {
   upsertKeyPointsEmbedding,
   upsertQuestionsAnsweredEmbedding,
 } from "@/core/db/queries/vector-queries";
-import { db } from "@/core/db/db";
 import { embedTexts } from "@/core/services/embedding";
 import { PAGE_SIZE } from "@/lib/constants";
 import { retry } from "@/lib/utils";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
+import type { SqliteDb } from "@/core/models/db-models";
 
-export const indexVectorDbStep = async (integration: string, incremental: boolean = true, offset?: number) => {
+export const indexVectorDbStep = async (integration: string, incremental: boolean = true, db: SqliteDb, offset?: number) => {
   let curOffset: number = offset ? offset : 0;
   let artifacts: MdArtifactSelect[] = [];
   let firstIteration = true;
 
   while (artifacts.length > 0 || firstIteration) {
     firstIteration = false;
-    artifacts = await getMdArtifactsByIntegration(integration, offset, undefined, db);
+    artifacts = await getMdArtifactsByIntegration(db, integration, offset, undefined);
     await Promise.allSettled(
-      artifacts.map((artifact) => aiGatewayBottleneck.schedule(() => chunkMd(artifact, curOffset, incremental)))
+      artifacts.map((artifact) => aiGatewayBottleneck.schedule(() => chunkMd(artifact, curOffset, incremental, db)))
     );
     if (offset !== undefined) break;
     curOffset += PAGE_SIZE;
   }
 }
 
-export const chunkMd = async (artifact: MdArtifactSelect, curOffset: number, incremental: boolean) => {
+export const chunkMd = async (artifact: MdArtifactSelect, curOffset: number, incremental: boolean, db: SqliteDb) => {
   try {
     if (!artifact.markdown) return;
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Database } from '@tursodatabase/database';
 import type { TursoDatabaseDatabase } from "drizzle-orm/tursodatabase/driver-core";
+import type { SqliteDb } from "./db-models";
 
 export interface JsonRpcRequest {
   jsonrpc: "2.0";
@@ -66,9 +67,7 @@ export interface McpTool {
     openWorldHint: boolean;
   };
   inputSchema: z.ZodType;
-  handler: (args: unknown, db: TursoDatabaseDatabase & {
-    $client: Database;
-  }) => Promise<McpToolResult>;
+  handler: (args: unknown, db: SqliteDb) => Promise<McpToolResult>;
 }
 
 export interface MergedHit {

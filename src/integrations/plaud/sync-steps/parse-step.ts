@@ -1,5 +1,4 @@
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
-import { db } from "@/core/db/db";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import { generateText, Output } from "ai";
@@ -7,8 +6,9 @@ import * as z from "zod";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 import { getPlaudFileByFileId, getPlaudTranscripts } from "../db/queries";
 import type { PlaudTranscriptSelect } from "../db/schema";
+import type { SqliteDb } from "@/core/models/db-models";
 
-export const parsePlaudStep = async (offset?: number): Promise<void> => {
+export const parsePlaudStep = async (db: SqliteDb, offset?: number): Promise<void> => {
   let curOffset: number = offset ?? 0;
   let transcripts: PlaudTranscriptSelect[] = [];
   let firstIteration = true;
@@ -16,9 +16,9 @@ export const parsePlaudStep = async (offset?: number): Promise<void> => {
   while (transcripts.length > 0 || firstIteration) {
     firstIteration = false;
     try {
-      transcripts = await getPlaudTranscripts(curOffset);
+      transcripts = await getPlaudTranscripts(curOffset, db);
       const results = await Promise.allSettled(
-        transcripts.map((t) => aiGatewayBottleneck.schedule(() => generateMdArtifact(t)))
+        transcripts.map((t) => aiGatewayBottleneck.schedule(() => generateMdArtifact(t, db)))
       );
       const failures = results
         .filter((r) => r.status === "rejected")
@@ -47,8 +47,8 @@ export const parsePlaudStep = async (offset?: number): Promise<void> => {
   }
 }
 
-const generateMdArtifact = async (transcript: PlaudTranscriptSelect): Promise<void> => {
-  const file = await getPlaudFileByFileId(transcript.fileId);
+const generateMdArtifact = async (transcript: PlaudTranscriptSelect, db: SqliteDb): Promise<void> => {
+  const file = await getPlaudFileByFileId(transcript.fileId, db);
 
   const md: string[] = [];
   md.push(`# ${transcript.name ?? file?.name ?? "Plaud Recording"}\n\n`);

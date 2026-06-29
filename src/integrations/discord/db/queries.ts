@@ -1,9 +1,9 @@
 import { discordGuild, discordChannel, discordMessage, type DiscordGuildInsert, type DiscordGuildSelect, type DiscordChannelInsert, type DiscordChannelSelect, type DiscordMessageInsert, type DiscordMessageSelect } from './schema';
 import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
-import { db } from '@/core/db/db';
+import type { SqliteDb } from '@/core/models/db-models';
 
-export const batchInsertDiscordGuild = async (guilds: DiscordGuildInsert[]): Promise<void> => {
+export const batchInsertDiscordGuild = async (guilds: DiscordGuildInsert[], db: SqliteDb): Promise<void> => {
   await db.insert(discordGuild)
     .values(guilds)
     .onConflictDoUpdate({
@@ -56,14 +56,14 @@ export const batchInsertDiscordGuild = async (guilds: DiscordGuildInsert[]): Pro
     });
 }
 
-export const getDiscordGuilds = async (offset: number = 0): Promise<DiscordGuildSelect[]> => {
+export const getDiscordGuilds = async (offset: number = 0, db: SqliteDb): Promise<DiscordGuildSelect[]> => {
   return await db.select()
     .from(discordGuild)
     .limit(PAGE_SIZE)
     .offset(offset);
 }
 
-export const batchInsertDiscordChannel = async (channels: DiscordChannelInsert[]): Promise<void> => {
+export const batchInsertDiscordChannel = async (channels: DiscordChannelInsert[], db: SqliteDb): Promise<void> => {
   await db.insert(discordChannel)
     .values(channels)
     .onConflictDoUpdate({
@@ -107,29 +107,29 @@ export const batchInsertDiscordChannel = async (channels: DiscordChannelInsert[]
     });
 }
 
-export const getDiscordChannels = async (offset: number = 0): Promise<DiscordChannelSelect[]> => {
+export const getDiscordChannels = async (offset: number = 0, db: SqliteDb): Promise<DiscordChannelSelect[]> => {
   return await db.select()
     .from(discordChannel)
     .limit(PAGE_SIZE)
     .offset(offset);
 }
 
-export const getAllDiscordChannels = async (offset: number =0): Promise<DiscordChannelSelect[]> => {
+export const getAllDiscordChannels = async (offset: number = 0, db: SqliteDb): Promise<DiscordChannelSelect[]> => {
   return await db.select().from(discordChannel).limit(PAGE_SIZE).offset(offset);
 }
 
-export const getDiscordChannelById = async (id: string): Promise<DiscordChannelSelect | null> => {
+export const getDiscordChannelById = async (id: string, db: SqliteDb): Promise<DiscordChannelSelect | null> => {
   const [returning] = await db.select().from(discordChannel).where(eq(discordChannel.id, id))
   return returning ?? null;
 }
 
-export const deleteAllDiscordData = async (): Promise<void> => {
+export const deleteAllDiscordData = async (db: SqliteDb): Promise<void> => {
   await db.delete(discordGuild);
   await db.delete(discordChannel);
   await db.delete(discordMessage);
 }
 
-export const batchInsertDiscordMessage = async (messages: DiscordMessageInsert[]): Promise<void> => {
+export const batchInsertDiscordMessage = async (messages: DiscordMessageInsert[], db: SqliteDb): Promise<void> => {
   await db.insert(discordMessage)
     .values(messages)
     .onConflictDoUpdate({
@@ -175,7 +175,7 @@ export const batchInsertDiscordMessage = async (messages: DiscordMessageInsert[]
     });
 }
 
-export const getMessageTimestampRangeByChannelId = async (channelId: string): Promise<{ minMessageTimestamp: string; maxMessageTimestamp: string } | undefined> => {
+export const getMessageTimestampRangeByChannelId = async (channelId: string, db: SqliteDb): Promise<{ minMessageTimestamp: string; maxMessageTimestamp: string } | undefined> => {
   const [record] = await db.select({
     minMessageTimestamp: sql<string>`MIN(${discordMessage.timestamp})`,
     maxMessageTimestamp: sql<string>`MAX(${discordMessage.timestamp})`,
@@ -184,7 +184,7 @@ export const getMessageTimestampRangeByChannelId = async (channelId: string): Pr
   return record;
 }
 
-export const getTopLevelMessagesByChannelId = async (channelId: string, before: string, after: string): Promise<DiscordMessageSelect[]> => {
+export const getTopLevelMessagesByChannelId = async (channelId: string, before: string, after: string, db: SqliteDb): Promise<DiscordMessageSelect[]> => {
   const filters = [
     eq(discordMessage.channelId, channelId),
     sql`${discordMessage.threadId} IS NULL`,
@@ -198,13 +198,13 @@ export const getTopLevelMessagesByChannelId = async (channelId: string, before: 
     .orderBy(asc(discordMessage.timestamp));
 }
 
-export const getMessagesByThreadId = async (threadId: string): Promise<DiscordMessageSelect[]> => {
+export const getMessagesByThreadId = async (threadId: string, db: SqliteDb): Promise<DiscordMessageSelect[]> => {
   const records = await db.select().from(discordMessage)
     .where(eq(discordMessage.threadId, threadId));
   return records;
 }
 
-export const getLastMessageByChannelId = async (channelId: string): Promise<DiscordMessageSelect | null> => {
+export const getLastMessageByChannelId = async (channelId: string, db: SqliteDb): Promise<DiscordMessageSelect | null> => {
   const [returning] = await db.select().from(discordMessage)
     .where(eq(discordMessage.channelId, channelId))
     .orderBy(desc(discordMessage.timestamp))
@@ -212,7 +212,7 @@ export const getLastMessageByChannelId = async (channelId: string): Promise<Disc
   return returning ?? null;
 }
 
-export const getDiscordThreadIds = async (offset: number = 0): Promise<{ channelId: string, threadId: string; lastMessageDate: string }[]> => {
+export const getDiscordThreadIds = async (offset: number = 0, db: SqliteDb): Promise<{ channelId: string, threadId: string; lastMessageDate: string }[]> => {
   const records = await db.select({
     channelId: discordMessage.channelId,
     threadId: discordMessage.threadId,

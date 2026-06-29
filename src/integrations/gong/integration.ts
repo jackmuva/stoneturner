@@ -6,26 +6,26 @@ import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
 import { gongConfig } from "./config";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
-import { db } from "@/core/db/db";
 import { deleteAllGongData } from "./db/queries";
+import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncGongPipeline = async (incremental: boolean = false) => {
+export const syncGongPipeline = async (incremental: boolean = false, db: SqliteDb) => {
   await Promise.all([
-    syncGongCallsStep(incremental),
-    syncGongTranscriptsStep(incremental)
+    syncGongCallsStep(incremental, db),
+    syncGongTranscriptsStep(incremental, db)
   ]);
-  await parseGongStep();
-  await indexVectorDbStep("Gong", incremental);
+  await parseGongStep(db);
+  await indexVectorDbStep("Gong", incremental, db);
 }
 
 export const gongIntegration: Integration = {
   config: gongConfig,
-  sync: async() => await syncGongPipeline(false),
-  syncUpdates: async() => await syncGongPipeline(true),
-  deleteSync: async() => {
+  sync: async(db: SqliteDb) => await syncGongPipeline(false, db),
+  syncUpdates: async(db: SqliteDb) => await syncGongPipeline(true, db),
+  deleteSync: async(db: SqliteDb) => {
     await deleteSyncTasksByIntegration("Gong", db);
     await deleteMdArtifactsByIntegration("Gong", db);
     await deleteEmbeddingByIntegration("Gong", db);
-    await deleteAllGongData();
+    await deleteAllGongData(db);
   }
 }

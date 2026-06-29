@@ -1,5 +1,4 @@
 import { getLastArtifactDateByIntegration, getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
-import { db } from "@/core/db/db";
 import { getDiscordChannelById, getDiscordChannels, getDiscordThreadIds, getMessagesByThreadId, getMessageTimestampRangeByChannelId, getTopLevelMessagesByChannelId } from "../db/queries";
 import type { DiscordChannelSelect, DiscordMessageSelect } from "../db/schema";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
@@ -7,29 +6,32 @@ import { retry } from "@/lib/utils";
 import { generateText, Output } from "ai";
 import * as z from "zod";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
+import type { SqliteDb } from "@/core/models/db-models";
 
 export const parseDiscordMessages = async (
   incremental: boolean,
+  db: SqliteDb,
   cursor?: { thread: boolean, channelId: string, readableDate: string, start: string, end?: string }
 ): Promise<void> => {
   const lastArtifactDate = await getLastArtifactDateByIntegration("discord", db);
   if (cursor?.thread) {
-    await parseThreadMessages(incremental, lastArtifactDate, cursor);
+    await parseThreadMessages(incremental, db, lastArtifactDate, cursor);
   } else if (cursor) {
-    await parseChannelMessages(incremental, lastArtifactDate, cursor);
+    await parseChannelMessages(incremental, db, lastArtifactDate, cursor);
   } else {
-    await parseChannelMessages(incremental, lastArtifactDate);
-    await parseThreadMessages(incremental, lastArtifactDate);
+    await parseChannelMessages(incremental, db, lastArtifactDate);
+    await parseThreadMessages(incremental, db, lastArtifactDate);
   }
 }
 
 const parseThreadMessages = async (
   incremental: boolean,
+  db: SqliteDb,
   lastArtifactDate?: string,
   cursor?: { thread: boolean, channelId: string, readableDate: string, start: string, end?: string }
 ) => {
   let curOffset = 0;
-  let threadArray: { channelId: string, threadId: string; lastMessageDate: string }[] = await getDiscordThreadIds(curOffset);
+  let threadArray: { channelId: string, threadId: string; lastMessageDate: string }[] = await getDiscordThreadIds(curOffset, db);
 
   while (threadArray.length > 0) {
     let workerQueue = threadArray.filter((threadObj) =>
@@ -39,32 +41,33 @@ const parseThreadMessages = async (
 
     await Promise.allSettled(workerQueue.map((threadObj) =>
       aiGatewayBottleneck.schedule(async () => {
-        const channel = await getDiscordChannelById(threadObj.channelId);
+        const channel = await getDiscordChannelById(threadObj.channelId, db);
         return processMessages(true, threadObj.threadId, channel?.name ?? threadObj.channelId,
           (new Date(threadObj.lastMessageDate)).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-          threadObj.lastMessageDate
+          threadObj.lastMessageDate, db
         )
       })
     ));
 
     curOffset += PAGE_SIZE;
-    threadArray = await getDiscordThreadIds(curOffset);
+    threadArray = await getDiscordThreadIds(curOffset, db);
   }
 }
 
 const parseChannelMessages = async (
   incremental: boolean,
+  db: SqliteDb,
   lastArtifactDate: string | undefined,
   cursor?: { thread: boolean, channelId: string, readableDate: string, start: string, end?: string }
 ) => {
   let curOffset = 0;
-  let channels: DiscordChannelSelect[] = await getDiscordChannels(curOffset);
+  let channels: DiscordChannelSelect[] = await getDiscordChannels(curOffset, db);
 
   while (channels.length > 0) {
     for (const channel of channels) {
       if (cursor && channel.id !== cursor.channelId) continue;
 
-      const range = await getMessageTimestampRangeByChannelId(channel.id)
+      const range = await getMessageTimestampRangeByChannelId(channel.id, db)
       if (!range || !range.minMessageTimestamp || !range.maxMessageTimestamp) continue;
 
       let dayArray = constructDayMap(new Date(range.minMessageTimestamp), new Date(range.maxMessageTimestamp));
@@ -79,25 +82,25 @@ const parseChannelMessages = async (
         aiGatewayBottleneck.schedule(() => {
           const readableDay = Object.keys(dayObj)[0]!
           const day = dayObj[readableDay]!
-          return processMessages(false, channel.id, channel?.name ?? channel.id, readableDay, day.start, day.end);
+          return processMessages(false, channel.id, channel?.name ?? channel.id, readableDay, day.start, db, day.end);
         })
       ));
     }
     curOffset += PAGE_SIZE;
-    channels = await getDiscordChannels(curOffset);
+    channels = await getDiscordChannels(curOffset, db);
   }
 }
 
-const processMessages = async (thread: boolean, channelId: string, channelName: string, readableDate: string, start: string, end?: string) => {
+const processMessages = async (thread: boolean, channelId: string, channelName: string, readableDate: string, start: string, db: SqliteDb, end?: string) => {
   try {
     let markdown = "";
     let messages: DiscordMessageSelect[] = [];
 
     if (!thread && end) {
-      messages = await getTopLevelMessagesByChannelId(channelId, end, start);
+      messages = await getTopLevelMessagesByChannelId(channelId, end, start, db);
       markdown = `# Messages for ${channelName} ${readableDate}\n---\n`;
     } else {
-      messages = await getMessagesByThreadId(channelId);
+      messages = await getMessagesByThreadId(channelId, db);
       markdown = `# Messages for thread: ${channelName}\n---\n`
     }
 

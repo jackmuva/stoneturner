@@ -1,4 +1,5 @@
 import type { BunRequest } from "bun";
+import type { SqliteDb } from "./db-models";
 
 export type IntegrationConfig = {
   integration: string,
@@ -20,9 +21,9 @@ export type IntegrationConfig = {
 
 export type Integration = {
   config: IntegrationConfig,
-  sync: () => Promise<void> | void,
-  syncUpdates: () => Promise<void> | void,
-  deleteSync: () => Promise<void> | void,
-  handleRedirect?: (req: BunRequest) => Promise<Response> | Response,
-  refreshAccessTokens?: () => Promise<void> | void,
+  sync: (db: SqliteDb) => Promise<void> | void,
+  syncUpdates: (db: SqliteDb) => Promise<void> | void,
+  deleteSync: (db: SqliteDb) => Promise<void> | void,
+  handleRedirect?: (req: BunRequest, db: SqliteDb) => Promise<Response> | Response,
+  refreshAccessTokens?: (db: SqliteDb) => Promise<void> | void,
 }

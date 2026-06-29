@@ -43,9 +43,9 @@ export async function runSyncSource(args: unknown, db: SqliteDb): Promise<McpToo
   const credential = await getIntegrationCredentialByIntegration(integration, db);
   if (!credential) return textResult(`Open [${integration} config](${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/knowledge/config/${integration}) to connect.`, false);
 
-  const isIncremental = (await getMdArtifactsByIntegration(integration, undefined, undefined, db)).length > 0;
+  const isIncremental = (await getMdArtifactsByIntegration(db, integration, undefined, undefined)).length > 0;
 
-  isIncremental ? cfg.syncUpdates() : cfg.sync();
+  isIncremental ? cfg.syncUpdates(db) : cfg.sync(db);
 
   return textResult(
     isIncremental

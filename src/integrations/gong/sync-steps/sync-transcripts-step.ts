@@ -4,27 +4,27 @@ import { batchInsertGongTranscript, getLatestGongCall } from "../db/queries";
 import type { GongTranscriptResponse } from "../models/models";
 import type { GongTranscriptInsert } from "../db/schema";
 import { getCredentials } from "./sync-calls-step";
-import { db } from "@/core/db/db";
+import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncGongTranscriptsStep = async (incremental: boolean = false, cursor?: string) => {
+export const syncGongTranscriptsStep = async (incremental: boolean = false, db: SqliteDb, cursor?: string) => {
   let latestDate: null | string = null;
   if (incremental) {
-    const latestCall = await getLatestGongCall();
+    const latestCall = await getLatestGongCall(db);
     if (latestCall) latestDate = latestCall.started;
   }
 
-  const { basicToken, baseUrl } = await getCredentials();
+  const { basicToken, baseUrl } = await getCredentials(db);
 
   let curCursor: string | null = cursor ?? null;
   let firstIteration: boolean = true;
   while ((curCursor || firstIteration) && baseUrl) {
     firstIteration = false;
-    curCursor = await fetchGongTranscripts(basicToken, baseUrl, curCursor, latestDate);
+    curCursor = await fetchGongTranscripts(db, basicToken, baseUrl, curCursor, latestDate);
     if (cursor) break;
   }
 }
 
-const fetchGongTranscripts = async (basicToken: string, baseUrl: string, curCursor: string | null, latestDate: string | null): Promise<string | null> => {
+const fetchGongTranscripts = async (db: SqliteDb, basicToken: string, baseUrl: string, curCursor: string | null, latestDate: string | null): Promise<string | null> => {
   try {
     const url = new URL(`${baseUrl?.at(-1) === "/" ? baseUrl.slice(0, -1) : baseUrl}/v2/calls/transcript`);
 
@@ -66,7 +66,7 @@ const fetchGongTranscripts = async (basicToken: string, baseUrl: string, curCurs
       transcript: t.transcript,
     }));
 
-    await batchInsertGongTranscript(inserts);
+    await batchInsertGongTranscript(inserts, db);
 
     await upsertSyncTask({
       integration: "Gong",
