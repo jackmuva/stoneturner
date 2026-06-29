@@ -5,7 +5,7 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ChevronDown, SquareLibraryIcon, ActivityIcon, CodeIcon, Sun, Moon, Monitor, type LucideProps } from "lucide-react";
+import { ChevronDown, SquareLibraryIcon, ActivityIcon, Sun, Moon, Monitor, type LucideProps } from "lucide-react";
 import { useState, type ForwardRefExoticComponent, type RefAttributes } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import stoneturnerLogo from "@/assets/stoneturner.png";
