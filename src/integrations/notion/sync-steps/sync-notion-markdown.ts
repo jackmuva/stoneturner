@@ -3,6 +3,7 @@ import type { NotionPageMarkdownInsert, NotionPageSelect } from "../db/schema";
 import { batchInsertNotionPageMarkdown, getNotionPages } from "../db/queries";
 import { getNotionCredentials, handleNotionRefresh, NOTION_BASE_API, NOTION_VERSION, notionApiBottleneck } from "./notion-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { db } from "@/core/db/db";
 import type { NotionPageMarkdown } from "../models/models";
 
 export const syncNotionMarkdown = async (incremental?: { lastEditedDate: string | null }, cursor?: number) => {
@@ -39,14 +40,14 @@ export const syncNotionMarkdown = async (incremental?: { lastEditedDate: string 
         status: failures.length ? "FAILED" : "SUCCESS",
         step: "notion-sync-markdown",
         inputs: failures.length ? { cursor: curOffset, errors: failures } : { cursor: curOffset },
-      })
+      }, db)
     } catch (e) {
       await upsertSyncTask({
         integration: "notion",
         status: "FAILED",
         step: "notion-sync-markdown",
         inputs: { cursor: curOffset, error: e },
-      })
+      }, db)
     }
     if (cursor !== undefined) break;
     curOffset += PAGE_SIZE;

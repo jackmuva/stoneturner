@@ -5,6 +5,7 @@ import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
 import { firecrawlConfig } from "./config";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
+import { db } from "@/core/db/db";
 import { deleteAllFirecrawlData } from "./db/queries";
 
 export const syncFirecrawlPipeline = async (incremental: boolean = false) => {
@@ -18,9 +19,9 @@ export const firecrawlIntegration: Integration = {
   sync: async () => await syncFirecrawlPipeline(false),
   syncUpdates: async () => await syncFirecrawlPipeline(true),
   deleteSync: async () => {
-    await deleteSyncTasksByIntegration("Firecrawl");
-    await deleteMdArtifactsByIntegration("Firecrawl");
-    await deleteEmbeddingByIntegration("Firecrawl");
+    await deleteSyncTasksByIntegration("Firecrawl", db);
+    await deleteMdArtifactsByIntegration("Firecrawl", db);
+    await deleteEmbeddingByIntegration("Firecrawl", db);
     await deleteAllFirecrawlData();
   }
 }

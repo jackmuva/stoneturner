@@ -10,6 +10,7 @@ import {
   type JsonRpcSuccess,
 } from "@/core/models/mcp-models";
 import { toolsByName, tools } from "@/core/services/mcp-tools";
+import { db } from "../db/db";
 
 const success = (id: string | number | null, result: unknown): JsonRpcSuccess => ({
   jsonrpc: "2.0",
@@ -77,7 +78,7 @@ export async function dispatchMcp(
         return error(id, JSON_RPC.INVALID_PARAMS, `Unknown tool: ${name}`);
       }
       try {
-        const result = await tool.handler(params?.arguments ?? {});
+        const result = await tool.handler(params?.arguments ?? {}, db);
         return success(id, result);
       } catch (err) {
         // Tool execution failures surface as a tool result, not a protocol error.

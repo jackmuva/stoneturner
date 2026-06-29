@@ -6,6 +6,7 @@ import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
 import { gongConfig } from "./config";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
+import { db } from "@/core/db/db";
 import { deleteAllGongData } from "./db/queries";
 
 export const syncGongPipeline = async (incremental: boolean = false) => {
@@ -22,9 +23,9 @@ export const gongIntegration: Integration = {
   sync: async() => await syncGongPipeline(false),
   syncUpdates: async() => await syncGongPipeline(true),
   deleteSync: async() => {
-    await deleteSyncTasksByIntegration("Gong");
-    await deleteMdArtifactsByIntegration("Gong");
-    await deleteEmbeddingByIntegration("Gong");
+    await deleteSyncTasksByIntegration("Gong", db);
+    await deleteMdArtifactsByIntegration("Gong", db);
+    await deleteEmbeddingByIntegration("Gong", db);
     await deleteAllGongData();
   }
 }

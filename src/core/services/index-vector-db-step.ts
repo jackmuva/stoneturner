@@ -6,6 +6,7 @@ import {
   upsertKeyPointsEmbedding,
   upsertQuestionsAnsweredEmbedding,
 } from "@/core/db/queries/vector-queries";
+import { db } from "@/core/db/db";
 import { embedTexts } from "@/core/services/embedding";
 import { PAGE_SIZE } from "@/lib/constants";
 import { retry } from "@/lib/utils";
@@ -18,7 +19,7 @@ export const indexVectorDbStep = async (integration: string, incremental: boolea
 
   while (artifacts.length > 0 || firstIteration) {
     firstIteration = false;
-    artifacts = await getMdArtifactsByIntegration(integration, offset);
+    artifacts = await getMdArtifactsByIntegration(integration, offset, undefined, db);
     await Promise.allSettled(
       artifacts.map((artifact) => aiGatewayBottleneck.schedule(() => chunkMd(artifact, curOffset, incremental)))
     );
@@ -32,7 +33,7 @@ export const chunkMd = async (artifact: MdArtifactSelect, curOffset: number, inc
     if (!artifact.markdown) return;
 
     if (!incremental) {
-      const embeddings = await getEmbeddingsByIntegrationArtifactId(artifact.integrationArtifactId);
+      const embeddings = await getEmbeddingsByIntegrationArtifactId(artifact.integrationArtifactId, db);
       if (embeddings.length > 0) return;
     }
 
@@ -55,7 +56,7 @@ export const chunkMd = async (artifact: MdArtifactSelect, curOffset: number, inc
           content: c.text,
           entities: artifact.entities,
           embedding: embeddings[i]!,
-        })));
+        }, db)));
       }, 3, 1),
       retry(async () => {
         if (keyPoints.length === 0) return;
@@ -68,7 +69,7 @@ export const chunkMd = async (artifact: MdArtifactSelect, curOffset: number, inc
           content: kp,
           entities: artifact.entities,
           embedding: embeddings[i]!,
-        })));
+        }, db)));
       }, 3, 1),
       retry(async () => {
         if (questionsAnswered.length === 0) return;
@@ -81,7 +82,7 @@ export const chunkMd = async (artifact: MdArtifactSelect, curOffset: number, inc
           content: qa,
           entities: artifact.entities,
           embedding: embeddings[i]!,
-        })));
+        }, db)));
       }, 3, 1),
     ]);
 
@@ -90,7 +91,7 @@ export const chunkMd = async (artifact: MdArtifactSelect, curOffset: number, inc
       status: "SUCCESS",
       inputs: JSON.stringify({ offset: curOffset }),
       step: "index-vector",
-    });
+    }, db);
   } catch (e) {
     console.error("[ERROR INDEXING]", e);
     await upsertSyncTask({
@@ -98,7 +99,7 @@ export const chunkMd = async (artifact: MdArtifactSelect, curOffset: number, inc
       status: "FAILED",
       inputs: JSON.stringify({ offset: curOffset }),
       step: "index-vector",
-    });
+    }, db);
   }
 }
 

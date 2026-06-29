@@ -1,4 +1,5 @@
-import { db } from '@/core/db/db';
+import type { SqliteDb } from '@/core/models/db-models';
+import { db as defaultDb } from '@/core/db/db';
 import {
   contentEmbedding,
   keyPointsEmbedding,
@@ -50,6 +51,7 @@ const buildFilterConditions = (
 
 export const upsertContentEmbedding = async (
   row: Omit<ContentEmbeddingInsert, 'embedding'> & { embedding: number[] },
+  db: SqliteDb,
 ): Promise<void> => {
   const { embedding, ...rest } = row;
   const values = {
@@ -69,7 +71,7 @@ export const upsertContentEmbedding = async (
   });
 };
 
-export const getEmbeddingsByIntegrationArtifactId = async (artifactId: string) : Promise<ContentEmbeddingSelect[]> => {
+export const getEmbeddingsByIntegrationArtifactId = async (artifactId: string, db: SqliteDb): Promise<ContentEmbeddingSelect[]> => {
   return await db.select().from(contentEmbedding).where(eq(contentEmbedding.integrationArtifactId, artifactId));
 }
 
@@ -77,6 +79,7 @@ export const searchContentEmbeddingByCosine = async (
   queryEmbedding: number[],
   limit: number = 5,
   filters?: EmbeddingSearchFilters,
+  db: SqliteDb = defaultDb,
 ) => {
   const distance = sql<number>`vector_distance_cos(${contentEmbedding.embedding}, vector32(${JSON.stringify(queryEmbedding)}))`;
   return await db
@@ -100,6 +103,7 @@ export const searchContentEmbeddingByCosine = async (
 
 export const upsertKeyPointsEmbedding = async (
   row: Omit<KeyPointsEmbeddingInsert, 'embedding'> & { embedding: number[] },
+  db: SqliteDb,
 ): Promise<void> => {
   const { embedding, ...rest } = row;
   const values = {
@@ -123,6 +127,7 @@ export const searchKeyPointsEmbeddingByCosine = async (
   queryEmbedding: number[],
   limit: number = 5,
   filters?: EmbeddingSearchFilters,
+  db: SqliteDb = defaultDb,
 ) => {
   const distance = sql<number>`vector_distance_cos(${keyPointsEmbedding.embedding}, vector32(${JSON.stringify(queryEmbedding)}))`;
   return await db
@@ -146,6 +151,7 @@ export const searchKeyPointsEmbeddingByCosine = async (
 
 export const upsertQuestionsAnsweredEmbedding = async (
   row: Omit<QuestionsAnsweredEmbeddingInsert, 'embedding'> & { embedding: number[] },
+  db: SqliteDb,
 ): Promise<void> => {
   const { embedding, ...rest } = row;
   const values = {
@@ -169,6 +175,7 @@ export const searchQuestionsAnsweredEmbeddingByCosine = async (
   queryEmbedding: number[],
   limit: number = 5,
   filters?: EmbeddingSearchFilters,
+  db: SqliteDb = defaultDb,
 ) => {
   const distance = sql<number>`vector_distance_cos(${questionsAnsweredEmbedding.embedding}, vector32(${JSON.stringify(queryEmbedding)}))`;
   return await db
@@ -190,13 +197,13 @@ export const searchQuestionsAnsweredEmbeddingByCosine = async (
     .limit(limit);
 };
 
-export const deleteEmbeddingByIntegration = async (integration: string): Promise<void> => {
+export const deleteEmbeddingByIntegration = async (integration: string, db: SqliteDb): Promise<void> => {
   await db.delete(contentEmbedding).where(sql`LOWER("integration") = ${integration.toLowerCase()}`);
   await db.delete(keyPointsEmbedding).where(sql`LOWER("integration") = ${integration.toLowerCase()}`);
   await db.delete(questionsAnsweredEmbedding).where(sql`LOWER("integration") = ${integration.toLowerCase()}`);
 };
 
-export const deleteEmbeddingsByIntegrationArtifactId = async (integrationArtifactId: string): Promise<void> => {
+export const deleteEmbeddingsByIntegrationArtifactId = async (integrationArtifactId: string, db: SqliteDb): Promise<void> => {
   await db.delete(contentEmbedding).where(sql`"integrationArtifactId" = ${integrationArtifactId}`);
   await db.delete(keyPointsEmbedding).where(sql`"integrationArtifactId" = ${integrationArtifactId}`);
   await db.delete(questionsAnsweredEmbedding).where(sql`"integrationArtifactId" = ${integrationArtifactId}`);

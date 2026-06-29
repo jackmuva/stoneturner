@@ -4,6 +4,7 @@ import { retry } from "@/lib/utils";
 import { batchInsertGongCall, getLatestGongCall } from "../db/queries";
 import type { GongCallResponse } from "../models/models";
 import type { GongCallInsert } from "../db/schema";
+import { db } from "@/core/db/db";
 
 export const syncGongCallsStep = async (incremental: boolean = false, cursor?: string) => {
   let latestDate: null | string = null;
@@ -24,7 +25,7 @@ export const syncGongCallsStep = async (incremental: boolean = false, cursor?: s
 }
 
 export const getCredentials = async (): Promise<{ basicToken: string, baseUrl: string | null | undefined }> => {
-  const gongConfig: IntegrationCredential | undefined = await getIntegrationCredentialByIntegration("Gong");
+  const gongConfig: IntegrationCredential | undefined = await getIntegrationCredentialByIntegration("Gong", db);
   const basicToken: string = btoa(gongConfig?.accessKey + ":" + gongConfig?.secretKey);
   return {
     basicToken: basicToken,
@@ -78,7 +79,7 @@ const fetchGongCalls = async (basicToken: string, baseUrl: string, curCursor: st
     status: "SUCCESS",
     inputs: JSON.stringify({ cursor: curCursor }),
     step: "gong-sync-call"
-  });
+  }, db);
 
   return gongResponse.records.cursor;
   }catch(e){
@@ -90,7 +91,7 @@ await upsertSyncTask({
         error: e,
       }),
       step: "gong-sync-call"
-    });
+    }, db);
     return null;
   }
 }

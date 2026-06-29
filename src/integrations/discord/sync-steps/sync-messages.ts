@@ -4,6 +4,7 @@ import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertDiscordMessage, getDiscordChannels, getLastMessageByChannelId } from "../db/queries";
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { db } from "@/core/db/db";
 import type { DiscordChannelSelect } from "../db/schema";
 
 const MAX_MESSAGES = 100;
@@ -83,7 +84,7 @@ const upsertMessages = async (channel: DiscordChannelSelect, incremental: boolea
       status: "SUCCESS",
       step: "discord-sync-channel",
       inputs: JSON.stringify({ channelId: channel.id, cursor: lastMessageId }),
-    });
+    }, db);
 
     if (messages.length === MAX_MESSAGES) {
       await upsertMessages(channel, incremental, messages.at(-1)!.id);
@@ -94,7 +95,7 @@ const upsertMessages = async (channel: DiscordChannelSelect, incremental: boolea
       status: "FAILED",
       step: "discord-sync-channel",
       inputs: JSON.stringify({ channelId: channel.id, cursor: lastMessageId }),
-    });
+    }, db);
     return;
   }
 }

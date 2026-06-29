@@ -1,4 +1,5 @@
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
+import { db } from "@/core/db/db";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import { generateText, Output } from "ai";
@@ -28,14 +29,14 @@ export const parsePlaudStep = async (offset?: number): Promise<void> => {
         status: failures.length ? "FAILED" : "SUCCESS",
         inputs: failures.length ? { offset: curOffset, errors: failures } : { offset: curOffset },
         step: "parse",
-      });
+      }, db);
     } catch (e) {
       await upsertSyncTask({
         integration: "Plaud",
         status: "FAILED",
         inputs: { offset: curOffset, error: String(e) },
         step: "parse",
-      });
+      }, db);
     }
 
     if (offset !== undefined) {
@@ -64,7 +65,7 @@ const generateMdArtifact = async (transcript: PlaudTranscriptSelect): Promise<vo
   }
   const markdown: string = md.join("");
 
-  const existing = await getMdArtifactByIntegrationArtifactId(transcript.fileId);
+  const existing = await getMdArtifactByIntegrationArtifactId(transcript.fileId, db);
   if (existing && existing.markdown === markdown) return;
 
   const { output: analysis } = await retry(async () => await generateText({
@@ -96,5 +97,5 @@ ${markdown}`,
     keyPoints: analysis.keyPoints,
     questionsAnswered: analysis.questionsAnswered,
     entities: analysis.entities,
-  });
+  }, db);
 }

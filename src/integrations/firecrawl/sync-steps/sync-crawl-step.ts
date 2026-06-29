@@ -1,4 +1,5 @@
 import { getIntegrationCredentialByIntegration, upsertSyncTask } from "@/core/db/queries/queries";
+import { db } from "@/core/db/db";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import { retry } from "@/lib/utils";
 import { batchInsertFirecrawlPage } from "../db/queries";
@@ -23,7 +24,7 @@ interface FirecrawlCredentials {
 }
 
 export const getCredentials = async (): Promise<FirecrawlCredentials> => {
-  const cred: IntegrationCredential | undefined = await getIntegrationCredentialByIntegration("Firecrawl");
+  const cred: IntegrationCredential | undefined = await getIntegrationCredentialByIntegration("Firecrawl", db);
   const options = cred?.options ?? {};
   const urls = (options.urls ?? "")
     .split(",")
@@ -130,14 +131,14 @@ const crawlUrl = async (apiKey: string, seedUrl: string, maxDepth?: number, limi
       status: "SUCCESS",
       inputs: JSON.stringify({ url: seedUrl, pages: pageCount }),
       step: "firecrawl-sync-crawl",
-    });
+    }, db);
   } catch (e) {
     await upsertSyncTask({
       integration: "Firecrawl",
       status: "FAILED",
       inputs: JSON.stringify({ url: seedUrl, error: String(e) }),
       step: "firecrawl-sync-crawl",
-    });
+    }, db);
   }
 }
 
@@ -150,7 +151,7 @@ export const syncFirecrawlCrawlStep = async (_incremental: boolean = false): Pro
       status: "FAILED",
       inputs: JSON.stringify({ error: "missing API key or URLs in credential options" }),
       step: "firecrawl-sync-crawl",
-    });
+    }, db);
     return;
   }
 

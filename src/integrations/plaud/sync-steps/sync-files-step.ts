@@ -1,4 +1,5 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { db } from "@/core/db/db";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertPlaudFile, getLatestPlaudFile } from "../db/queries";
@@ -24,7 +25,7 @@ export const syncPlaudFilesStep = async (incremental: boolean = false): Promise<
         status: "FAILED",
         step: "plaud-sync-files",
         inputs: { page, error: String(e) },
-      });
+      }, db);
       break;
     }
 
@@ -50,14 +51,14 @@ export const syncPlaudFilesStep = async (incremental: boolean = false): Promise<
         status: "SUCCESS",
         step: "plaud-sync-files",
         inputs: { page, count: rows.length },
-      });
+      }, db);
     } catch (e) {
       await upsertSyncTask({
         integration: "Plaud",
         status: "FAILED",
         step: "plaud-sync-files",
         inputs: { page, error: String(e) },
-      });
+      }, db);
     }
 
     // Stop on a short/empty page, or once incremental hit already-synced files.

@@ -1,4 +1,5 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { db } from "@/core/db/db";
 import { retry } from "@/lib/utils";
 import { getPlaudFilesWithoutTranscript, upsertPlaudTranscript } from "../db/queries";
 import type { PlaudFileSelect } from "../db/schema";
@@ -29,7 +30,7 @@ export const syncPlaudTranscriptsStep = async (): Promise<void> => {
         status: failures.length ? "FAILED" : "SUCCESS",
         step: "plaud-sync-transcripts",
         inputs: failures.length ? { count: files.length, errors: failures } : { count: files.length },
-      });
+      }, db);
 
       // Guard against an infinite loop if every file in the batch failed.
       if (failures.length === files.length) break;
@@ -39,7 +40,7 @@ export const syncPlaudTranscriptsStep = async (): Promise<void> => {
         status: "FAILED",
         step: "plaud-sync-transcripts",
         inputs: { error: String(e) },
-      });
+      }, db);
       break;
     }
   }

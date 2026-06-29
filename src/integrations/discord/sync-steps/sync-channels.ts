@@ -1,6 +1,7 @@
 import type { DiscordChannel } from "../models/models";
 import { DISCORD_API_ENDPOINT, discordApiBottleneck } from "./discord-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { db } from "@/core/db/db";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertDiscordChannel, getDiscordGuilds } from "../db/queries";
@@ -75,14 +76,14 @@ const upsertChannels = async (guild: DiscordGuildSelect): Promise<void> => {
       status: "SUCCESS",
       step: "discord-sync-channel-by-guild",
       inputs: JSON.stringify({ guildId: guild.id }),
-    });
+    }, db);
   } catch (e) {
     await upsertSyncTask({
       integration: "discord",
       status: "FAILED",
       step: "discord-sync-channel-by-guild",
       inputs: JSON.stringify({ guildId: guild.id, error: e }),
-    });
+    }, db);
   }
   return;
 }

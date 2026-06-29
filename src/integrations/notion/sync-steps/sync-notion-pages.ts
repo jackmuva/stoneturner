@@ -1,6 +1,7 @@
 import type { NotionChildPageBlock, NotionPage, NotionSearchResponse } from "../models/models";
 import { NOTION_BASE_API, NOTION_VERSION, getNotionCredentials, handleNotionRefresh, notionApiBottleneck } from "./notion-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { db } from "@/core/db/db";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertNotionPage } from "../db/queries";
@@ -21,7 +22,7 @@ export const syncNotionPages = async (incremental: boolean = false, cursor?: str
         status: "FAILED",
         step: "notion-sync-pages",
         inputs: { cursor: nextCursor, error: e },
-      })
+      }, db)
       break;
     }
     try {
@@ -33,14 +34,14 @@ export const syncNotionPages = async (incremental: boolean = false, cursor?: str
         status: "SUCCESS",
         step: "notion-sync-pages",
         inputs: { cursor: nextCursor },
-      });
+      }, db);
     } catch (e) {
       await upsertSyncTask({
         integration: "notion",
         status: "FAILED",
         step: "notion-sync-pages",
         inputs: { cursor: nextCursor, error: e },
-      })
+      }, db)
       if (!response.next_cursor) break;
     }
   }

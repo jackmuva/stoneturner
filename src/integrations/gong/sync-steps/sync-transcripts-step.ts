@@ -4,6 +4,7 @@ import { batchInsertGongTranscript, getLatestGongCall } from "../db/queries";
 import type { GongTranscriptResponse } from "../models/models";
 import type { GongTranscriptInsert } from "../db/schema";
 import { getCredentials } from "./sync-calls-step";
+import { db } from "@/core/db/db";
 
 export const syncGongTranscriptsStep = async (incremental: boolean = false, cursor?: string) => {
   let latestDate: null | string = null;
@@ -54,7 +55,7 @@ const fetchGongTranscripts = async (basicToken: string, baseUrl: string, curCurs
           url: url.toString(),
         }),
         step: "sync-transcript"
-      });
+      }, db);
       return null;
     }
 
@@ -72,7 +73,7 @@ const fetchGongTranscripts = async (basicToken: string, baseUrl: string, curCurs
       status: "SUCCESS",
       inputs: JSON.stringify({ cursor: curCursor, url: url.toString() }),
       step: "sync-transcript"
-    });
+    }, db);
 
     return gongResponse.records.cursor ?? null;
   } catch (e) {
@@ -84,7 +85,7 @@ const fetchGongTranscripts = async (basicToken: string, baseUrl: string, curCurs
         error: e,
       }),
       step: "gong-sync-transcript"
-    });
+    }, db);
     return null;
   }
 }

@@ -2,6 +2,7 @@ import type { Integration } from "@/core/models/models";
 import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration, upsertIntegrationCredential } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
+import { db } from "@/core/db/db";
 import { notionConfig } from "./config";
 import { handleNotionRefresh, handleOauthRedirect, NOTION_BASE_API } from "./sync-steps/notion-utils";
 import { syncNotionPages } from "./sync-steps/sync-notion-pages";
@@ -23,9 +24,9 @@ export const notionIntegration: Integration = {
   syncUpdates: async () => await syncNotionPipeline(true),
   deleteSync: async () => {
     await deleteNotionData();
-    await deleteSyncTasksByIntegration("notion");
-    await deleteMdArtifactsByIntegration("notion");
-    await deleteEmbeddingByIntegration("notion");
+    await deleteSyncTasksByIntegration("notion", db);
+    await deleteMdArtifactsByIntegration("notion", db);
+    await deleteEmbeddingByIntegration("notion", db);
   },
   handleRedirect: handleOauthRedirect,
   refreshAccessTokens: handleNotionRefresh,

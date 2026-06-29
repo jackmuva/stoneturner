@@ -1,4 +1,5 @@
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
+import { db } from "@/core/db/db";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import { generateText, Output } from "ai";
@@ -28,14 +29,14 @@ export const parseFirecrawlStep = async (offset?: number): Promise<void> => {
         status: failures.length ? "FAILED" : "SUCCESS",
         inputs: failures.length ? { offset: curOffset, errors: failures } : { offset: curOffset },
         step: "parse",
-      });
+      }, db);
     } catch (e) {
       await upsertSyncTask({
         integration: "Firecrawl",
         status: "FAILED",
         inputs: { offset: curOffset, error: String(e) },
         step: "parse",
-      });
+      }, db);
     }
 
     if (offset !== undefined) {
@@ -53,7 +54,7 @@ const generateMdArtifact = async (page: FirecrawlPageSelect): Promise<void> => {
   md.push(page.markdown ?? "");
   const markdown: string = md.join("");
 
-  const existing = await getMdArtifactByIntegrationArtifactId(page.url);
+  const existing = await getMdArtifactByIntegrationArtifactId(page.url, db);
   if (existing && existing.markdown === markdown) return;
 
   const { output: analysis } = await retry(async () => await generateText({
@@ -85,5 +86,5 @@ ${markdown}`,
     keyPoints: analysis.keyPoints,
     questionsAnswered: analysis.questionsAnswered,
     entities: analysis.entities,
-  });
+  }, db);
 }

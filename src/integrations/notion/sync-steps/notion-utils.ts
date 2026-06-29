@@ -1,4 +1,5 @@
 import { getIntegrationCredentialByIntegration, upsertIntegrationCredential, upsertSyncTask } from "@/core/db/queries/queries";
+import { db } from "@/core/db/db";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import Bottleneck from "bottleneck";
 import type { BunRequest } from "bun";
@@ -12,11 +13,11 @@ export const NOTION_BASE_API = "https://api.notion.com/v1";
 export const NOTION_VERSION = "2026-03-11";
 
 export const getNotionCredentials = async () => {
-  return await getIntegrationCredentialByIntegration("notion");
+  return await getIntegrationCredentialByIntegration("notion", db);
 }
 
 export const handleNotionRefresh = async () => {
-  const cred: IntegrationCredential | undefined = await getIntegrationCredentialByIntegration("notion");
+  const cred: IntegrationCredential | undefined = await getIntegrationCredentialByIntegration("notion", db);
   if (!cred) return;
 
   const clientId = process.env.BUN_PUBLIC_NOTION_CLIENT_ID ?? "";
@@ -40,7 +41,7 @@ export const handleNotionRefresh = async () => {
       status: "FAILED",
       inputs: { cred },
       step: "notion-token-revalidation",
-    })
+    }, db)
   }
 
   const token = await res.json() as {
@@ -55,7 +56,7 @@ export const handleNotionRefresh = async () => {
     integrationType: "OAUTH",
     accessToken: token.access_token,
     refreshToken: token.refresh_token,
-  });
+  }, db);
 }
 
 export const handleOauthRedirect = async (req: BunRequest) => {
@@ -101,7 +102,7 @@ export const handleOauthRedirect = async (req: BunRequest) => {
     integrationType: "OAUTH",
     accessToken: token.access_token,
     refreshToken: token.refresh_token,
-  });
+  }, db);
 
   return Response.redirect(process.env.BUN_PUBLIC_BACKEND_BASE_URL!, 302);
 }

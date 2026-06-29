@@ -1,4 +1,5 @@
 import { getIntegrationCredentialByIntegration, upsertIntegrationCredential, upsertSyncTask } from "@/core/db/queries/queries";
+import { db } from "@/core/db/db";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import type { PlaudTokenResponse } from "../models/models";
 import Bottleneck from "bottleneck";
@@ -12,7 +13,7 @@ export const plaudApiBottleneck = new Bottleneck({
 export const PLAUD_BASE_API = "https://platform.plaud.ai/developer/api";
 
 export const getPlaudCredentials = async (): Promise<IntegrationCredential | undefined> => {
-  return await getIntegrationCredentialByIntegration("Plaud");
+  return await getIntegrationCredentialByIntegration("Plaud", db);
 }
 
 export const handlePlaudRefresh = async (): Promise<void> => {
@@ -34,7 +35,7 @@ export const handlePlaudRefresh = async (): Promise<void> => {
       status: "FAILED",
       inputs: { error: await res.text() },
       step: "plaud-token-revalidation",
-    });
+    }, db);
     return;
   }
 
@@ -46,7 +47,7 @@ export const handlePlaudRefresh = async (): Promise<void> => {
     integrationType: "OAUTH",
     accessToken: token.access_token,
     refreshToken: token.refresh_token,
-  });
+  }, db);
 }
 
 export const handleOauthRedirect = async (req: BunRequest): Promise<Response> => {
@@ -81,7 +82,7 @@ export const handleOauthRedirect = async (req: BunRequest): Promise<Response> =>
     integrationType: "OAUTH",
     accessToken: token.access_token,
     refreshToken: token.refresh_token,
-  });
+  }, db);
 
   return Response.redirect(process.env.BUN_PUBLIC_BACKEND_BASE_URL!, 302);
 }

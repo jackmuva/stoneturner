@@ -1,4 +1,5 @@
 import { getLastArtifactDateByIntegration, getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
+import { db } from "@/core/db/db";
 import { getDiscordChannelById, getDiscordChannels, getDiscordThreadIds, getMessagesByThreadId, getMessageTimestampRangeByChannelId, getTopLevelMessagesByChannelId } from "../db/queries";
 import type { DiscordChannelSelect, DiscordMessageSelect } from "../db/schema";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
@@ -11,7 +12,7 @@ export const parseDiscordMessages = async (
   incremental: boolean,
   cursor?: { thread: boolean, channelId: string, readableDate: string, start: string, end?: string }
 ): Promise<void> => {
-  const lastArtifactDate = await getLastArtifactDateByIntegration("discord");
+  const lastArtifactDate = await getLastArtifactDateByIntegration("discord", db);
   if (cursor?.thread) {
     await parseThreadMessages(incremental, lastArtifactDate, cursor);
   } else if (cursor) {
@@ -105,7 +106,7 @@ const processMessages = async (thread: boolean, channelId: string, channelName: 
     }
 
     const artifactId = `${channelId}-${readableDate}`;
-    const existing = await getMdArtifactByIntegrationArtifactId(artifactId);
+    const existing = await getMdArtifactByIntegrationArtifactId(artifactId, db);
     if (existing && existing.markdown === markdown) return;
 
     const analysisPrompt = `Analyze the following Discord conversation and extract three distinct types of information:
@@ -139,21 +140,21 @@ ${markdown}`;
       keyPoints: analysis.keyPoints,
       questionsAnswered: analysis.questionsAnswered,
       entities: analysis.entities,
-    });
+    }, db);
 
     await upsertSyncTask({
       integration: "discord",
       status: "SUCCESS",
       inputs: JSON.stringify({ thread, channelId, readableDate, start, end }),
       step: "discord-parse-messages",
-    });
+    }, db);
   } catch (e) {
     await upsertSyncTask({
       integration: "discord",
       status: "FAILED",
       inputs: JSON.stringify({ thread, channelId, readableDate, start, end }),
       step: "discord-parse-messages",
-    });
+    }, db);
   }
 }
 

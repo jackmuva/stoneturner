@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { sql } from "drizzle-orm";
-import { db } from "@/core/db/db";
 import { embedTexts } from "@/core/services/embedding";
 import {
   searchContentEmbeddingByCosine,
@@ -14,6 +13,7 @@ import {
 import type { MdArtifactSelect } from "@/core/db/schema/schema";
 import type { McpToolResult, MergedHit } from "@/core/models/mcp-models";
 import { textResult } from "@/lib/utils";
+import type { SqliteDb } from "@/core/models/db-models";
 
 export const semanticSearchSchema = z.object({
   query: z.string().min(1).describe("Natural-language search query"),
@@ -24,7 +24,7 @@ export const semanticSearchSchema = z.object({
   entities: z.array(z.string().min(1)).optional().describe("Only return artifacts that include all of these entities (exact, case-sensitive match)"),
 });
 
-export async function runSemanticSearch(args: unknown): Promise<McpToolResult> {
+export async function runSemanticSearch(args: unknown, db: SqliteDb): Promise<McpToolResult> {
   const parsed = semanticSearchSchema.safeParse(args);
   if (!parsed.success) return textResult(`Invalid arguments: ${parsed.error.message}`, true);
 
@@ -36,9 +36,9 @@ export async function runSemanticSearch(args: unknown): Promise<McpToolResult> {
   const filters: EmbeddingSearchFilters = { integration, minDate, maxDate, entities };
 
   const [content, keyPoints, questions] = await Promise.all([
-    searchContentEmbeddingByCosine(embedding, limit, filters),
-    searchKeyPointsEmbeddingByCosine(embedding, limit, filters),
-    searchQuestionsAnsweredEmbeddingByCosine(embedding, limit, filters),
+    searchContentEmbeddingByCosine(embedding, limit, filters, db),
+    searchKeyPointsEmbeddingByCosine(embedding, limit, filters, db),
+    searchQuestionsAnsweredEmbeddingByCosine(embedding, limit, filters, db),
   ]);
 
   let merged = new Map<string, MergedHit>();
@@ -51,7 +51,7 @@ export async function runSemanticSearch(args: unknown): Promise<McpToolResult> {
   if (hits.length === 0) return textResult(`No matches found for "${query}".`);
 
   const artifacts = await Promise.all(
-    hits.map((hit) => getArtifact(hit.integrationArtifactId)),
+    hits.map((hit) => getArtifact(hit.integrationArtifactId, db)),
   );
 
   const blocks = hits.map((hit, i) => {
@@ -76,17 +76,17 @@ export const getArtifactSchema = z.object({
   id: z.string().min(1).describe("The mdArtifacts primary id or the integrationArtifactId"),
 });
 
-export async function getArtifact(id: string): Promise<MdArtifactSelect | undefined> {
-  const artifact = await getMdArtifactByIntegrationArtifactId(id);
+export async function getArtifact(id: string, db: SqliteDb): Promise<MdArtifactSelect | undefined> {
+  const artifact = await getMdArtifactByIntegrationArtifactId(id, db);
   return artifact;
 }
 
-export async function runGetArtifact(args: unknown): Promise<McpToolResult> {
+export async function runGetArtifact(args: unknown, db: SqliteDb): Promise<McpToolResult> {
   const parsed = getArtifactSchema.safeParse(args);
   if (!parsed.success) return textResult(`Invalid arguments: ${parsed.error.message}`, true);
 
-  const artifact = await getArtifact(parsed.data.id);
-  if (!artifact) return textResult(`No artifact found for id "${parsed.data.id}".`, true); 
+  const artifact = await getArtifact(parsed.data.id, db);
+  if (!artifact) return textResult(`No artifact found for id "${parsed.data.id}".`, true);
 
   const fmtList = (label: string, items: string[] | null | undefined) =>
     `## ${label}\n${items && items.length > 0 ? items.map((x) => `- ${x}`).join("\n") : "(none)"
@@ -140,7 +140,7 @@ function validateSelectOnly(query: string): { ok: true; query: string } | { ok: 
   return { ok: true, query: normalized };
 }
 
-export async function runSqlQuery(args: unknown): Promise<McpToolResult> {
+export async function runSqlQuery(args: unknown, db: SqliteDb): Promise<McpToolResult> {
   const parsed = runSqlQuerySchema.safeParse(args);
   if (!parsed.success) return textResult(`Invalid arguments: ${parsed.error.message}`, true);
 

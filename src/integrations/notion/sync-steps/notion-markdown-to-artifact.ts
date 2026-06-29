@@ -2,6 +2,7 @@ import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import type { NotionPageSelect } from "../db/schema";
 import { getNotionPageMarkdownById, getNotionPages } from "../db/queries";
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
+import { db } from "@/core/db/db";
 import { retry } from "@/lib/utils";
 import { generateText, Output } from "ai";
 import * as z from "zod";
@@ -30,14 +31,14 @@ export const notionMarkdownToArtifact = async (incremental?: { lastEditedDate: s
         status: failures.length ? "FAILED" : "SUCCESS",
         step: "notion-markdown-to-artifact",
         inputs: failures.length ? { cursor: curOffset, errors: failures } : { cursor: curOffset },
-      })
+      }, db)
     } catch (e) {
       await upsertSyncTask({
         integration: "notion",
         status: "FAILED",
         step: "notion-markdown-to-artifact",
         inputs: { cursor: curOffset, error: e },
-      })
+      }, db)
     }
     if (cursor !== undefined) break;
     curOffset += PAGE_SIZE;
@@ -49,7 +50,7 @@ const analyzePageMarkdown = async (page: NotionPageSelect): Promise<void> => {
   const pageMarkdown = await getNotionPageMarkdownById(page.pageId);
   if (!pageMarkdown?.markdown) return;
 
-  const existing = await getMdArtifactByIntegrationArtifactId(page.pageId);
+  const existing = await getMdArtifactByIntegrationArtifactId(page.pageId, db);
   if (existing && existing.markdown === pageMarkdown.markdown) return;
 
   const analysisPrompt = `Analyze the following Notion page content and extract three distinct types of information:
@@ -83,5 +84,5 @@ ${"# " + page.title + "\n" + pageMarkdown.markdown}`;
     keyPoints: analysis.keyPoints,
     questionsAnswered: analysis.questionsAnswered,
     entities: analysis.entities,
-  });
+  }, db);
 }

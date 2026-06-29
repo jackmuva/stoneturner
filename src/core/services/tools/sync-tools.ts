@@ -5,15 +5,16 @@ import {
   getIntegrationCredentialByIntegration,
 } from "@/core/db/queries/queries";
 import type { McpToolResult } from "@/core/models/mcp-models";
+import type { SqliteDb } from "@/core/models/db-models";
 import { supportedIntegrations } from "@/integrations/sync-registry";
 import { textResult } from "@/lib/utils";
 
 export const getIntegrationSourcesSchema = z.object({});
 
-export async function runGetIntegrationSources(_args: unknown): Promise<McpToolResult> {
+export async function runGetIntegrationSources(_args: unknown, db: SqliteDb): Promise<McpToolResult> {
   if (supportedIntegrations.length === 0) return textResult("No integration sources are configured.");
 
-  const credentials = await getIntegrationCredentials();
+  const credentials = await getIntegrationCredentials(db);
   const connected = new Set(credentials.map((c) => c.integration));
 
   const blocks = supportedIntegrations.map((cfg, i) => {
@@ -31,7 +32,7 @@ export const syncSourceSchema = z.object({
   integration: z.string().min(1).describe("The integration source to sync (e.g. \"gong\"). Use get_integration_sources to see valid names."),
 });
 
-export async function runSyncSource(args: unknown): Promise<McpToolResult> {
+export async function runSyncSource(args: unknown, db: SqliteDb): Promise<McpToolResult> {
   const parsed = syncSourceSchema.safeParse(args);
   if (!parsed.success) return textResult(`Invalid arguments: ${parsed.error.message}`, true);
 
@@ -39,10 +40,10 @@ export async function runSyncSource(args: unknown): Promise<McpToolResult> {
   const cfg = supportedIntegrations.find((integ) => integ.config.integration.toLowerCase() === integration.toLowerCase());
   if (!cfg) return textResult(`Unknown integration "${integration}". Use get_integration_sources to see valid names.`, true);
 
-  const credential = await getIntegrationCredentialByIntegration(integration);
+  const credential = await getIntegrationCredentialByIntegration(integration, db);
   if (!credential) return textResult(`Open [${integration} config](${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/knowledge/config/${integration}) to connect.`, false);
 
-  const isIncremental = (await getMdArtifactsByIntegration(integration)).length > 0;
+  const isIncremental = (await getMdArtifactsByIntegration(integration, undefined, undefined, db)).length > 0;
 
   isIncremental ? cfg.syncUpdates() : cfg.sync();
 

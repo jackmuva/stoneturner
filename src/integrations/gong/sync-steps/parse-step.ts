@@ -6,6 +6,7 @@ import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import { generateText, Output } from "ai";
 import * as z from "zod";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
+import { db } from "@/core/db/db";
 
 export const parseGongStep = async (offset?: number) => {
   let curOffset: number = offset ?? 0;
@@ -28,14 +29,14 @@ export const parseGongStep = async (offset?: number) => {
         status: failures.length ? "FAILED" : "SUCCESS",
         inputs: JSON.stringify(failures.length ? { offset: curOffset, errors: failures } : { offset: curOffset }),
         step: "parse",
-      });
+      }, db);
     } catch (e) {
       await upsertSyncTask({
         integration: "Gong",
         status: "FAILED",
         inputs: JSON.stringify({ offset: curOffset, error: e }),
         step: "parse"
-      });
+      }, db);
     }
 
     if (offset !== undefined) {
@@ -70,7 +71,7 @@ const generateMdArtifact = async (transcript: GongTranscriptSelect): Promise<voi
   }
   const markdown: string = md.join("");
 
-  const existing = await getMdArtifactByIntegrationArtifactId(transcript.callId);
+  const existing = await getMdArtifactByIntegrationArtifactId(transcript.callId, db);
   if (!existing || existing.markdown !== markdown) {
     const { output: analysis } = await retry(async () => await generateText({
       model: SUMMARIZATION_MODEL,
@@ -101,6 +102,6 @@ ${md.join("")}`,
       keyPoints: analysis.keyPoints,
       questionsAnswered: analysis.questionsAnswered,
       entities: analysis.entities,
-    });
+    }, db);
   }
 }

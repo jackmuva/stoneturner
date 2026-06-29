@@ -2,6 +2,7 @@ import type { Integration } from "@/core/models/models";
 import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
+import { db } from "@/core/db/db";
 import { plaudConfig } from "./config";
 import { deletePlaudData } from "./db/queries";
 import { syncPlaudFilesStep } from "./sync-steps/sync-files-step";
@@ -22,9 +23,9 @@ export const plaudIntegration: Integration = {
   syncUpdates: async () => await syncPlaudPipeline(true),
   deleteSync: async () => {
     await deletePlaudData();
-    await deleteSyncTasksByIntegration("Plaud");
-    await deleteMdArtifactsByIntegration("Plaud");
-    await deleteEmbeddingByIntegration("Plaud");
+    await deleteSyncTasksByIntegration("Plaud", db);
+    await deleteMdArtifactsByIntegration("Plaud", db);
+    await deleteEmbeddingByIntegration("Plaud", db);
   },
   handleRedirect: handleOauthRedirect,
   refreshAccessTokens: handlePlaudRefresh,

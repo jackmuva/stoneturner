@@ -1,4 +1,5 @@
 import { getIntegrationCredentialByIntegration, upsertIntegrationCredential } from "@/core/db/queries/queries";
+import { db } from "@/core/db/db";
 import Bottleneck from "bottleneck";
 import type { BunRequest } from "bun";
 import type { DiscordGuild } from "../models/models";
@@ -12,7 +13,7 @@ export const discordApiBottleneck = new Bottleneck({
 export const DISCORD_API_ENDPOINT = "https://discord.com/api/v10";
 
 export const refreshDiscordTokens = async () => {
-  const credential = await getIntegrationCredentialByIntegration("discord");
+  const credential = await getIntegrationCredentialByIntegration("discord", db);
   if (!credential?.refreshToken) {
     throw new Error("no discord refresh token available");
   }
@@ -51,7 +52,7 @@ export const refreshDiscordTokens = async () => {
     accessToken: token.access_token,
     refreshToken: token.refresh_token ?? credential.refreshToken,
     tokenExpiration,
-  });
+  }, db);
 }
 
 export const handleOauthRedirect = async (req: BunRequest) => {
@@ -99,7 +100,7 @@ export const handleOauthRedirect = async (req: BunRequest) => {
     refreshToken: token.refresh_token ?? null,
     baseUrl: DISCORD_API_ENDPOINT,
     tokenExpiration,
-  });
+  }, db);
 
   await batchInsertDiscordGuild([{
     id: token.guild.id,
