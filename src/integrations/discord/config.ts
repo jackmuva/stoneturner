@@ -7,7 +7,7 @@ const urlParams = new URLSearchParams({
   permissions: "66560",
   disable_guild_select: "false",
   integration_type: "0",
-  redirecty_uri: `${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/oauth/discord`,
+  redirect_uri: `${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/oauth/discord`,
   prompt: "consent",
 }).toString();
 
