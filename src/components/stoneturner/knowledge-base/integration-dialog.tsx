@@ -119,7 +119,6 @@ export const IntegrationDialog = ({
                 <HardDriveDownloadIcon size={16} />
                 <div>Install</div>
               </Button>
-
             }
             <Button variant={"default"} className="flex items-center gap-2 w-full" disabled={(!allFieldsFilled && intConfig.integrationType !== "OAUTH")
               || (intConfig.integrationType === "OAUTH" && !new URL(intConfig.oauthAuthorizationUrl!).searchParams.get("client_id"))}

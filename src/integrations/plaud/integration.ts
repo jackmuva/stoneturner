@@ -11,7 +11,7 @@ import { handleOauthRedirect, handlePlaudRefresh } from "./sync-steps/plaud-util
 import type { SqliteDb } from "@/core/models/db-models";
 
 export const syncPlaudPipeline = async (incremental: boolean = false, db: SqliteDb) => {
-  await syncPlaudFilesStep(incremental, db);   // must run first — detail fetch needs file ids
+  await syncPlaudFilesStep(incremental, db);   
   await syncPlaudTranscriptsStep(db);
   await parsePlaudStep(db);
   await indexVectorDbStep("Plaud", incremental, db);
