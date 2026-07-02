@@ -1,7 +1,7 @@
 import type { IntegrationConfig } from "@/core/models/models";
 
 export const plaudConfig: IntegrationConfig = {
-  integration: "Plaud",
+  integration: "plaud",
   icon: "/assets/plaud.png",
   integrationType: "OAUTH",
   description: "Connect Plaud via OAuth to sync your meeting recordings and transcripts.",

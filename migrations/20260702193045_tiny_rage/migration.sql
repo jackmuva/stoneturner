@@ -1,0 +1,1 @@
+CREATE INDEX `idx_md_artifacts_integration` ON `mdArtifacts` (`integration`);

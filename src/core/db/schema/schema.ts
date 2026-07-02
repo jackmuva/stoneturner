@@ -1,5 +1,5 @@
 import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
-import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const integrationCredential = sqliteTable("integrationCredential", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -40,7 +40,9 @@ export const mdArtifact = sqliteTable("mdArtifacts", {
   keyPoints: text("keyPoints", { mode: "json" }).$type<Array<string>>(),
   questionsAnswered: text("questionsAnswered", { mode: "json" }).$type<Array<string>>(),
   entities: text("entities", { mode: "json" }).$type<Array<string>>(),
-});
+}, (table) => ({
+  integrationDateIdx: index("idx_md_artifacts_integration_date").on(table.integration, table.artifactDate),
+}));
 
 
 export type MdArtifactSelect = InferSelectModel<typeof mdArtifact>;

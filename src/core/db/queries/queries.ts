@@ -1,7 +1,6 @@
 import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact, type IntegrationCredentialInsert } from '@/core/db/schema/schema';
 import { and, eq, gte, like, lte, gt, or, asc, desc, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
-import { db as defaultDb } from '@/core/db/db';
 import type { SqliteDb } from '@/core/models/db-models';
 import { lower } from '@/lib/utils';
 
@@ -15,6 +14,7 @@ export const getIntegrationCredentialByIntegration = async (integrationName: str
 }
 
 export const upsertIntegrationCredential = async (integrationData: IntegrationCredentialInsert, db: SqliteDb): Promise<void> => {
+  integrationData.integration = integrationData.integration.toLowerCase();
   const existing = await getIntegrationCredentialByIntegration(integrationData.integration, db);
   if (existing) {
     await db.update(integrationCredential).set({
@@ -110,7 +110,7 @@ export const getMdArtifactsByIntegration = async (
     sortOrder?: SortOrder,
   },
 ): Promise<MdArtifactSelect[]> => {
-  const conditions = [eq(lower(mdArtifact.integration), integration.toLowerCase())];
+  const conditions = [eq(mdArtifact.integration, integration.toLowerCase())];
   if (options?.search) {
     const term = `%${options.search}%`;
     conditions.push(
@@ -136,34 +136,6 @@ export const getMdArtifactsByIntegration = async (
 export const getMdArtifactByIntegrationArtifactId = async (integrationArtifactId: string, db: SqliteDb): Promise<MdArtifactSelect> => {
   const [record] = await db.select().from(mdArtifact).where(eq(mdArtifact.integrationArtifactId, integrationArtifactId));
   return record!;
-}
-
-export const getMdArtifactBetweenDatesAndIntegrationAndEntity = async (
-  entity: string,
-  startDate?: string,
-  endDate?: string,
-  integration?: string,
-  limit?: number,
-  offset?: number,
-  db: SqliteDb = defaultDb,
-): Promise<MdArtifactSelect[]> => {
-  const conditions = [
-    like(mdArtifact.entities, `%${entity}%`),
-  ];
-  if (integration) {
-    conditions.push(eq(lower(mdArtifact.integration), integration.toLowerCase()));
-  }
-  if (startDate) {
-    conditions.push(gte(mdArtifact.artifactDate, startDate));
-  }
-  if (endDate) {
-    conditions.push(lte(mdArtifact.artifactDate, endDate));
-  }
-  const query = db.select().from(mdArtifact).where(and(...conditions));
-  if (offset !== undefined) {
-    return await query.limit(limit ? limit : PAGE_SIZE).offset(offset);
-  }
-  return await query.limit(limit ? limit : PAGE_SIZE);
 }
 
 export const upsertMdArtifact = async (markdownArtifact: MdArtifactInsert, db: SqliteDb): Promise<void> => {

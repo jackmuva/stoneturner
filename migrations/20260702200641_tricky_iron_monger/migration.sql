@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS `idx_md_artifacts_integration`;
