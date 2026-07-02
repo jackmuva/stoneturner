@@ -20,7 +20,7 @@ export const indexVectorDbStep = async (integration: string, incremental: boolea
   while (artifacts.length > 0 || firstIteration) {
     firstIteration = false;
     try {
-      artifacts = await getMdArtifactsByIntegration(db, integration, offset, undefined);
+      artifacts = await getMdArtifactsByIntegration(db, integration, curOffset, undefined);
       await Promise.allSettled(
         artifacts.map((artifact) => aiGatewayBottleneck.schedule(() => chunkMd(artifact, incremental, db)))
       );

@@ -137,6 +137,7 @@ export const IntegrationDataPage = () => {
               </Button>
               <ButtonGroupSeparator />
               <Button variant={"outline"} size={"sm"} className="bg-brand-cream/20 dark:bg-brand-cream/70"
+                disabled={(syncTasks && syncTasks.length > 0)}
                 onClick={() => setConfirmAction("syncUpdates")}>
                 <RefreshCwIcon size={12} />
                 Sync Updates
