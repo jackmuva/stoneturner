@@ -4,10 +4,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DatabaseZapIcon, HardDriveDownloadIcon } from "lucide-react";
 import type { IntegrationConfig } from "@/core/models/models";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import { markdownComponents } from "./artifact-detail-sheet";
+import useSWR from "swr";
 
 export const IntegrationDialog = ({
   intConfig,
@@ -30,6 +31,32 @@ export const IntegrationDialog = ({
   };
   const [intInputs, setIntInputs] = useState<Record<string, string>>({});
   const [intOptions, setIntOptions] = useState<Record<string, string>>({});
+
+  const { data: integrations } = useSWR<IntegrationCredential[]>(`integrations`, async (): Promise<IntegrationCredential[]> => {
+    const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/integrations`, {
+      method: "GET",
+    });
+    const body = await res.json();
+    return body.integrations ?? [];
+  });
+  const existingIntegration = integrations?.find(
+    (integration) => integration.integration.toLowerCase() === intConfig.integration.toLowerCase()
+  );
+
+  useEffect(() => {
+    if (!existingIntegration) return;
+    setIntInputs({
+      apiKey: existingIntegration.apiKey ?? "",
+      accessToken: existingIntegration.accessToken ?? "",
+      refreshToken: existingIntegration.refreshToken ?? "",
+      accessKey: existingIntegration.accessKey ?? "",
+      secretKey: existingIntegration.secretKey ?? "",
+      baseUrl: existingIntegration.baseUrl ?? "",
+      tokenExpiration: existingIntegration.tokenExpiration ?? "",
+    });
+    setIntOptions(existingIntegration.options ?? {});
+  }, [existingIntegration]);
+
   const inputsFilled = (intConfig.inputs ?? []).every(
     (input) => (intInputs[input.input]?.trim().length ?? 0) > 0
   );
@@ -90,7 +117,7 @@ export const IntegrationDialog = ({
         <div className="flex flex-col gap-2">
           {intConfig.inputs?.map((input) => {
             return (
-              <Input key={input.input + intConfig.integration} placeholder={input.label} onChange={(e) => {
+              <Input key={input.input + intConfig.integration} placeholder={input.label} value={intInputs[input.input] ?? ""} onChange={(e) => {
                 e.preventDefault();
                 setIntInputs((prev) => ({
                   ...prev, [input.input]: e.target.value
@@ -100,7 +127,7 @@ export const IntegrationDialog = ({
           })}
           {intConfig.optionInputs?.map((option) => {
             return (
-              <Input key={option.key + intConfig.integration} placeholder={option.label} onChange={(e) => {
+              <Input key={option.key + intConfig.integration} placeholder={option.label} value={intOptions[option.key] ?? ""} onChange={(e) => {
                 e.preventDefault();
                 setIntOptions((prev) => ({
                   ...prev, [option.key]: e.target.value
