@@ -5,7 +5,7 @@
       "source": "jackmuva/stoneturner",
       "sourceType": "github",
       "skillPath": "skills/SKILL.md",
-      "computedHash": "a78e5a1ed66f7c4a402df0c259b24815b98ab23a9a3e6551c2ba78ad2694ea0f"
+      "computedHash": "4506c47b3823317fe85c7646a33ea79b39a21ecccdb62cf63fe5903e8b1721c6"
     },
     "plaud-embedded-mobile-sdk-skill": {
       "source": "Plaud-AI/plaud-embedded-skills",
@@ -17,13 +17,13 @@
       "source": "Plaud-AI/plaud-embedded-skills",
       "sourceType": "github",
       "skillPath": "skills/PE-setup-skill/SKILL.md",
-      "computedHash": "aa83656a8f037ca62275ec03920173f1d2f831ba602b57621d30270ac1304fc8"
+      "computedHash": "f076e21b44ebfc654d5b2611ffa25f2781b0ac393601ce27aa822d8aa9b90645"
     },
     "plaud-embedded-transcription-api-skill": {
       "source": "Plaud-AI/plaud-embedded-skills",
       "sourceType": "github",
       "skillPath": "skills/PE-transcription-api-skill/SKILL.md",
-      "computedHash": "8f7713fb9d8f804078f55d9691926217238c5076a4f44f4ac58c3f6c82eb8c4e"
+      "computedHash": "38a52197cdc8391c3535cdcd3444f8c0191bb5029b9c6777ffb56e6210176032"
     }
   }
 }

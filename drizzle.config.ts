@@ -8,6 +8,7 @@ export default defineConfig({
     './src/integrations/notion/db/schema.ts',
     './src/integrations/plaud/db/schema.ts',
     './src/integrations/firecrawl/db/schema.ts',
+    './src/integrations/github/db/schema.ts',
   ],
   out: './migrations',
   dialect: 'turso',

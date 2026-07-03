@@ -129,20 +129,20 @@ const crawlUrl = async (apiKey: string, seedUrl: string, db: SqliteDb, maxDepth?
     await upsertSyncTask({
       integration: "Firecrawl",
       status: "SUCCESS",
-      inputs: JSON.stringify({ url: seedUrl, pages: pageCount }),
+      inputs: JSON.stringify({ cursor: seedUrl, pages: pageCount }),
       step: "firecrawl-sync-crawl",
     }, db);
   } catch (e) {
     await upsertSyncTask({
       integration: "Firecrawl",
       status: "FAILED",
-      inputs: JSON.stringify({ url: seedUrl, error: String(e) }),
+      inputs: JSON.stringify({ cursor: seedUrl, error: String(e) }),
       step: "firecrawl-sync-crawl",
     }, db);
   }
 }
 
-export const syncFirecrawlCrawlStep = async (_incremental: boolean = false, db: SqliteDb): Promise<void> => {
+export const syncFirecrawlCrawlStep = async (_incremental: boolean = false, db: SqliteDb, cursor?: string): Promise<void> => {
   const { apiKey, urls, maxDepth, limit } = await getCredentials(db);
 
   if (!apiKey || urls.length === 0) {

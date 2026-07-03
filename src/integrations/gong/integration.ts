@@ -15,7 +15,7 @@ export const syncGongPipeline = async (incremental: boolean = false, db: SqliteD
     syncGongTranscriptsStep(incremental, db)
   ]);
   await parseGongStep(db);
-  await indexVectorDbStep("Gong", incremental, db);
+  await indexVectorDbStep("gong", incremental, db);
 }
 
 export const gongIntegration: Integration = {
@@ -23,9 +23,9 @@ export const gongIntegration: Integration = {
   sync: async(db: SqliteDb) => await syncGongPipeline(false, db),
   syncUpdates: async(db: SqliteDb) => await syncGongPipeline(true, db),
   deleteSync: async(db: SqliteDb) => {
-    await deleteSyncTasksByIntegration("Gong", db);
-    await deleteMdArtifactsByIntegration("Gong", db);
-    await deleteEmbeddingByIntegration("Gong", db);
+    await deleteSyncTasksByIntegration("gong", db);
+    await deleteMdArtifactsByIntegration("gong", db);
+    await deleteEmbeddingByIntegration("gong", db);
     await deleteAllGongData(db);
   }
 }

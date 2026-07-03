@@ -61,9 +61,34 @@ export const IntegrationDialog = ({
     (input) => (intInputs[input.input]?.trim().length ?? 0) > 0
   );
   const optionsFilled = (intConfig.optionInputs ?? []).every(
-    (option) => (intOptions[option.key]?.trim().length ?? 0) > 0
+    (option) => option.optional || (intOptions[option.key]?.trim().length ?? 0) > 0
   );
   const allFieldsFilled = inputsFilled && optionsFilled;
+
+  // OAuth integrations that also collect option inputs (e.g. GitHub repos) need
+  // those options persisted before we redirect, so the OAuth callback can attach
+  // the access token to the same credential row without losing them.
+  const persistOauthOptions = async () => {
+    if (!intConfig.optionInputs?.length) return;
+    const integrationConfig: IntegrationCredential = {
+      id: existingIntegration?.id ?? crypto.randomUUID(),
+      integration: intConfig.integration,
+      integrationType: intConfig.integrationType,
+      apiKey: existingIntegration?.apiKey ?? null,
+      accessToken: existingIntegration?.accessToken ?? null,
+      refreshToken: existingIntegration?.refreshToken ?? null,
+      accessKey: existingIntegration?.accessKey ?? null,
+      secretKey: existingIntegration?.secretKey ?? null,
+      baseUrl: existingIntegration?.baseUrl ?? null,
+      tokenExpiration: existingIntegration?.tokenExpiration ?? null,
+      options: intOptions,
+    };
+    await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/integrations`, {
+      method: "POST",
+      body: JSON.stringify(integrationConfig),
+      credentials: "include",
+    });
+  };
 
   const upsertIntegrationCreds = async (intConfig: IntegrationConfig) => {
     if (!allFieldsFilled) return;
@@ -148,12 +173,13 @@ export const IntegrationDialog = ({
               </Button>
             }
             <Button variant={"default"} className="flex items-center gap-2 w-full" disabled={(!allFieldsFilled && intConfig.integrationType !== "OAUTH")
-              || (intConfig.integrationType === "OAUTH" && !new URL(intConfig.oauthAuthorizationUrl!).searchParams.get("client_id"))}
+              || (intConfig.integrationType === "OAUTH" && (!optionsFilled || !new URL(intConfig.oauthAuthorizationUrl!).searchParams.get("client_id")))}
               onClick={async () => {
                 if (intConfig.integrationType !== "OAUTH") {
                   upsertIntegrationCreds(intConfig);
                   return;
                 } else {
+                  await persistOauthOptions();
                   window.location.href = intConfig.oauthAuthorizationUrl!;
                 }
               }}>
