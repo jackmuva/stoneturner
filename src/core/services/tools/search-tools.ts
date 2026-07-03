@@ -8,6 +8,7 @@ import {
   type EmbeddingSearchFilters,
 } from "@/core/db/queries/vector-queries";
 import {
+  getMdArtifactById,
   getMdArtifactByIntegrationArtifactId,
 } from "@/core/db/queries/queries";
 import type { MdArtifactSelect } from "@/core/db/schema/schema";
@@ -103,6 +104,28 @@ export async function runGetArtifact(args: unknown, db: SqliteDb): Promise<McpTo
   ].join("\n\n");
 
   return textResult(text);
+}
+
+export const showUserArtifactSchema = z.object({
+  id: z.string().min(1).describe("The mdArtifacts primary id or the integrationArtifactId of the artifact to show the user"),
+});
+
+export async function runShowUserArtifact(args: unknown, db: SqliteDb): Promise<McpToolResult> {
+  const parsed = showUserArtifactSchema.safeParse(args);
+  if (!parsed.success) return textResult(`Invalid arguments: ${parsed.error.message}`, true);
+
+  const { id } = parsed.data;
+
+  const [byPrimaryId] = await getMdArtifactById(id, db);
+  const artifact = byPrimaryId ?? (await getMdArtifactByIntegrationArtifactId(id, db));
+  if (!artifact) return textResult(`No artifact found for id "${id}".`, true);
+
+  const url = `${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/knowledge/artifact/${artifact.id}`;
+
+  return textResult(
+    `Open this URL to show the user the artifact: ${url}\n\n` +
+    `Open it for them using your available tools (e.g. a browser/open command); if you can't, share the URL directly so they can open it themselves.`,
+  );
 }
 
 export const runSqlQuerySchema = z.object({

@@ -1,6 +1,6 @@
 import { serve } from "bun";
 import index from "./client/index.html";
-import { handleGetAllSyncTasks, handleGetArtifacts, handleGetIntegrations, handleGetRecentSyncTasks, handleGetSyncTasks, handleGetSyncTaskSteps, handleNewIntegrationCredential, handleDeleteStaleSyncTasks } from "./core/handlers/handler";
+import { handleGetAllSyncTasks, handleGetArtifactById, handleGetArtifacts, handleGetIntegrations, handleGetRecentSyncTasks, handleGetSyncTasks, handleGetSyncTaskSteps, handleNewIntegrationCredential, handleDeleteStaleSyncTasks } from "./core/handlers/handler";
 import { withCors } from "./core/middleware/middleware";
 import { handleMcp } from "./core/handlers/mcp-handler";
 import { supportedIntegrations } from "./integrations/sync-registry";
@@ -8,7 +8,6 @@ import { db } from "./core/db/db";
 
 const server = serve({
   routes: {
-    // Serve static assets (integration icons, etc.) from src/assets, including subdirectories.
     "/assets/*": (req) => {
       const path = new URL(req.url).pathname.slice("/assets/".length);
       return new Response(Bun.file(`src/assets/${path}`));
@@ -67,13 +66,13 @@ const server = serve({
       GET: withCors(async (req) =>
         handleGetRecentSyncTasks(req, db)
       ),
-      DELETE: withCors(async () =>
-        handleDeleteStaleSyncTasks()
+      DELETE: withCors(async (_req) =>
+        handleDeleteStaleSyncTasks(db)
       ),
     },
     "/api/syncTasks/steps": {
-      GET: withCors(async () =>
-        handleGetSyncTaskSteps()
+      GET: withCors(async (_req) =>
+        handleGetSyncTaskSteps(db)
       ),
     },
     "/api/syncTasks/:integration": {
@@ -86,8 +85,14 @@ const server = serve({
         handleGetArtifacts(req, db)
       )
     },
+    "/api/artifact/:id": {
+      GET: withCors(async (req) =>
+        handleGetArtifactById(req, db)
+      )
+    },
+    // cookie should persist with same site lax
     "/api/oauth/:integration": {
-      GET: async (req) => {
+      GET: withCors(async (req) => {
         if (req.params.integration) {
           const target = req.params.integration.toLowerCase();
           const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
@@ -98,18 +103,16 @@ const server = serve({
           return Response.json(null, { status: 200 });
         }
         return Response.json(null, { status: 400 });
-      }
+      }),
     },
 
-    // Streamable HTTP MCP endpoint (stateless JSON-RPC). Not wrapped in withCors:
-    // MCP desktop/CLI clients call it server-side and don't need browser CORS.
     "/mcp": {
-      POST: async(req) => handleMcp(req, db),
-      GET: async(req) => handleMcp(req, db),
-      DELETE: async(req) => handleMcp(req, db),
+      POST: async (req) => handleMcp(req, db),
+      GET: () => new Response(null, { status: 405, headers: { Allow: "POST" } }),
+      DELETE: () => new Response(null, { status: 405, headers: { Allow: "POST" } }),
     },
   },
-  port: 9000,
+  port: process.env.PORT ?? 9000,
   development: process.env.NODE_ENV !== "production" && {
     // Enable browser hot reloading in development
     hmr: true,

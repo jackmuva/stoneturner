@@ -1,5 +1,6 @@
 import ReactMarkdown, { type Components } from "react-markdown";
 import { XIcon } from "lucide-react";
+import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MdArtifactSelect } from "@/core/db/schema/schema";
@@ -86,46 +87,59 @@ const Markdown = ({ content }: { content: string }) => {
 };
 
 export const ArtifactDetailSheet = ({
-  artifact,
+  artifactPreview,
   onClose,
+  fullscreen = false,
 }: {
-  artifact: MdArtifactSelect | null;
+  artifactPreview: MdArtifactSelect | null;
   onClose: () => void;
+  fullscreen?: boolean;
 }) => {
-  if (!artifact) return null;
+  const { data: fullArtifact } = useSWR<MdArtifactSelect | null>(
+    artifactPreview ? `artifact/${artifactPreview.id}` : null,
+    async () => {
+      const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/artifact/${artifactPreview!.id}`, {
+        method: "GET",
+      });
+      const body = await res.json();
+      return body.artifact ?? null;
+    },
+    { keepPreviousData: false },
+  );
 
-  const intConfig = configRegistry.find((c) => c.integration === artifact.integration);
+  if (!artifactPreview) return null;
 
-  const markdown = (artifact.markdown ?? "").replace(/\\n/g, "\n");
-  const keyPoints = (artifact.keyPoints ?? []).map((k) => `- ${k}`).join("\n");
-  const questionsAnswered = (artifact.questionsAnswered ?? []).map((q) => `- ${q}`).join("\n");
+  const intConfig = configRegistry.find((c) => c.integration === artifactPreview.integration);
+
+  const resolved = fullArtifact?.id === artifactPreview.id ? fullArtifact : artifactPreview;
+  const markdown = (resolved.markdown ?? "").replace(/\\n/g, "\n");
+  const keyPoints = (resolved.keyPoints ?? []).map((k) => `- ${k}`).join("\n");
+  const questionsAnswered = (resolved.questionsAnswered ?? []).map((q) => `- ${q}`).join("\n");
 
   return (
-    <div className="h-full min-h-0 w-1/2 flex flex-col border rounded-xs overflow-hidden bg-background">
+    <div className={`h-full min-h-0 ${fullscreen ? "w-full" : "w-1/2"} flex flex-col border rounded-xs overflow-hidden bg-background`}>
       <div className="flex flex-col gap-2 p-4 border-b">
         <div className="flex items-center gap-2">
           {intConfig && (
             <img src={intConfig.icon} alt={intConfig.integration} height={24} width={24} />
           )}
-          <span className="font-semibold text-foreground">{artifact.integration}</span>
-          <Button
-            variant="ghost"
+          <span className="font-semibold text-foreground">{artifactPreview.integration}</span>
+          {!fullscreen && <Button variant="ghost"
             size="icon-sm"
             className="ml-auto"
-            onClick={onClose}
-          >
+            onClick={onClose} >
             <XIcon size={16} />
             <span className="sr-only">Close</span>
-          </Button>
+          </Button>}
         </div>
         <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
           <span>
-            Updated: <span className="tabular-nums">{new Date(artifact.updateDate).toLocaleString()}</span>
+            Updated: <span className="tabular-nums">{new Date(artifactPreview.updateDate).toLocaleString()}</span>
           </span>
           <span>
             Artifact date:{" "}
             <span className="tabular-nums">
-              {artifact.artifactDate ? new Date(artifact.artifactDate).toDateString() : "n/a"}
+              {artifactPreview.artifactDate ? new Date(artifactPreview.artifactDate).toDateString() : "n/a"}
             </span>
           </span>
         </div>

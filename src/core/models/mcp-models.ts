@@ -1,6 +1,4 @@
 import { z } from "zod";
-import { Database } from '@tursodatabase/database';
-import type { TursoDatabaseDatabase } from "drizzle-orm/tursodatabase/driver-core";
 import type { SqliteDb } from "./db-models";
 
 export interface JsonRpcRequest {

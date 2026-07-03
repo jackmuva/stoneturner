@@ -1,5 +1,5 @@
 import { READ_ONLY, type McpTool } from "../models/mcp-models";
-import { getArtifactSchema, runGetArtifact, runSemanticSearch, runSqlQuery, runSqlQuerySchema, semanticSearchSchema } from "./tools/search-tools";
+import { getArtifactSchema, runGetArtifact, runSemanticSearch, runShowUserArtifact, runSqlQuery, runSqlQuerySchema, semanticSearchSchema, showUserArtifactSchema } from "./tools/search-tools";
 import { getIntegrationSourcesSchema, runGetIntegrationSources, runSyncSource, syncSourceSchema } from "./tools/sync-tools";
 
 export const tools: McpTool[] = [
@@ -26,6 +26,17 @@ export const tools: McpTool[] = [
     annotations: { title: "Get artifact by id", ...READ_ONLY },
     inputSchema: getArtifactSchema,
     handler: runGetArtifact,
+  },
+  {
+    name: "showUserArtifact",
+    description:
+      "Get a shareable URL to show the user a single artifact rendered in the Stoneturner web app, and a prompt to open it for them. Returns a link to the /knowledge/artifact/:artifactId page.\n\n" +
+      "When to use: whenever the user wants to *see* / open / view an artifact (as opposed to you reading its content to answer a question). Accepts either the mdArtifacts primary id or the integrationArtifactId returned by semantic_search. After calling it, open the returned URL for the user with your available tools if you can; otherwise share the URL directly.\n\n" +
+      "Examples:\n" +
+      "- Show an artifact the user asked to see: { \"id\": \"a1b2c3d4-...\" }",
+    annotations: { title: "Show user artifact", ...READ_ONLY },
+    inputSchema: showUserArtifactSchema,
+    handler: runShowUserArtifact,
   },
   {
     name: "run_sql_query",

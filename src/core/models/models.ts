@@ -14,6 +14,7 @@ export type IntegrationConfig = {
     key: string,
     label: string,
   }[],
+  options?: Record<string, string>,
   oauthAuthorizationUrl?: string,
   installUrl?: string,
 };

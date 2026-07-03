@@ -188,7 +188,7 @@ export const IntegrationDataPage = () => {
             onRowClick={setSelectedArtifact}
           />
         </div>
-        <ArtifactDetailSheet artifact={selectedArtifact} onClose={() => setSelectedArtifact(null)} />
+        <ArtifactDetailSheet artifactPreview={selectedArtifact} onClose={() => setSelectedArtifact(null)} />
       </div>
       <ConfirmationDialog
         open={confirmAction !== null}

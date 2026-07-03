@@ -126,7 +126,17 @@ export const getMdArtifactsByIntegration = async (
   const sortColumn = options?.sortBy === "updateDate" ? mdArtifact.updateDate : mdArtifact.artifactDate;
   const orderBy = options?.sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
 
-  const query = db.select().from(mdArtifact).where(and(...conditions)).orderBy(orderBy);
+ const query = db.select({
+    id: mdArtifact.id,
+    integrationArtifactId: mdArtifact.integrationArtifactId,
+    integration: mdArtifact.integration,
+    updateDate: mdArtifact.updateDate,
+    artifactDate: mdArtifact.artifactDate,
+    markdown: sql<string | null>`substr(${mdArtifact.markdown}, 1, 500)`.as("markdown"),
+    keyPoints: mdArtifact.keyPoints,
+    questionsAnswered: mdArtifact.questionsAnswered,
+    entities: mdArtifact.entities,
+  }).from(mdArtifact).where(and(...conditions)).orderBy(orderBy);
   if (offset !== undefined) {
     return await query.limit(PAGE_SIZE).offset(offset);
   }
