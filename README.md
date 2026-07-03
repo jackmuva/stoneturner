@@ -6,9 +6,11 @@ Stoneturner syncs data from external integrations, converts it into structured m
 
 It also ships with a web UI for monitoring sync tasks, viewing raw markdown artifacts, and configuring integration credentials.
 
+Stoneturner includes an agent skill for scaffolding new integrations end-to-end. Install it with `npx skills add jackmuva/stoneturner`.
+
 ## How it works
 
-1. **Connect an integration** — provide API credentials via the web UI or API
+1. **Connect an integration** — provide API credentials via the web UI or API (Gong, Discord, Notion, Plaud, Firecrawl, GitHub, and more)
 2. **Sync** — stoneturner fetches data, parses it into markdown artifacts, and indexes them into vector tables
 3. **Search** — agents query the MCP server using `semantic_search` and other tools to find relevant context
 
@@ -22,12 +24,13 @@ All network and LLM calls are wrapped in retry logic with quadratic backoff. Syn
 
 ## MCP tools
 
-The MCP server (Streamable HTTP at `/mcp`) exposes five tools:
+The MCP server (Streamable HTTP at `/mcp`) exposes six tools:
 
 | Tool | Description |
 |---|---|
 | `semantic_search` | Semantic search across indexed content, key points, and questions answered. Supports filtering by integration, date range, and entities. |
 | `get_md_artifact_by_id` | Retrieve a single markdown artifact by ID — full content, key points, questions, entities, and metadata. |
+| `showUserArtifact` | Get a shareable URL to open a single artifact in the Stoneturner web UI (`/knowledge/artifact/:id`). Use when the user wants to view an artifact; use `get_md_artifact_by_id` when you need its content. |
 | `run_sql_query` | Run a single read-only `SELECT` statement against the underlying SQLite (libSQL/Turso) database. Returns rows as JSON. Only `SELECT` (and `WITH ... SELECT`) statements are permitted — any mutating or schema-modifying statement is rejected. |
 | `get_integration_sources` | List all registered integrations and their credential status. |
 | `sync_source` | Trigger a full or incremental sync for an integration. Returns a credential URL if not yet configured. |

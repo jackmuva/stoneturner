@@ -10,7 +10,7 @@ Standard commands and architecture are documented in `CLAUDE.md` and `README.md`
 
 ### `.env` gotcha (important)
 - `.env` is created from `.env.example`. There is a non-obvious footgun: the frontend bundle references `BUN_PUBLIC_*` vars directly in `src/integrations/*/config.ts`. Bun only inlines env vars that are **defined**; any referenced `BUN_PUBLIC_*` var that is missing from `.env` is left as a raw `process.env.…` in the browser bundle and throws `ReferenceError: process is not defined`, which blanks the entire React app.
-- `.env.example` is missing `BUN_PUBLIC_PLAUD_CLIENT_ID`, so `.env` must define it (empty value is fine). All frontend-referenced vars must be present in `.env`: `BUN_PUBLIC_BACKEND_BASE_URL`, `BUN_PUBLIC_DEV_MODE`, `BUN_PUBLIC_DISCORD_CLIENT_ID`, `BUN_PUBLIC_NOTION_CLIENT_ID`, `BUN_PUBLIC_PLAUD_CLIENT_ID`.
+- `.env.example` is missing `BUN_PUBLIC_PLAUD_CLIENT_ID`, so `.env` must define it (empty value is fine). All frontend-referenced vars must be present in `.env`: `BUN_PUBLIC_BACKEND_BASE_URL`, `BUN_PUBLIC_DEV_MODE`, `BUN_PUBLIC_DISCORD_CLIENT_ID`, `BUN_PUBLIC_GITHUB_CLIENT_ID`, `BUN_PUBLIC_NOTION_CLIENT_ID`, `BUN_PUBLIC_PLAUD_CLIENT_ID`.
 - `AI_GATEWAY_API_KEY` is only needed for the sync → parse → embed → `semantic_search` pipeline. The server starts, serves the UI/MCP, and can register integration credentials without it.
 
 ### Running & ports
