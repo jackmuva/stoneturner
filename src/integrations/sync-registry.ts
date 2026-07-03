@@ -5,6 +5,7 @@ import { notionIntegration } from "./notion/integration";
 import { plaudIntegration } from "./plaud/integration";
 import { firecrawlIntegration } from "./firecrawl/integration";
 import { githubIntegration } from "./github/integration";
+import { linearIntegration } from "./linear/integration";
 
 export const supportedIntegrations: Integration[] = [
   gongIntegration,
@@ -13,4 +14,5 @@ export const supportedIntegrations: Integration[] = [
   plaudIntegration,
   firecrawlIntegration,
   githubIntegration,
+  linearIntegration,
 ];
