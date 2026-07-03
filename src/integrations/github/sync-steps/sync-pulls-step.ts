@@ -1,18 +1,18 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { GithubPull, GithubPullFile, GithubRepoRef, GithubReviewComment, StoredPullFile, StoredReviewComment } from "../models/models";
-import { githubFetch, getConfiguredRepos, getGithubToken, nextLink } from "./github-utils";
+import { githubFetch, getConfiguredRepos, getGithubToken, nextLink, reposFromCursor, repoKey, type GithubPaginatedCursor } from "./github-utils";
 import { batchInsertGithubPull, getLatestGithubPullUpdate } from "../db/queries";
 import type { GithubPullInsert } from "../db/schema";
 
 const STEP = "github-sync-pulls";
 
-export const syncGithubPullsStep = async (incremental: boolean = false, db: SqliteDb) => {
+export const syncGithubPullsStep = async (incremental: boolean = false, db: SqliteDb, cursor?: GithubPaginatedCursor) => {
   let token: string;
   let repos: GithubRepoRef[];
   try {
     token = await getGithubToken(db);
-    repos = await getConfiguredRepos(db);
+    repos = reposFromCursor(await getConfiguredRepos(db), cursor?.repo);
   } catch (e) {
     await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { error: String(e) } }, db);
     return;
@@ -23,12 +23,17 @@ export const syncGithubPullsStep = async (incremental: boolean = false, db: Sqli
   const since = incremental ? await getLatestGithubPullUpdate(db) : null;
 
   for (const { owner, repo } of repos) {
-    let url: string | null = `/repos/${owner}/${repo}/pulls?state=all&per_page=100&direction=desc&sort=updated`;
+    const key = repoKey(owner, repo);
+    let url: string | null =
+      cursor?.repo === key && cursor.url
+        ? cursor.url
+        : `/repos/${owner}/${repo}/pulls?state=all&per_page=100&direction=desc&sort=updated`;
     let done = false;
 
     while (url && !done) {
+      const pageUrl = url;
       try {
-        const res = await githubFetch(url, token);
+        const res = await githubFetch(pageUrl, token);
         if (!res.ok) throw new Error(`GitHub ${res.status}: ${await res.text()}`);
         const pulls = (await res.json()) as GithubPull[];
         const next: string | null = nextLink(res);
@@ -45,7 +50,7 @@ export const syncGithubPullsStep = async (incremental: boolean = false, db: Sqli
           ]);
           rows.push({
             artifactId: `${owner}/${repo}#pr-${pull.number}`,
-            repo: `${owner}/${repo}`,
+            repo: key,
             number: pull.number,
             title: pull.title,
             body: pull.body,
@@ -60,13 +65,26 @@ export const syncGithubPullsStep = async (incremental: boolean = false, db: Sqli
         }
         await batchInsertGithubPull(rows, db);
 
-        await upsertSyncTask({ integration: "github", status: "SUCCESS", step: STEP, inputs: { repo: `${owner}/${repo}`, count: rows.length } }, db);
+        const nextCursor: GithubPaginatedCursor | null = next && !done ? { repo: key, url: next } : null;
+        await upsertSyncTask({
+          integration: "github",
+          status: "SUCCESS",
+          step: STEP,
+          inputs: nextCursor ? { repo: key, count: rows.length, cursor: nextCursor } : { repo: key, count: rows.length },
+        }, db);
         url = next;
+        if (cursor) break;
       } catch (e) {
-        await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { repo: `${owner}/${repo}`, url, error: String(e) } }, db);
+        await upsertSyncTask({
+          integration: "github",
+          status: "FAILED",
+          step: STEP,
+          inputs: { repo: key, cursor: { repo: key, url: pageUrl }, error: String(e) },
+        }, db);
         break;
       }
     }
+    if (cursor) break;
   }
 };
 

@@ -1,7 +1,7 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { GithubRepoRef, GithubTreeResponse } from "../models/models";
-import { githubFetch, githubFetchJson, getConfiguredBranch, getConfiguredRepos, getDefaultBranch, getGithubToken } from "./github-utils";
+import { githubFetch, githubFetchJson, getConfiguredBranch, getConfiguredRepos, getDefaultBranch, getGithubToken, reposFromCursor, repoKey, type GithubCodeCursor } from "./github-utils";
 import { batchInsertGithubSourceFile } from "../db/queries";
 import type { GithubSourceFileInsert } from "../db/schema";
 import { PAGE_SIZE } from "@/lib/constants";
@@ -33,13 +33,13 @@ const isExcluded = (path: string): boolean => {
 
 const isIncluded = (path: string): boolean => INCLUDE_EXTENSIONS.some((ext) => path.toLowerCase().endsWith(ext));
 
-export const syncGithubCodeStep = async (_incremental: boolean = false, db: SqliteDb) => {
+export const syncGithubCodeStep = async (_incremental: boolean = false, db: SqliteDb, cursor?: GithubCodeCursor) => {
   let token: string;
   let repos: GithubRepoRef[];
   let configuredBranch: string | undefined;
   try {
     token = await getGithubToken(db);
-    repos = await getConfiguredRepos(db);
+    repos = reposFromCursor(await getConfiguredRepos(db), cursor?.repo);
     configuredBranch = await getConfiguredBranch(db);
   } catch (e) {
     await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { error: String(e) } }, db);
@@ -47,6 +47,7 @@ export const syncGithubCodeStep = async (_incremental: boolean = false, db: Sqli
   }
 
   for (const { owner, repo } of repos) {
+    const key = repoKey(owner, repo);
     try {
       const branch = configuredBranch ?? (await getDefaultBranch(owner, repo, token));
       const tree = await githubFetchJson<GithubTreeResponse>(
@@ -55,7 +56,7 @@ export const syncGithubCodeStep = async (_incremental: boolean = false, db: Sqli
       );
 
       if (tree.truncated) {
-        await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { repo: `${owner}/${repo}`, note: "tree truncated — repo too large to fully enumerate" } }, db);
+        await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { repo: key, note: "tree truncated — repo too large to fully enumerate" } }, db);
       }
 
       const blobs = tree.tree.filter((entry) =>
@@ -68,7 +69,8 @@ export const syncGithubCodeStep = async (_incremental: boolean = false, db: Sqli
       // Batch blob fetches so a failure only fails a chunk, not the whole repo.
       // Each githubFetch is already throttled through the shared bottleneck.
       let synced = 0;
-      for (let i = 0; i < blobs.length; i += PAGE_SIZE) {
+      const startOffset = cursor?.repo === key ? cursor.offset : 0;
+      for (let i = startOffset; i < blobs.length; i += PAGE_SIZE) {
         const chunk = blobs.slice(i, i + PAGE_SIZE);
         try {
           const results = await Promise.allSettled(
@@ -76,7 +78,7 @@ export const syncGithubCodeStep = async (_incremental: boolean = false, db: Sqli
               const content = await fetchBlob(owner, repo, entry.sha, token);
               return {
                 artifactId: `${owner}/${repo}:code:${entry.path}`,
-                repo: `${owner}/${repo}`,
+                repo: key,
                 path: entry.path,
                 sha: entry.sha,
                 size: entry.size ?? content.length,
@@ -91,21 +93,37 @@ export const syncGithubCodeStep = async (_incremental: boolean = false, db: Sqli
           await batchInsertGithubSourceFile(rows, db);
           synced += rows.length;
 
+          const nextOffset = i + PAGE_SIZE;
+          const nextCursor: GithubCodeCursor | null = nextOffset < blobs.length ? { repo: key, offset: nextOffset } : null;
           await upsertSyncTask({
             integration: "github",
             status: failures.length ? "FAILED" : "SUCCESS",
             step: STEP,
-            inputs: failures.length ? { repo: `${owner}/${repo}`, count: rows.length, errors: failures } : { repo: `${owner}/${repo}`, count: rows.length },
+            inputs: failures.length
+              ? { repo: key, count: rows.length, cursor: { repo: key, offset: i }, errors: failures }
+              : nextCursor
+                ? { repo: key, count: rows.length, cursor: nextCursor }
+                : { repo: key, count: rows.length },
           }, db);
+          if (cursor) break;
         } catch (e) {
-          await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { repo: `${owner}/${repo}`, offset: i, error: String(e) } }, db);
+          await upsertSyncTask({
+            integration: "github",
+            status: "FAILED",
+            step: STEP,
+            inputs: { repo: key, cursor: { repo: key, offset: i }, error: String(e) },
+          }, db);
+          break;
         }
       }
 
-      await upsertSyncTask({ integration: "github", status: "SUCCESS", step: STEP, inputs: { repo: `${owner}/${repo}`, branch, totalSynced: synced } }, db);
+      if (!cursor) {
+        await upsertSyncTask({ integration: "github", status: "SUCCESS", step: STEP, inputs: { repo: key, branch, totalSynced: synced } }, db);
+      }
     } catch (e) {
-      await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { repo: `${owner}/${repo}`, error: String(e) } }, db);
+      await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { repo: key, error: String(e) } }, db);
     }
+    if (cursor) break;
   }
 };
 

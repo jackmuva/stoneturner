@@ -1,7 +1,7 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { GithubDiscussionsResponse, GithubRepoRef, StoredComment } from "../models/models";
-import { GITHUB_API, githubApiBottleneck, getConfiguredRepos, getGithubToken } from "./github-utils";
+import { GITHUB_API, githubApiBottleneck, getConfiguredRepos, getGithubToken, reposFromCursor, repoKey, type GithubDiscussionsCursor } from "./github-utils";
 import { retry } from "@/lib/utils";
 import { batchInsertGithubDiscussion } from "../db/queries";
 import type { GithubDiscussionInsert } from "../db/schema";
@@ -27,36 +27,37 @@ const DISCUSSIONS_QUERY = `query($owner: String!, $repo: String!, $cursor: Strin
   }
 }`;
 
-export const syncGithubDiscussionsStep = async (_incremental: boolean = false, db: SqliteDb) => {
+export const syncGithubDiscussionsStep = async (_incremental: boolean = false, db: SqliteDb, cursor?: GithubDiscussionsCursor) => {
   let token: string;
   let repos: GithubRepoRef[];
   try {
     token = await getGithubToken(db);
-    repos = await getConfiguredRepos(db);
+    repos = reposFromCursor(await getConfiguredRepos(db), cursor?.repo);
   } catch (e) {
     await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { error: String(e) } }, db);
     return;
   }
 
   for (const { owner, repo } of repos) {
-    let cursor: string | null = null;
+    const key = repoKey(owner, repo);
+    let pageCursor: string | null = cursor?.repo === key ? (cursor.cursor ?? null) : null;
     let hasNext = true;
 
     while (hasNext) {
       try {
-        const body = await graphql(owner, repo, cursor, token);
+        const body = await graphql(owner, repo, pageCursor, token);
         // Discussions may be disabled for a repo — errors/null repository.
         const discussions = body.data?.repository?.discussions;
         if (!discussions) {
           if (body.errors) {
-            await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { repo: `${owner}/${repo}`, errors: body.errors } }, db);
+            await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { repo: key, errors: body.errors } }, db);
           }
           break;
         }
 
         const rows: GithubDiscussionInsert[] = discussions.nodes.map((d) => ({
           artifactId: `${owner}/${repo}#discussion-${d.number}`,
-          repo: `${owner}/${repo}`,
+          repo: key,
           number: d.number,
           title: d.title,
           body: d.body,
@@ -68,15 +69,30 @@ export const syncGithubDiscussionsStep = async (_incremental: boolean = false, d
         }));
         await batchInsertGithubDiscussion(rows, db);
 
-        await upsertSyncTask({ integration: "github", status: "SUCCESS", step: STEP, inputs: { repo: `${owner}/${repo}`, count: rows.length } }, db);
-
         hasNext = discussions.pageInfo.hasNextPage;
-        cursor = discussions.pageInfo.endCursor;
+        const nextCursor: GithubDiscussionsCursor | null = hasNext
+          ? { repo: key, cursor: discussions.pageInfo.endCursor }
+          : null;
+        await upsertSyncTask({
+          integration: "github",
+          status: "SUCCESS",
+          step: STEP,
+          inputs: nextCursor ? { repo: key, count: rows.length, cursor: nextCursor } : { repo: key, count: rows.length },
+        }, db);
+
+        pageCursor = discussions.pageInfo.endCursor;
+        if (cursor) break;
       } catch (e) {
-        await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { repo: `${owner}/${repo}`, cursor, error: String(e) } }, db);
+        await upsertSyncTask({
+          integration: "github",
+          status: "FAILED",
+          step: STEP,
+          inputs: { repo: key, cursor: { repo: key, cursor: pageCursor }, error: String(e) },
+        }, db);
         break;
       }
     }
+    if (cursor) break;
   }
 };
 

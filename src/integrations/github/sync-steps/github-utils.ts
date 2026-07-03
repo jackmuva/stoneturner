@@ -49,6 +49,19 @@ export const getConfiguredBranch = async (db: SqliteDb): Promise<string | undefi
   return branch ? branch : undefined;
 };
 
+export const repoKey = (owner: string, repo: string): string => `${owner}/${repo}`;
+
+export type GithubPaginatedCursor = { repo: string; url: string };
+export type GithubDiscussionsCursor = { repo: string; cursor: string | null };
+export type GithubCodeCursor = { repo: string; offset: number };
+export type GithubDocsCursor = { repo: string; pathIndex: number };
+// When resuming, only process repos at or after the cursor repo.
+export const reposFromCursor = (repos: GithubRepoRef[], cursorRepo?: string): GithubRepoRef[] => {
+  if (!cursorRepo) return repos;
+  const idx = repos.findIndex((r) => repoKey(r.owner, r.repo) === cursorRepo);
+  return idx >= 0 ? repos.slice(idx) : repos;
+};
+
 // A retry-wrapped, bottlenecked GitHub REST fetch. `accept` overrides the media
 // type (e.g. raw content). Returns the raw Response so callers can branch on 404.
 export const githubFetch = async (

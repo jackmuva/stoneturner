@@ -10,7 +10,7 @@ import { syncGithubPullsStep } from "./sync-steps/sync-pulls-step";
 import { syncGithubDocsStep } from "./sync-steps/sync-docs-step";
 import { syncGithubDiscussionsStep } from "./sync-steps/sync-discussions-step";
 import { syncGithubCodeStep } from "./sync-steps/sync-code-step";
-import { parseGithubStep } from "./sync-steps/parse-step";
+import { parseGithubCodeStep, parseGithubDiscussionsStep, parseGithubDocsStep, parseGithubIssuesStep, parseGithubPullsStep } from "./sync-steps/parse-steps";
 import { deleteGithubData } from "./db/queries";
 
 export const syncGithubPipeline = async (incremental: boolean = false, db: SqliteDb) => {
@@ -21,7 +21,13 @@ export const syncGithubPipeline = async (incremental: boolean = false, db: Sqlit
     syncGithubDiscussionsStep(incremental, db),
     syncGithubCodeStep(incremental, db),
   ]);
-  await parseGithubStep(db);
+  await Promise.all([
+    parseGithubIssuesStep(db),
+    parseGithubPullsStep(db),
+    parseGithubDocsStep(db),
+    parseGithubDiscussionsStep(db),
+    parseGithubCodeStep(db),
+  ]);
   await indexVectorDbStep("github", incremental, db);
 };
 
