@@ -13,6 +13,7 @@ export type IntegrationConfig = {
   optionInputs?: {
     key: string,
     label: string,
+    optional?: boolean,
   }[],
   options?: Record<string, string>,
   oauthAuthorizationUrl?: string,
