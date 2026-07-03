@@ -19,7 +19,7 @@ Stoneturner is a data sync & search layer for agents: it syncs external integrat
 
 - `src/index.ts` — single `Bun.serve()` with all routes + HMR in dev, port 9000.
 - `@/*` alias → `src/*`.
-- `src/core/` — shared plumbing; `src/integrations/<name>/` — one folder per integration (gong, discord, notion, plaud, firecrawl).
+- `src/core/` — shared plumbing; `src/integrations/<name>/` — one folder per integration (gong, discord, notion, plaud, firecrawl, github).
 - Bun-first: `Bun.serve()`, `Bun.file`, `bunx`. No express/vite/webpack. Exception: database is Turso/libSQL via Drizzle (`@tursodatabase/database`), not `bun:sqlite`.
 
 ### Adding an integration
@@ -31,7 +31,7 @@ Create `src/integrations/<name>/` with `config.ts`, `integration.ts`, `db/`, `mo
 
 Then register in `src/integrations/sync-registry.ts` (sync dispatch), `src/integrations/config-registry.ts` (frontend UI), and add the integration's `db/schema.ts` to the `schema` array in `drizzle.config.ts` so migrations pick it up. Routes in `src/index.ts` dispatch by matching the `:integration` path param against `config.integration` (case-insensitive): `POST /api/sync/:integration` → `sync()`, `DELETE` → `deleteSync()`, `POST /api/sync/updates/:integration` → `syncUpdates()`, `GET /api/oauth/:integration` → `handleRedirect()`.
 
-There is a `build-stoneturner-integration` skill (`skills/`) that scaffolds a new integration end-to-end; `integration-specs/` holds per-integration spec docs (e.g. `firecrawl-spec.md`, `plaud-spec.md`) used as input when building one.
+There is a `build-stoneturner-integration` skill (`skills/`) that scaffolds a new integration end-to-end; `integration-specs/` holds per-integration spec docs (e.g. `firecrawl-spec.md`, `github-spec.md`, `plaud-spec.md`) used as input when building one.
 
 ## Sync pipeline
 
@@ -39,7 +39,7 @@ There is a `build-stoneturner-integration` skill (`skills/`) that scaffolds a ne
 sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector (embed + upsert)
 ```
 
-e.g. Gong: `sync-calls + sync-transcripts (parallel) → parse → index-vector`. Fire-and-forget from the HTTP handler (no `await`). Each step writes `syncTask` rows.
+e.g. Gong: `sync-calls + sync-transcripts (parallel) → parse → index-vector`. GitHub: `sync-issues + sync-pulls + sync-docs + sync-discussions + sync-code (parallel) → parse → index-vector`. Fire-and-forget from the HTTP handler (no `await`). Each step writes `syncTask` rows.
 
 ### Rate limiting & retries
 
@@ -55,7 +55,7 @@ e.g. Gong: `sync-calls + sync-transcripts (parallel) → parse → index-vector`
 ## MCP server
 
 - Streamable HTTP MCP at `/mcp` (`src/core/handlers/mcp-handler.ts`). NOT wrapped in CORS middleware (MCP clients call server-side). Stateless JSON-RPC, no batching, no SSE streams.
-- Tools (`src/core/services/mcp-tools.ts`): `semantic_search`, `get_md_artifact_by_id`, `run_sql_query` (read-only `SELECT`/`WITH...SELECT` only — mutating statements rejected), `get_integration_sources`, `sync_source`.
+- Tools (`src/core/services/mcp-tools.ts`): `semantic_search`, `get_md_artifact_by_id`, `showUserArtifact` (returns a shareable `/knowledge/artifact/:id` URL for the web UI — use when the user wants to view an artifact, not when you need its content), `run_sql_query` (read-only `SELECT`/`WITH...SELECT` only — mutating statements rejected), `get_integration_sources`, `sync_source`.
 
 ## Database
 
@@ -79,6 +79,6 @@ e.g. Gong: `sync-calls + sync-transcripts (parallel) → parse → index-vector`
 - `AI_GATEWAY_API_KEY` — Vercel AI Gateway key for embeddings + summarization.
 - `BUN_PUBLIC_BACKEND_BASE_URL` — backend URL; inlined into the frontend at build time AND used as the CORS allowlist (`src/core/middleware/middleware.ts`).
 - `BUN_PUBLIC_DEV_MODE` — `"false"` uses `stoneturner.db`; anything else uses `test-stoneturner.db`.
-- Per-integration OAuth/secret vars, e.g. `BUN_PUBLIC_DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` / `DISCORD_BOT_TOKEN`, `BUN_PUBLIC_NOTION_CLIENT_ID` / `NOTION_CLIENT_SECRET`.
+- Per-integration OAuth/secret vars, e.g. `BUN_PUBLIC_DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` / `DISCORD_BOT_TOKEN`, `BUN_PUBLIC_GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`, `BUN_PUBLIC_NOTION_CLIENT_ID` / `NOTION_CLIENT_SECRET`, `BUN_PUBLIC_PLAUD_CLIENT_ID`.
 
 Turso is a local file today — no remote URL/token needed.
