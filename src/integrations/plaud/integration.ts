@@ -14,7 +14,7 @@ export const syncPlaudPipeline = async (incremental: boolean = false, db: Sqlite
   await syncPlaudFilesStep(incremental, db);   // must run first — detail fetch needs file ids
   await syncPlaudTranscriptsStep(db);
   await parsePlaudStep(db);
-  await indexVectorDbStep("Plaud", incremental, db);
+  await indexVectorDbStep("plaud", incremental, db);
 }
 
 export const plaudIntegration: Integration = {
@@ -23,9 +23,9 @@ export const plaudIntegration: Integration = {
   syncUpdates: async (db: SqliteDb) => await syncPlaudPipeline(true, db),
   deleteSync: async (db: SqliteDb) => {
     await deletePlaudData(db);
-    await deleteSyncTasksByIntegration("Plaud", db);
-    await deleteMdArtifactsByIntegration("Plaud", db);
-    await deleteEmbeddingByIntegration("Plaud", db);
+    await deleteSyncTasksByIntegration("plaud", db);
+    await deleteMdArtifactsByIntegration("plaud", db);
+    await deleteEmbeddingByIntegration("plaud", db);
   },
   handleRedirect: handleOauthRedirect,
   refreshAccessTokens: handlePlaudRefresh,

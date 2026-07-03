@@ -11,7 +11,7 @@ import type { SqliteDb } from "@/core/models/db-models";
 export const syncFirecrawlPipeline = async (incremental: boolean = false, db: SqliteDb) => {
   await syncFirecrawlCrawlStep(incremental, db);
   await parseFirecrawlStep(db);
-  await indexVectorDbStep("Firecrawl", incremental, db);
+  await indexVectorDbStep("firecrawl", incremental, db);
 }
 
 export const firecrawlIntegration: Integration = {
@@ -19,9 +19,9 @@ export const firecrawlIntegration: Integration = {
   sync: async (db: SqliteDb) => await syncFirecrawlPipeline(false, db),
   syncUpdates: async (db: SqliteDb) => await syncFirecrawlPipeline(true, db),
   deleteSync: async (db: SqliteDb) => {
-    await deleteSyncTasksByIntegration("Firecrawl", db);
-    await deleteMdArtifactsByIntegration("Firecrawl", db);
-    await deleteEmbeddingByIntegration("Firecrawl", db);
+    await deleteSyncTasksByIntegration("firecrawl", db);
+    await deleteMdArtifactsByIntegration("firecrawl", db);
+    await deleteEmbeddingByIntegration("firecrawl", db);
     await deleteAllFirecrawlData(db);
   }
 }
