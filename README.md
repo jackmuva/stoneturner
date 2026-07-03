@@ -6,8 +6,6 @@ Stoneturner syncs data from external integrations, converts it into structured m
 
 It also ships with a web UI for monitoring sync tasks, viewing raw markdown artifacts, and configuring integration credentials.
 
-Stoneturner includes an agent skill for scaffolding new integrations end-to-end. Install it with `npx skills add jackmuva/stoneturner`.
-
 ## How it works
 
 1. **Connect an integration** — provide API credentials via the web UI or API (Gong, Discord, Notion, Plaud, Firecrawl, GitHub, and more)
@@ -115,6 +113,14 @@ src/
 ```
 
 ## Adding an integration
+
+### Try the Stoneturner Skill for adding new integrations
+
+```bash
+npx skills add jackmuva/stoneturner
+```
+
+Look at `/integration-specs` to see examples of specs that give an agent complete context to implementing a new integration with the Stoneturner Skill
 
 Stoneturner is designed to make adding integrations straightforward. Each integration lives in its own directory under `src/integrations/`.
 
