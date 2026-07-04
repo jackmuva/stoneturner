@@ -8,8 +8,8 @@ import type { SqliteDb } from "@/core/models/db-models";
 import { getGmailMessages } from "../db/queries";
 import type { GmailMessageSelect } from "../db/schema";
 
-export const parseGmailStep = async (db: SqliteDb, offset?: number): Promise<void> => {
-  let curOffset: number = offset ?? 0;
+export const parseGmailStep = async (db: SqliteDb, cursor?: number): Promise<void> => {
+  let curOffset: number = cursor ?? 0;
   let messages: GmailMessageSelect[] = [];
   let firstIteration = true;
 
@@ -27,19 +27,19 @@ export const parseGmailStep = async (db: SqliteDb, offset?: number): Promise<voi
       await upsertSyncTask({
         integration: "gmail",
         status: failures.length ? "FAILED" : "SUCCESS",
-        inputs: failures.length ? { offset: curOffset, errors: failures } : { offset: curOffset },
+        inputs: failures.length ? { cursor: curOffset, errors: failures } : { cursor: curOffset },
         step: "parse",
       }, db);
     } catch (e) {
       await upsertSyncTask({
         integration: "gmail",
         status: "FAILED",
-        inputs: { offset: curOffset, error: String(e) },
+        inputs: { cursor: curOffset, error: e },
         step: "parse",
       }, db);
     }
 
-    if (offset !== undefined) {
+    if (cursor !== undefined) {
       break;
     } else {
       curOffset += PAGE_SIZE;

@@ -11,7 +11,7 @@ import {
 
 const LIST_PAGE_SIZE = 100;
 
-export const syncGmailMessagesStep = async (incremental: boolean = false, db: SqliteDb): Promise<void> => {
+export const syncGmailMessagesStep = async (incremental: boolean = false, db: SqliteDb, cursor?: string): Promise<void> => {
   let latestInternalDate: string | null = null;
   if (incremental) {
     const latest = await getLatestGmailMessage(db);
@@ -21,15 +21,13 @@ export const syncGmailMessagesStep = async (incremental: boolean = false, db: Sq
   const baseQuery = await getGmailSearchQuery(db);
   const listQuery = buildListQuery(baseQuery, incremental, latestInternalDate);
 
-  let pageToken: string | undefined;
-  let first = true;
+  let nextCursor: string | undefined = cursor;
 
-  while (first || pageToken) {
-    first = false;
+  while (true) {
     const params = new URLSearchParams({
       maxResults: String(LIST_PAGE_SIZE),
     });
-    if (pageToken) params.set("pageToken", pageToken);
+    if (nextCursor) params.set("pageToken", nextCursor);
     if (listQuery) params.set("q", listQuery);
 
     let listResponse: GmailMessagesListResponse;
@@ -43,50 +41,52 @@ export const syncGmailMessagesStep = async (incremental: boolean = false, db: Sq
         integration: "gmail",
         status: "FAILED",
         step: "gmail-sync-messages",
-        inputs: { pageToken, error: String(e) },
+        inputs: { cursor: nextCursor, error: e },
       }, db);
       break;
     }
 
     const items = listResponse.messages ?? [];
-    const rows = [];
-
-    for (const item of items) {
-      try {
-        const message = await gmailFetchJson<GmailMessage>(
-          `/users/me/messages/${item.id}?format=full`,
-          db,
-        );
-        rows.push(messageToInsert(message));
-      } catch (e) {
-        await upsertSyncTask({
-          integration: "gmail",
-          status: "FAILED",
-          step: "gmail-sync-messages",
-          inputs: { messageId: item.id, error: String(e) },
-        }, db);
-      }
-    }
 
     try {
+      const rows = [];
+      for (const item of items) {
+        try {
+          const message = await gmailFetchJson<GmailMessage>(
+            `/users/me/messages/${item.id}?format=full`,
+            db,
+          );
+          rows.push(messageToInsert(message));
+        } catch (e) {
+          await upsertSyncTask({
+            integration: "gmail",
+            status: "FAILED",
+            step: "gmail-sync-messages",
+            inputs: { cursor: nextCursor, messageId: item.id, error: e },
+          }, db);
+        }
+      }
+
       await batchInsertGmailMessage(rows, db);
+
+      if (!listResponse.nextPageToken) break;
+      nextCursor = listResponse.nextPageToken;
       await upsertSyncTask({
         integration: "gmail",
         status: "SUCCESS",
         step: "gmail-sync-messages",
-        inputs: { pageToken, count: rows.length, query: listQuery },
+        inputs: { cursor: nextCursor, count: rows.length, query: listQuery },
       }, db);
     } catch (e) {
       await upsertSyncTask({
         integration: "gmail",
         status: "FAILED",
         step: "gmail-sync-messages",
-        inputs: { pageToken, error: String(e) },
+        inputs: { cursor: nextCursor, error: e },
       }, db);
+      if (!listResponse.nextPageToken) break;
     }
 
-    pageToken = listResponse.nextPageToken;
-    if (items.length < LIST_PAGE_SIZE) break;
     if (incremental && items.length === 0) break;
   }
 };
