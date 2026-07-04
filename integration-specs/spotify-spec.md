@@ -153,6 +153,19 @@ Paginate until all episodes are retrieved (increment `offset` by 50).
 sync-playlists → sync-playlist-tracks → sync-saved-tracks → sync-shows → sync-episodes → parse → index-vector
 ```
 
+Each sync step accepts an optional **cursor** for resuming failed runs. The cursor is stored in `syncTask.inputs` on SUCCESS (next cursor when more pages remain) and FAILED (cursor at the failure point).
+
+| Step | Cursor type | Example |
+|------|-------------|---------|
+| `spotify-sync-playlists` | offset (`number`) | `{ "cursor": 50 }` |
+| `spotify-sync-playlist-tracks` | `{ playlistId, offset }` | `{ "cursor": { "playlistId": "abc", "offset": 50 } }` |
+| `spotify-sync-saved-tracks` | offset (`number`) | `{ "cursor": 100 }` |
+| `spotify-sync-shows` | offset (`number`) | `{ "cursor": 50 }` |
+| `spotify-sync-episodes` | `{ showId, offset }` | `{ "cursor": { "showId": "xyz", "offset": 50 } }` |
+| `parse` | `{ type, offset }` | `{ "cursor": { "type": "playlist", "offset": 20 } }` |
+
+When a cursor is passed to a step, it processes one batch and stops (retry mode). Without a cursor, the step runs until completion.
+
 - `sync-playlists` and `sync-saved-tracks` / `sync-shows` can run in parallel after credentials exist; playlist tracks depend on playlist rows; episodes depend on show rows.
 - `parse` renders markdown and runs the summarization LLM to extract `keyPoints`, `questionsAnswered`, and `entities`.
 - `index-vector` is the shared Stoneturner step — do not fork it.

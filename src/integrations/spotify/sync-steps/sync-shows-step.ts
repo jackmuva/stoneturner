@@ -4,11 +4,15 @@ import type { SqliteDb } from "@/core/models/db-models";
 import { batchInsertSpotifyShow, getLatestSpotifyShowAddedAt } from "../db/queries";
 import type { SpotifyShowInsert } from "../db/schema";
 import type { SpotifyPaginatedResponse, SpotifySavedShowItem } from "../models/models";
-import { SPOTIFY_PAGE_SIZE, spotifyFetch } from "./spotify-utils";
+import { SPOTIFY_PAGE_SIZE, spotifyFetch, type SpotifyOffsetCursor } from "./spotify-utils";
 
-export const syncSpotifyShowsStep = async (incremental: boolean, db: SqliteDb): Promise<void> => {
+export const syncSpotifyShowsStep = async (
+  incremental: boolean,
+  db: SqliteDb,
+  cursor?: SpotifyOffsetCursor,
+): Promise<void> => {
   const latestAddedAt = incremental ? await getLatestSpotifyShowAddedAt(db) : null;
-  let offset = 0;
+  let offset = cursor ?? 0;
 
   while (true) {
     let page: SpotifyPaginatedResponse<SpotifySavedShowItem>;
@@ -23,7 +27,7 @@ export const syncSpotifyShowsStep = async (incremental: boolean, db: SqliteDb): 
         integration: "spotify",
         status: "FAILED",
         step: "spotify-sync-shows",
-        inputs: { offset, error: String(e) },
+        inputs: { cursor: offset, error: String(e) },
       }, db);
       break;
     }
@@ -45,24 +49,29 @@ export const syncSpotifyShowsStep = async (incremental: boolean, db: SqliteDb): 
 
     try {
       await batchInsertSpotifyShow(rows, db);
+      const nextOffset = offset + SPOTIFY_PAGE_SIZE;
+      const hasMore = items.length >= SPOTIFY_PAGE_SIZE && nextOffset < page.total
+        && !(incremental && fresh.length < items.length);
       await upsertSyncTask({
         integration: "spotify",
         status: "SUCCESS",
         step: "spotify-sync-shows",
-        inputs: { offset, count: rows.length },
+        inputs: hasMore ? { cursor: nextOffset, count: rows.length } : { count: rows.length },
       }, db);
     } catch (e) {
       await upsertSyncTask({
         integration: "spotify",
         status: "FAILED",
         step: "spotify-sync-shows",
-        inputs: { offset, error: String(e) },
+        inputs: { cursor: offset, error: String(e) },
       }, db);
+      break;
     }
 
     if (items.length < SPOTIFY_PAGE_SIZE) break;
     if (incremental && fresh.length < items.length) break;
     offset += SPOTIFY_PAGE_SIZE;
     if (offset >= page.total) break;
+    if (cursor !== undefined) break;
   }
 };

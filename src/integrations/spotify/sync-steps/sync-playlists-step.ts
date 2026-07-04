@@ -4,10 +4,10 @@ import type { SqliteDb } from "@/core/models/db-models";
 import { batchInsertSpotifyPlaylist } from "../db/queries";
 import type { SpotifyPlaylistInsert } from "../db/schema";
 import type { SpotifyPaginatedResponse, SpotifyPlaylist } from "../models/models";
-import { SPOTIFY_PAGE_SIZE, spotifyFetch } from "./spotify-utils";
+import { SPOTIFY_PAGE_SIZE, spotifyFetch, type SpotifyOffsetCursor } from "./spotify-utils";
 
-export const syncSpotifyPlaylistsStep = async (_incremental: boolean, db: SqliteDb): Promise<void> => {
-  let offset = 0;
+export const syncSpotifyPlaylistsStep = async (_incremental: boolean, db: SqliteDb, cursor?: SpotifyOffsetCursor): Promise<void> => {
+  let offset = cursor ?? 0;
 
   while (true) {
     let page: SpotifyPaginatedResponse<SpotifyPlaylist>;
@@ -22,7 +22,7 @@ export const syncSpotifyPlaylistsStep = async (_incremental: boolean, db: Sqlite
         integration: "spotify",
         status: "FAILED",
         step: "spotify-sync-playlists",
-        inputs: { offset, error: String(e) },
+        inputs: { cursor: offset, error: String(e) },
       }, db);
       break;
     }
@@ -42,23 +42,27 @@ export const syncSpotifyPlaylistsStep = async (_incremental: boolean, db: Sqlite
 
     try {
       await batchInsertSpotifyPlaylist(rows, db);
+      const nextOffset = offset + SPOTIFY_PAGE_SIZE;
+      const hasMore = items.length >= SPOTIFY_PAGE_SIZE && nextOffset < page.total;
       await upsertSyncTask({
         integration: "spotify",
         status: "SUCCESS",
         step: "spotify-sync-playlists",
-        inputs: { offset, count: rows.length },
+        inputs: hasMore ? { cursor: nextOffset, count: rows.length } : { count: rows.length },
       }, db);
     } catch (e) {
       await upsertSyncTask({
         integration: "spotify",
         status: "FAILED",
         step: "spotify-sync-playlists",
-        inputs: { offset, error: String(e) },
+        inputs: { cursor: offset, error: String(e) },
       }, db);
+      break;
     }
 
     if (items.length < SPOTIFY_PAGE_SIZE) break;
     offset += SPOTIFY_PAGE_SIZE;
     if (offset >= page.total) break;
+    if (cursor !== undefined) break;
   }
 };

@@ -12,16 +12,22 @@ import {
   getSpotifySavedTracks,
 } from "../db/queries";
 import type { SpotifyEpisodeSelect, SpotifyPlaylistSelect, SpotifySavedTrackSelect } from "../db/schema";
-import { formatDuration } from "./spotify-utils";
+import { formatDuration, type SpotifyParseCursor } from "./spotify-utils";
 
-export const parseSpotifyStep = async (db: SqliteDb, offset?: number): Promise<void> => {
-  await parsePlaylists(db, offset);
-  await parseSavedTracks(db, offset);
-  await parseEpisodes(db, offset);
+export const parseSpotifyStep = async (db: SqliteDb, cursor?: SpotifyParseCursor): Promise<void> => {
+  if (!cursor || cursor.type === "playlist") {
+    await parsePlaylists(db, cursor?.type === "playlist" ? cursor.offset : undefined);
+  }
+  if (!cursor || cursor.type === "saved-track") {
+    await parseSavedTracks(db, cursor?.type === "saved-track" ? cursor.offset : undefined);
+  }
+  if (!cursor || cursor.type === "episode") {
+    await parseEpisodes(db, cursor?.type === "episode" ? cursor.offset : undefined);
+  }
 };
 
-const parsePlaylists = async (db: SqliteDb, offset?: number): Promise<void> => {
-  let curOffset = offset ?? 0;
+const parsePlaylists = async (db: SqliteDb, cursor?: number): Promise<void> => {
+  let curOffset = cursor ?? 0;
   let playlists: SpotifyPlaylistSelect[] = [];
   let firstIteration = true;
 
@@ -36,28 +42,34 @@ const parsePlaylists = async (db: SqliteDb, offset?: number): Promise<void> => {
         .filter((r) => r.status === "rejected")
         .map((r) => String((r as PromiseRejectedResult).reason));
 
+      const nextCursor = curOffset + PAGE_SIZE;
+      const hasMore = playlists.length >= PAGE_SIZE;
       await upsertSyncTask({
         integration: "spotify",
         status: failures.length ? "FAILED" : "SUCCESS",
-        inputs: failures.length ? { offset: curOffset, errors: failures, type: "playlist" } : { offset: curOffset, type: "playlist" },
+        inputs: failures.length
+          ? { cursor: { type: "playlist", offset: curOffset }, errors: failures }
+          : hasMore
+            ? { cursor: { type: "playlist", offset: nextCursor } }
+            : { type: "playlist" },
         step: "parse",
       }, db);
     } catch (e) {
       await upsertSyncTask({
         integration: "spotify",
         status: "FAILED",
-        inputs: { offset: curOffset, error: String(e), type: "playlist" },
+        inputs: { cursor: { type: "playlist", offset: curOffset }, error: String(e) },
         step: "parse",
       }, db);
     }
 
-    if (offset !== undefined) break;
+    if (cursor !== undefined) break;
     curOffset += PAGE_SIZE;
   }
 };
 
-const parseSavedTracks = async (db: SqliteDb, offset?: number): Promise<void> => {
-  let curOffset = offset ?? 0;
+const parseSavedTracks = async (db: SqliteDb, cursor?: number): Promise<void> => {
+  let curOffset = cursor ?? 0;
   let tracks: SpotifySavedTrackSelect[] = [];
   let firstIteration = true;
 
@@ -72,28 +84,34 @@ const parseSavedTracks = async (db: SqliteDb, offset?: number): Promise<void> =>
         .filter((r) => r.status === "rejected")
         .map((r) => String((r as PromiseRejectedResult).reason));
 
+      const nextCursor = curOffset + PAGE_SIZE;
+      const hasMore = tracks.length >= PAGE_SIZE;
       await upsertSyncTask({
         integration: "spotify",
         status: failures.length ? "FAILED" : "SUCCESS",
-        inputs: failures.length ? { offset: curOffset, errors: failures, type: "saved-track" } : { offset: curOffset, type: "saved-track" },
+        inputs: failures.length
+          ? { cursor: { type: "saved-track", offset: curOffset }, errors: failures }
+          : hasMore
+            ? { cursor: { type: "saved-track", offset: nextCursor } }
+            : { type: "saved-track" },
         step: "parse",
       }, db);
     } catch (e) {
       await upsertSyncTask({
         integration: "spotify",
         status: "FAILED",
-        inputs: { offset: curOffset, error: String(e), type: "saved-track" },
+        inputs: { cursor: { type: "saved-track", offset: curOffset }, error: String(e) },
         step: "parse",
       }, db);
     }
 
-    if (offset !== undefined) break;
+    if (cursor !== undefined) break;
     curOffset += PAGE_SIZE;
   }
 };
 
-const parseEpisodes = async (db: SqliteDb, offset?: number): Promise<void> => {
-  let curOffset = offset ?? 0;
+const parseEpisodes = async (db: SqliteDb, cursor?: number): Promise<void> => {
+  let curOffset = cursor ?? 0;
   let episodes: SpotifyEpisodeSelect[] = [];
   let firstIteration = true;
 
@@ -108,22 +126,28 @@ const parseEpisodes = async (db: SqliteDb, offset?: number): Promise<void> => {
         .filter((r) => r.status === "rejected")
         .map((r) => String((r as PromiseRejectedResult).reason));
 
+      const nextCursor = curOffset + PAGE_SIZE;
+      const hasMore = episodes.length >= PAGE_SIZE;
       await upsertSyncTask({
         integration: "spotify",
         status: failures.length ? "FAILED" : "SUCCESS",
-        inputs: failures.length ? { offset: curOffset, errors: failures, type: "episode" } : { offset: curOffset, type: "episode" },
+        inputs: failures.length
+          ? { cursor: { type: "episode", offset: curOffset }, errors: failures }
+          : hasMore
+            ? { cursor: { type: "episode", offset: nextCursor } }
+            : { type: "episode" },
         step: "parse",
       }, db);
     } catch (e) {
       await upsertSyncTask({
         integration: "spotify",
         status: "FAILED",
-        inputs: { offset: curOffset, error: String(e), type: "episode" },
+        inputs: { cursor: { type: "episode", offset: curOffset }, error: String(e) },
         step: "parse",
       }, db);
     }
 
-    if (offset !== undefined) break;
+    if (cursor !== undefined) break;
     curOffset += PAGE_SIZE;
   }
 };

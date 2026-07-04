@@ -4,11 +4,15 @@ import type { SqliteDb } from "@/core/models/db-models";
 import { batchInsertSpotifySavedTrack, getLatestSpotifySavedTrackAddedAt } from "../db/queries";
 import type { SpotifySavedTrackInsert } from "../db/schema";
 import type { SpotifyPaginatedResponse, SpotifySavedTrackItem } from "../models/models";
-import { formatArtists, SPOTIFY_PAGE_SIZE, spotifyFetch } from "./spotify-utils";
+import { formatArtists, SPOTIFY_PAGE_SIZE, spotifyFetch, type SpotifyOffsetCursor } from "./spotify-utils";
 
-export const syncSpotifySavedTracksStep = async (incremental: boolean, db: SqliteDb): Promise<void> => {
+export const syncSpotifySavedTracksStep = async (
+  incremental: boolean,
+  db: SqliteDb,
+  cursor?: SpotifyOffsetCursor,
+): Promise<void> => {
   const latestAddedAt = incremental ? await getLatestSpotifySavedTrackAddedAt(db) : null;
-  let offset = 0;
+  let offset = cursor ?? 0;
 
   while (true) {
     let page: SpotifyPaginatedResponse<SpotifySavedTrackItem>;
@@ -23,7 +27,7 @@ export const syncSpotifySavedTracksStep = async (incremental: boolean, db: Sqlit
         integration: "spotify",
         status: "FAILED",
         step: "spotify-sync-saved-tracks",
-        inputs: { offset, error: String(e) },
+        inputs: { cursor: offset, error: String(e) },
       }, db);
       break;
     }
@@ -49,24 +53,29 @@ export const syncSpotifySavedTracksStep = async (incremental: boolean, db: Sqlit
 
     try {
       await batchInsertSpotifySavedTrack(rows, db);
+      const nextOffset = offset + SPOTIFY_PAGE_SIZE;
+      const hasMore = items.length >= SPOTIFY_PAGE_SIZE && nextOffset < page.total
+        && !(incremental && fresh.length < items.length);
       await upsertSyncTask({
         integration: "spotify",
         status: "SUCCESS",
         step: "spotify-sync-saved-tracks",
-        inputs: { offset, count: rows.length },
+        inputs: hasMore ? { cursor: nextOffset, count: rows.length } : { count: rows.length },
       }, db);
     } catch (e) {
       await upsertSyncTask({
         integration: "spotify",
         status: "FAILED",
         step: "spotify-sync-saved-tracks",
-        inputs: { offset, error: String(e) },
+        inputs: { cursor: offset, error: String(e) },
       }, db);
+      break;
     }
 
     if (items.length < SPOTIFY_PAGE_SIZE) break;
     if (incremental && fresh.length < items.length) break;
     offset += SPOTIFY_PAGE_SIZE;
     if (offset >= page.total) break;
+    if (cursor !== undefined) break;
   }
 };

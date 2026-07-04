@@ -133,3 +133,26 @@ export const formatDuration = (durationMs: number | null | undefined): string =>
   const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 };
+
+export type SpotifyOffsetCursor = number;
+
+export type SpotifyPlaylistTracksCursor = {
+  playlistId: string;
+  offset: number;
+};
+
+export type SpotifyEpisodesCursor = {
+  showId: string;
+  offset: number;
+};
+
+export type SpotifyParseCursor = {
+  type: "playlist" | "saved-track" | "episode";
+  offset: number;
+};
+
+export const stringsFromCursor = (items: string[], cursorId?: string): string[] => {
+  if (!cursorId) return items;
+  const idx = items.indexOf(cursorId);
+  return idx === -1 ? items : items.slice(idx);
+};
