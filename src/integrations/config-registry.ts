@@ -6,6 +6,7 @@ import { plaudConfig } from "./plaud/config";
 import { firecrawlConfig } from "./firecrawl/config";
 import { githubConfig } from "./github/config";
 import { spotifyConfig } from "./spotify/config";
+import { slackConfig } from "./slack/config";
 
 export const configRegistry: IntegrationConfig[] = [
   gongConfig,
@@ -15,4 +16,5 @@ export const configRegistry: IntegrationConfig[] = [
   firecrawlConfig,
   githubConfig,
   spotifyConfig,
+  slackConfig,
 ];

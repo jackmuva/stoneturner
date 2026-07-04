@@ -10,6 +10,7 @@ export default defineConfig({
     './src/integrations/firecrawl/db/schema.ts',
     './src/integrations/github/db/schema.ts',
     './src/integrations/spotify/db/schema.ts',
+    './src/integrations/slack/db/schema.ts',
   ],
   out: './migrations',
   dialect: 'turso',

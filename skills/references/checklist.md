@@ -14,7 +14,7 @@ everywhere".
 - [ ] `src/integrations/<name>/models/models.ts` — types for the external API JSON.
 - [ ] `src/integrations/<name>/db/schema.ts` — drizzle tables (unique business key per row) + `InferInsert/SelectModel` exports.
 - [ ] `src/integrations/<name>/db/queries.ts` — `batchInsert*` (with `onConflictDoUpdate`), `get*`, `getLatest*`/`getMostRecent*` (for incremental), and a `delete*Data` that purges your tables. Each takes `db: SqliteDb`.
-- [ ] `src/integrations/<name>/sync-steps/sync-*-step.ts` — fetch + insert; paginated; `retry()`-wrapped; logs `syncTask`. Signature `(incremental, db, ...)`.
+- [ ] `src/integrations/<name>/sync-steps/sync-*-step.ts` — fetch + insert; paginated; `retry()`-wrapped; logs `syncTask` with cursor in `inputs`. Signature `(incremental, db, cursor?)` (typed object when pagination is multi-dimensional).
 - [ ] `src/integrations/<name>/sync-steps/parse-step.ts` — raw rows → `upsertMdArtifact`; LLM via `aiGatewayBottleneck.schedule(...)`. Signature `(db, offset?)`.
 - [ ] `src/integrations/<name>/integration.ts` — `syncPipeline(incremental, db)` + the `Integration` object (incl. `deleteSync(db)`).
 - [ ] OAuth only: `handleRedirect(req, db)` + `refreshAccessTokens(db)` (see `auth.md`).
