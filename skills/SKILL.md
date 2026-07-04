@@ -56,10 +56,17 @@ incremental sync, and idempotency.
 
 ### 0. Write the integration spec
 
-Before touching code, capture the external API contract in
-`integration-specs/<name>-spec.md`. The spec documents auth, sync endpoints,
-response shapes, and how each data source maps to markdown artifacts — it is the
-blueprint the rest of this skill implements.
+Before touching code, **research the integration's authentication and APIs** from
+the vendor's official docs. Most integrations use **OAuth** (authorization URL,
+token exchange, and sometimes refresh). Others use an **API key** the user
+generates in the vendor dashboard, or an **access key + secret key** pair
+(sometimes with a base URL). Identify which model applies and document every
+auth endpoint, scope, and env var before moving on.
+
+Then capture the external API contract in `integration-specs/<name>-spec.md`.
+The spec documents auth, sync endpoints, response shapes, and how each data
+source maps to markdown artifacts — it is the blueprint the rest of this skill
+implements.
 
 See `references/integration-specs.md` for the template and checklist. Use the
 example specs in `references/integration-spec-examples/` (GitHub, Firecrawl,
