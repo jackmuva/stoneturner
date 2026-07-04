@@ -1,5 +1,6 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
 import type { SqliteDb } from "@/core/models/db-models";
+import { retry } from "@/lib/utils";
 import { batchInsertLinearIssue, getLatestLinearIssueUpdate } from "../db/queries";
 import type { LinearIssueInsert } from "../db/schema";
 import type { LinearIssueNode } from "../models/models";
@@ -69,7 +70,12 @@ export const syncLinearIssuesStep = async (
   try {
     token = await ensureLinearAccessToken(db);
   } catch (e) {
-    await upsertSyncTask({ integration: "linear", status: "FAILED", step: STEP, inputs: { error: String(e) } }, db);
+    await upsertSyncTask({
+      integration: "linear",
+      status: "FAILED",
+      step: STEP,
+      inputs: cursor ? { cursor, error: String(e) } : { error: String(e) },
+    }, db);
     return;
   }
 
@@ -82,7 +88,12 @@ export const syncLinearIssuesStep = async (
   try {
     teams = teamsFromCursor(await fetchLinearTeams(token, db), cursor?.teamId);
   } catch (e) {
-    await upsertSyncTask({ integration: "linear", status: "FAILED", step: STEP, inputs: { error: String(e) } }, db);
+    await upsertSyncTask({
+      integration: "linear",
+      status: "FAILED",
+      step: STEP,
+      inputs: cursor ? { cursor, error: String(e) } : { error: String(e) },
+    }, db);
     return;
   }
 
@@ -91,11 +102,21 @@ export const syncLinearIssuesStep = async (
       cursor?.teamId === team.id ? (cursor.after ?? null) : null;
 
     while (true) {
+      const pageCursor: LinearIssueCursor = { teamId: team.id, after };
+
+      let connection: {
+        nodes: LinearIssueNode[];
+        pageInfo: { hasNextPage: boolean; endCursor?: string | null };
+      } | null = null;
+
       try {
-        const data = await linearGraphql<{
+        const data = await retry(async () => await linearGraphql<{
           team: {
             key: string;
-            issues: { nodes: LinearIssueNode[]; pageInfo: { hasNextPage: boolean; endCursor?: string | null } };
+            issues: {
+              nodes: LinearIssueNode[];
+              pageInfo: { hasNextPage: boolean; endCursor?: string | null };
+            };
           } | null;
         }>(TEAM_ISSUES_QUERY, {
           teamId: team.id,
@@ -103,11 +124,21 @@ export const syncLinearIssuesStep = async (
           first: PAGE_SIZE_LINEAR,
           filter,
           includeArchived: archived,
-        }, token);
+        }, token), 3, 1);
 
-        const connection = data.team?.issues;
+        connection = data.team?.issues ?? null;
         if (!connection) break;
+      } catch (e) {
+        await upsertSyncTask({
+          integration: "linear",
+          status: "FAILED",
+          step: STEP,
+          inputs: { cursor: pageCursor, error: String(e) },
+        }, db);
+        return;
+      }
 
+      try {
         const rows: LinearIssueInsert[] = [];
         for (const issue of connection.nodes) {
           rows.push(await issueToRow(issue, team.key, token));
@@ -118,28 +149,24 @@ export const syncLinearIssuesStep = async (
           ? (connection.pageInfo.endCursor ?? null)
           : null;
 
+        if (!nextAfter) break;
+
+        after = nextAfter;
         await upsertSyncTask({
           integration: "linear",
           status: "SUCCESS",
           step: STEP,
-          inputs: nextAfter
-            ? { teamId: team.id, teamKey: team.key, count: rows.length, cursor: { teamId: team.id, after: nextAfter } }
-            : { teamId: team.id, teamKey: team.key, count: rows.length },
+          inputs: { cursor: { teamId: team.id, after: nextAfter } },
         }, db);
-
-        if (cursor) return;
-        if (!nextAfter) break;
-        after = nextAfter;
       } catch (e) {
         await upsertSyncTask({
           integration: "linear",
           status: "FAILED",
           step: STEP,
-          inputs: { teamId: team.id, cursor: { teamId: team.id, after }, error: String(e) },
+          inputs: { cursor: pageCursor, error: String(e) },
         }, db);
         return;
       }
     }
-    if (cursor) return;
   }
 };

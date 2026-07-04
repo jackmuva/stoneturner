@@ -1,5 +1,6 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
 import type { SqliteDb } from "@/core/models/db-models";
+import { retry } from "@/lib/utils";
 import { batchInsertLinearProject, getLatestLinearProjectUpdate } from "../db/queries";
 import type { LinearProjectInsert } from "../db/schema";
 import type { LinearProjectNode } from "../models/models";
@@ -57,7 +58,12 @@ export const syncLinearProjectsStep = async (
   try {
     token = await ensureLinearAccessToken(db);
   } catch (e) {
-    await upsertSyncTask({ integration: "linear", status: "FAILED", step: STEP, inputs: { error: String(e) } }, db);
+    await upsertSyncTask({
+      integration: "linear",
+      status: "FAILED",
+      step: STEP,
+      inputs: cursor ? { cursor, error: String(e) } : { error: String(e) },
+    }, db);
     return;
   }
 
@@ -73,8 +79,15 @@ export const syncLinearProjectsStep = async (
   let after: string | null = cursor?.after ?? null;
 
   while (true) {
+    const pageCursor: LinearListCursor = { after };
+
+    let projects: {
+      nodes: LinearProjectNode[];
+      pageInfo: { hasNextPage: boolean; endCursor?: string | null };
+    } | null = null;
+
     try {
-      const data = await linearGraphql<{
+      const data = await retry(async () => await linearGraphql<{
         projects: {
           nodes: LinearProjectNode[];
           pageInfo: { hasNextPage: boolean; endCursor?: string | null };
@@ -84,35 +97,44 @@ export const syncLinearProjectsStep = async (
         first: PAGE_SIZE_LINEAR,
         filter: Object.keys(filter).length ? filter : undefined,
         includeArchived: archived,
-      }, token);
+      }, token), 3, 1);
 
-      const rows: LinearProjectInsert[] = data.projects.nodes.map(projectToRow);
-      await batchInsertLinearProject(rows, db);
-
-      const nextAfter = data.projects.pageInfo.hasNextPage
-        ? (data.projects.pageInfo.endCursor ?? null)
-        : null;
-
-      await upsertSyncTask({
-        integration: "linear",
-        status: "SUCCESS",
-        step: STEP,
-        inputs: nextAfter
-          ? { count: rows.length, cursor: { after: nextAfter } }
-          : { count: rows.length },
-      }, db);
-
-      if (cursor) return;
-      if (!nextAfter) break;
-      after = nextAfter;
+      projects = data.projects;
     } catch (e) {
       await upsertSyncTask({
         integration: "linear",
         status: "FAILED",
         step: STEP,
-        inputs: { cursor: { after }, error: String(e) },
+        inputs: { cursor: pageCursor, error: String(e) },
       }, db);
-      return;
+      break;
+    }
+
+    try {
+      const rows: LinearProjectInsert[] = projects.nodes.map(projectToRow);
+      await batchInsertLinearProject(rows, db);
+
+      const nextAfter = projects.pageInfo.hasNextPage
+        ? (projects.pageInfo.endCursor ?? null)
+        : null;
+
+      if (!nextAfter) break;
+
+      after = nextAfter;
+      await upsertSyncTask({
+        integration: "linear",
+        status: "SUCCESS",
+        step: STEP,
+        inputs: { cursor: { after: nextAfter } },
+      }, db);
+    } catch (e) {
+      await upsertSyncTask({
+        integration: "linear",
+        status: "FAILED",
+        step: STEP,
+        inputs: { cursor: pageCursor, error: String(e) },
+      }, db);
+      break;
     }
   }
 };

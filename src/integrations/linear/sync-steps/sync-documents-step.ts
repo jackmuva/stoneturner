@@ -1,5 +1,6 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
 import type { SqliteDb } from "@/core/models/db-models";
+import { retry } from "@/lib/utils";
 import { batchInsertLinearDocument, getLatestLinearDocumentUpdate } from "../db/queries";
 import type { LinearDocumentInsert } from "../db/schema";
 import type { LinearDocumentNode } from "../models/models";
@@ -55,7 +56,12 @@ export const syncLinearDocumentsStep = async (
   try {
     token = await ensureLinearAccessToken(db);
   } catch (e) {
-    await upsertSyncTask({ integration: "linear", status: "FAILED", step: STEP, inputs: { error: String(e) } }, db);
+    await upsertSyncTask({
+      integration: "linear",
+      status: "FAILED",
+      step: STEP,
+      inputs: cursor ? { cursor, error: String(e) } : { error: String(e) },
+    }, db);
     return;
   }
 
@@ -71,8 +77,15 @@ export const syncLinearDocumentsStep = async (
   let after: string | null = cursor?.after ?? null;
 
   while (true) {
+    const pageCursor: LinearListCursor = { after };
+
+    let documents: {
+      nodes: LinearDocumentNode[];
+      pageInfo: { hasNextPage: boolean; endCursor?: string | null };
+    } | null = null;
+
     try {
-      const data = await linearGraphql<{
+      const data = await retry(async () => await linearGraphql<{
         documents: {
           nodes: LinearDocumentNode[];
           pageInfo: { hasNextPage: boolean; endCursor?: string | null };
@@ -82,35 +95,44 @@ export const syncLinearDocumentsStep = async (
         first: PAGE_SIZE_LINEAR,
         filter: Object.keys(filter).length ? filter : undefined,
         includeArchived: archived,
-      }, token);
+      }, token), 3, 1);
 
-      const rows: LinearDocumentInsert[] = data.documents.nodes.map(documentToRow);
-      await batchInsertLinearDocument(rows, db);
-
-      const nextAfter = data.documents.pageInfo.hasNextPage
-        ? (data.documents.pageInfo.endCursor ?? null)
-        : null;
-
-      await upsertSyncTask({
-        integration: "linear",
-        status: "SUCCESS",
-        step: STEP,
-        inputs: nextAfter
-          ? { count: rows.length, cursor: { after: nextAfter } }
-          : { count: rows.length },
-      }, db);
-
-      if (cursor) return;
-      if (!nextAfter) break;
-      after = nextAfter;
+      documents = data.documents;
     } catch (e) {
       await upsertSyncTask({
         integration: "linear",
         status: "FAILED",
         step: STEP,
-        inputs: { cursor: { after }, error: String(e) },
+        inputs: { cursor: pageCursor, error: String(e) },
       }, db);
-      return;
+      break;
+    }
+
+    try {
+      const rows: LinearDocumentInsert[] = documents.nodes.map(documentToRow);
+      await batchInsertLinearDocument(rows, db);
+
+      const nextAfter = documents.pageInfo.hasNextPage
+        ? (documents.pageInfo.endCursor ?? null)
+        : null;
+
+      if (!nextAfter) break;
+
+      after = nextAfter;
+      await upsertSyncTask({
+        integration: "linear",
+        status: "SUCCESS",
+        step: STEP,
+        inputs: { cursor: { after: nextAfter } },
+      }, db);
+    } catch (e) {
+      await upsertSyncTask({
+        integration: "linear",
+        status: "FAILED",
+        step: STEP,
+        inputs: { cursor: pageCursor, error: String(e) },
+      }, db);
+      break;
     }
   }
 };
