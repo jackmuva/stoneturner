@@ -108,6 +108,9 @@ For each source, include:
 4. **Follow-up calls** — e.g. "for each issue, fetch comments at …"
 5. **Operational notes** — polling interval, rate limits, exclusion rules,
    incremental cutoff (e.g. `updated_at > lastSync`)
+6. **Pagination cursor** — name the cursor/next-page field; the corresponding
+   sync step must accept an optional `cursor` arg and persist it in
+   `syncTask.inputs` so syncs can resume after failure (see `sync-pipeline.md`)
 
 ### Artifact mapping
 

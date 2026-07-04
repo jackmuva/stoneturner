@@ -28,7 +28,62 @@ accept it and pass it through.
 ## Step 1 — sync-data
 
 Fetch from the source and batch-insert into your raw tables. Read credentials,
-paginate, wrap fetches in `retry()`, and log a `syncTask` each page. Condensed
+paginate, wrap fetches in `retry()`, and log a `syncTask` each page.
+
+### Optional cursor (required for paginated steps)
+
+Every paginated sync-data step **must** accept an optional `cursor` as the last
+parameter (after `db`). When omitted, start from the beginning; when provided,
+resume from that position. Persist the cursor in each page's `syncTask.inputs` so
+a failed sync can be retried — on SUCCESS write the *next* cursor, on FAILED
+write the cursor you were on when the error happened.
+
+Signature convention: `(incremental, db, cursor?)`. Use a plain `string` when
+pagination is a single API cursor; use a typed object when you need to resume
+multi-dimensional work (e.g. `{ repo, url }` for GitHub, `{ channelId, cursor }`
+for Discord/Slack).
+
+Condensed from `src/integrations/notion/sync-steps/sync-notion-pages.ts`:
+
+```ts
+import { upsertSyncTask } from "@/core/db/queries/queries";
+import { retry } from "@/lib/utils";
+import type { SqliteDb } from "@/core/models/db-models";
+
+export const syncNotionPages = async (incremental: boolean = false, db: SqliteDb, cursor?: string) => {
+  let nextCursor: string | undefined = cursor;
+
+  while (true) {
+    let response: NotionSearchResponse | null = null;
+    try {
+      response = await retry(async () => getPages(db, nextCursor), 3, 1);
+    } catch (e) {
+      await upsertSyncTask({
+        integration: "notion", status: "FAILED", step: "notion-sync-pages",
+        inputs: { cursor: nextCursor, error: e },
+      }, db);
+      break;
+    }
+    try {
+      await upsertPages(response.results, db);
+      if (!response.has_more || !response.next_cursor) break;
+      nextCursor = response.next_cursor;
+      await upsertSyncTask({
+        integration: "notion", status: "SUCCESS", step: "notion-sync-pages",
+        inputs: { cursor: nextCursor },
+      }, db);
+    } catch (e) {
+      await upsertSyncTask({
+        integration: "notion", status: "FAILED", step: "notion-sync-pages",
+        inputs: { cursor: nextCursor, error: e },
+      }, db);
+      if (!response.next_cursor) break;
+    }
+  }
+};
+```
+
+Gong uses the same optional-cursor signature with a simpler loop — condensed
 from `src/integrations/gong/sync-steps/sync-calls-step.ts`:
 
 ```ts
@@ -37,7 +92,7 @@ import { retry } from "@/lib/utils";
 import { batchInsertGongCall, getLatestGongCall } from "../db/queries";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncGongCallsStep = async (incremental: boolean = false, db: SqliteDb) => {
+export const syncGongCallsStep = async (incremental: boolean = false, db: SqliteDb, cursor?: string) => {
   // incremental: only fetch items newer than what we already have
   let latestDate: string | null = null;
   if (incremental) {
@@ -47,11 +102,12 @@ export const syncGongCallsStep = async (incremental: boolean = false, db: Sqlite
 
   const { basicToken, baseUrl } = await getCredentials(db);
 
-  let cursor: string | null = null;
+  let curCursor: string | null = cursor ?? null;
   let first = true;
-  while ((cursor || first) && baseUrl) {
+  while ((curCursor || first) && baseUrl) {
     first = false;
-    cursor = await fetchPage(db, basicToken, baseUrl, cursor, latestDate);  // returns next cursor
+    curCursor = await fetchPage(db, basicToken, baseUrl, curCursor, latestDate);  // returns next cursor
+    if (cursor) break;   // when resuming with a passed-in cursor, fetch one page only
   }
 };
 

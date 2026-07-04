@@ -111,6 +111,9 @@ register the schema path in `drizzle.config.ts`. See `references/anatomy.md`.
 - Wrap every network/LLM call in `retry()` (`src/lib/utils.ts`).
 - Throttle **all** AI Gateway calls through `aiGatewayBottleneck.schedule(...)`.
 - Support an `incremental` flag (fetch only new/updated items).
+- Accept an optional `cursor` trailing arg on paginated sync steps so a failed
+  sync can resume where it left off; persist the cursor in each page's
+  `syncTask.inputs` (see `src/integrations/notion/sync-steps/sync-notion-pages.ts`).
 - Record a `syncTask` row (SUCCESS/FAILED) at each step.
 - The parse step upserts `mdArtifact` rows — that is the contract the shared
   vector step consumes.
