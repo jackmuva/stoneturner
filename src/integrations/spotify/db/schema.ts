@@ -7,6 +7,7 @@ export const spotifyPlaylist = sqliteTable("spotifyPlaylist", {
   name: text("name"),
   description: text("description"),
   ownerDisplayName: text("ownerDisplayName"),
+  ownerId: text("ownerId"),
   snapshotId: text("snapshotId"),
   trackCount: integer("trackCount"),
   isPublic: integer("isPublic", { mode: "boolean" }),

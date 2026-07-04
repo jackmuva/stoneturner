@@ -19,6 +19,7 @@ export const batchInsertSpotifyPlaylist = async (rows: SpotifyPlaylistInsert[], 
         name: sql`excluded.name`,
         description: sql`excluded.description`,
         ownerDisplayName: sql`excluded.ownerDisplayName`,
+        ownerId: sql`excluded.ownerId`,
         snapshotId: sql`excluded.snapshotId`,
         trackCount: sql`excluded.trackCount`,
         isPublic: sql`excluded.isPublic`,
@@ -64,7 +65,7 @@ export const batchInsertSpotifyPlaylistTrack = async (rows: SpotifyPlaylistTrack
 };
 
 export const deleteSpotifyPlaylistTracks = async (playlistId: string, db: SqliteDb): Promise<void> => {
-  await db.delete(spotifyPlaylistTrack).where(eq(spotifyPlaylistTrack.playlistId, playlistId));
+  await db.delete(spotifyPlaylistTrack).where(sql`"playlistId" = ${playlistId}`);
 };
 
 export const getSpotifyPlaylistTracks = async (playlistId: string, db: SqliteDb): Promise<SpotifyPlaylistTrackSelect[]> => {

@@ -5,6 +5,20 @@ import Bottleneck from "bottleneck";
 import type { BunRequest } from "bun";
 import type { SpotifyTokenResponse } from "../models/models";
 
+import type { SpotifyPlaylistSelect } from "../db/schema";
+import type { SpotifyUserProfile } from "../models/models";
+
+export const isSpotifyPlaylistItemsAccessible = (
+  playlist: SpotifyPlaylistSelect,
+  user: SpotifyUserProfile | undefined,
+): boolean => {
+  if (!user) return false;
+  if (playlist.ownerId === user.id) return true;
+  if (playlist.isCollaborative) return true;
+  if (!playlist.ownerId && playlist.ownerDisplayName === user.id) return true;
+  return false;
+};
+
 export const spotifyApiBottleneck = new Bottleneck({
   maxConcurrent: 5,
   minTime: 200,

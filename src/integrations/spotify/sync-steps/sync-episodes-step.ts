@@ -3,7 +3,7 @@ import { retry } from "@/lib/utils";
 import type { SqliteDb } from "@/core/models/db-models";
 import { batchInsertSpotifyEpisode, getAllSpotifyShows, getSpotifyShowsWithoutEpisodes } from "../db/queries";
 import type { SpotifyEpisodeInsert } from "../db/schema";
-import type { SpotifyEpisode, SpotifyPaginatedResponse } from "../models/models";
+import type { SpotifyEpisode, SpotifyPaginatedResponse, SpotifyUserProfile } from "../models/models";
 import {
   SPOTIFY_PAGE_SIZE,
   spotifyFetch,
@@ -16,6 +16,7 @@ const STEP = "spotify-sync-episodes";
 export const syncSpotifyEpisodesStep = async (
   incremental: boolean,
   db: SqliteDb,
+  user: SpotifyUserProfile | undefined,
   cursor?: SpotifyEpisodesCursor,
 ): Promise<void> => {
   const showsToSync = incremental
@@ -27,6 +28,8 @@ export const syncSpotifyEpisodesStep = async (
     cursor?.showId,
   );
 
+  const marketParam = user?.country ? `&market=${user.country}` : "";
+
   for (const showId of showIds) {
     const show = showsToSync.find((s) => s.showId === showId);
     let offset = cursor?.showId === showId ? cursor.offset : 0;
@@ -35,7 +38,7 @@ export const syncSpotifyEpisodesStep = async (
       try {
         const page = await retry(async () => {
           const res = await spotifyFetch(
-            `/shows/${showId}/episodes?limit=${SPOTIFY_PAGE_SIZE}&offset=${offset}`,
+            `/shows/${showId}/episodes?limit=${SPOTIFY_PAGE_SIZE}&offset=${offset}${marketParam}`,
             db,
           );
           if (!res.ok) throw new Error(await res.text());

@@ -12,9 +12,11 @@ import type {
   SpotifyPaginatedResponse,
   SpotifyPlaylistItem,
   SpotifyTrack,
+  SpotifyUserProfile,
 } from "../models/models";
 import {
   formatArtists,
+  isSpotifyPlaylistItemsAccessible,
   SPOTIFY_PAGE_SIZE,
   spotifyFetch,
   stringsFromCursor,
@@ -26,13 +28,19 @@ const STEP = "spotify-sync-playlist-tracks";
 const isTrack = (item: SpotifyTrack | SpotifyEpisode): item is SpotifyTrack => item.type === "track";
 const isEpisode = (item: SpotifyTrack | SpotifyEpisode): item is SpotifyEpisode => item.type === "episode";
 
-const getPlaylistsNeedingTrackSync = async (incremental: boolean, db: SqliteDb): Promise<string[]> => {
+const getPlaylistsNeedingTrackSync = async (
+  incremental: boolean,
+  db: SqliteDb,
+  user: SpotifyUserProfile | undefined,
+): Promise<string[]> => {
   const playlists = await getAllSpotifyPlaylists(db);
-  if (!incremental) return playlists.map((p) => p.playlistId);
+  const accessible = playlists.filter((p) => isSpotifyPlaylistItemsAccessible(p, user));
+
+  if (!incremental) return accessible.map((p) => p.playlistId);
 
   const { getSpotifyPlaylistTracks } = await import("../db/queries");
   const needsSync: string[] = [];
-  for (const playlist of playlists) {
+  for (const playlist of accessible) {
     const tracks = await getSpotifyPlaylistTracks(playlist.playlistId, db);
     if (tracks.length === 0 || tracks.length !== (playlist.trackCount ?? 0)) {
       needsSync.push(playlist.playlistId);
@@ -44,12 +52,17 @@ const getPlaylistsNeedingTrackSync = async (incremental: boolean, db: SqliteDb):
 export const syncSpotifyPlaylistTracksStep = async (
   incremental: boolean,
   db: SqliteDb,
+  user: SpotifyUserProfile | undefined,
   cursor?: SpotifyPlaylistTracksCursor,
 ): Promise<void> => {
   const playlistIds = stringsFromCursor(
-    await getPlaylistsNeedingTrackSync(incremental, db),
+    await getPlaylistsNeedingTrackSync(incremental, db, user),
     cursor?.playlistId,
   );
+
+  const market = user?.country;
+  const additionalTypes = market ? "track,episode" : "track";
+  const marketParam = market ? `&market=${market}` : "";
 
   for (const playlistId of playlistIds) {
     let offset = cursor?.playlistId === playlistId ? cursor.offset : 0;
@@ -61,12 +74,25 @@ export const syncSpotifyPlaylistTracksStep = async (
       try {
         const page = await retry(async () => {
           const res = await spotifyFetch(
-            `/playlists/${playlistId}/items?limit=${SPOTIFY_PAGE_SIZE}&offset=${offset}&additional_types=track,episode`,
+            `/playlists/${playlistId}/items?limit=${SPOTIFY_PAGE_SIZE}&offset=${offset}&additional_types=${additionalTypes}${marketParam}`,
             db,
           );
+          if (res.status === 403) {
+            return null;
+          }
           if (!res.ok) throw new Error(await res.text());
           return await res.json() as SpotifyPaginatedResponse<SpotifyPlaylistItem>;
         }, 3, 1);
+
+        if (!page) {
+          await upsertSyncTask({
+            integration: "spotify",
+            status: "SUCCESS",
+            step: STEP,
+            inputs: { playlistId, skipped: true, reason: "not_owner_or_collaborator" },
+          }, db);
+          break;
+        }
 
         const rows: SpotifyPlaylistTrackInsert[] = [];
         for (const item of page.items ?? []) {

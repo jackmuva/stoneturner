@@ -4,6 +4,7 @@ import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { spotifyConfig } from "./config";
 import { deleteSpotifyData } from "./db/queries";
+import { syncSpotifyUserStep } from "./sync-steps/sync-user-step";
 import { syncSpotifyPlaylistsStep } from "./sync-steps/sync-playlists-step";
 import { syncSpotifyPlaylistTracksStep } from "./sync-steps/sync-playlist-tracks-step";
 import { syncSpotifySavedTracksStep } from "./sync-steps/sync-saved-tracks-step";
@@ -14,11 +15,12 @@ import { handleOauthRedirect, handleSpotifyRefresh } from "./sync-steps/spotify-
 import type { SqliteDb } from "@/core/models/db-models";
 
 export const syncSpotifyPipeline = async (incremental: boolean = false, db: SqliteDb) => {
+  const user = await syncSpotifyUserStep(db);
   await syncSpotifyPlaylistsStep(incremental, db);
-  await syncSpotifyPlaylistTracksStep(incremental, db);
+  await syncSpotifyPlaylistTracksStep(incremental, db, user);
   await syncSpotifySavedTracksStep(incremental, db);
   await syncSpotifyShowsStep(incremental, db);
-  await syncSpotifyEpisodesStep(incremental, db);
+  await syncSpotifyEpisodesStep(incremental, db, user);
   await parseSpotifyStep(db);
   await indexVectorDbStep("spotify", incremental, db);
 };

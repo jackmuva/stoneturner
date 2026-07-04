@@ -1,3 +1,9 @@
+export type SpotifyUserProfile = {
+  id: string;
+  country?: string;
+  email?: string;
+};
+
 export type SpotifyTokenResponse = {
   access_token: string;
   token_type: string;
@@ -88,7 +94,12 @@ export type SpotifyPlaylist = {
   snapshot_id: string;
   external_urls?: SpotifyExternalUrls;
   owner: SpotifyPlaylistOwner;
-  tracks: {
+  items: {
+    href: string;
+    total: number;
+  };
+  /** @deprecated Spotify recommends `items` instead */
+  tracks?: {
     href: string;
     total: number;
   };
