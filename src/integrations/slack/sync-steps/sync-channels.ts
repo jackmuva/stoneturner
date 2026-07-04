@@ -1,4 +1,3 @@
-import type { SlackChannel } from "../models/models";
 import {
   getSlackAccessToken,
   slackApiBottleneck,
@@ -12,70 +11,98 @@ import type { SlackTeamSelect } from "../db/schema";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { SlackConversationsListResponse } from "../models/models";
 
-export const syncChannels = async (db: SqliteDb) => {
+export type SlackChannelsCursor = { teamId: string; cursor?: string };
+
+export const syncChannels = async (db: SqliteDb, cursor?: SlackChannelsCursor) => {
   let offset = 0;
   let teams: SlackTeamSelect[] = await getSlackTeamsFromDb(offset, db);
 
   while (teams.length > 0) {
-    await Promise.allSettled(teams.map((team) =>
-      slackApiBottleneck.schedule(() => upsertChannelsForTeam(team, db))
+    const workerQueue = cursor
+      ? teams.filter((team) => team.id === cursor.teamId)
+      : teams;
+
+    await Promise.allSettled(workerQueue.map((team) =>
+      slackApiBottleneck.schedule(() =>
+        upsertChannelsForTeam(
+          team,
+          db,
+          cursor?.teamId === team.id ? cursor.cursor : undefined,
+          Boolean(cursor),
+        )
+      )
     ));
 
+    if (cursor) break;
     if (teams.length < PAGE_SIZE) break;
     offset += PAGE_SIZE;
     teams = await getSlackTeamsFromDb(offset, db);
   }
 };
 
-const upsertChannelsForTeam = async (team: SlackTeamSelect, db: SqliteDb): Promise<void> => {
-  try {
-    const token = await getSlackAccessToken(db);
-    const channels = await retry(async () => fetchAllPublicChannels(token), 3, 1);
-    if (channels.length === 0) return;
+const upsertChannelsForTeam = async (
+  team: SlackTeamSelect,
+  db: SqliteDb,
+  startCursor?: string,
+  singleIteration = false,
+): Promise<void> => {
+  let nextCursor: string | undefined = startCursor;
 
-    await batchInsertSlackChannel(channels
-      .filter((channel) => !channel.is_private && !channel.is_archived)
-      .map((channel) => ({
-        id: channel.id,
-        teamId: team.id,
-        name: channel.name,
-        topic: channel.topic?.value ?? null,
-        purpose: channel.purpose?.value ?? null,
-        numMembers: channel.num_members ?? null,
-        isArchived: channel.is_archived ?? false,
-        created: channel.created ?? null,
-      })), db);
+  while (true) {
+    try {
+      const token = await getSlackAccessToken(db);
+      const response = await retry(async () =>
+        slackApiFetch<SlackConversationsListResponse>("conversations.list", token, {
+          types: "public_channel",
+          exclude_archived: true,
+          limit: 200,
+          cursor: nextCursor,
+        }), 3, 1);
 
-    await upsertSyncTask({
-      integration: "slack",
-      status: "SUCCESS",
-      step: "slack-sync-channels",
-      inputs: JSON.stringify({ teamId: team.id, channelCount: channels.length }),
-    }, db);
-  } catch (e) {
-    await upsertSyncTask({
-      integration: "slack",
-      status: "FAILED",
-      step: "slack-sync-channels",
-      inputs: JSON.stringify({ teamId: team.id, error: String(e) }),
-    }, db);
+      const channels = response.channels
+        .filter((channel) => !channel.is_private && !channel.is_archived);
+
+      if (channels.length > 0) {
+        await batchInsertSlackChannel(channels.map((channel) => ({
+          id: channel.id,
+          teamId: team.id,
+          name: channel.name,
+          topic: channel.topic?.value ?? null,
+          purpose: channel.purpose?.value ?? null,
+          numMembers: channel.num_members ?? null,
+          isArchived: channel.is_archived ?? false,
+          created: channel.created ?? null,
+        })), db);
+      }
+
+      const apiNextCursor = response.response_metadata?.next_cursor || undefined;
+      if (!apiNextCursor) {
+        await upsertSyncTask({
+          integration: "slack",
+          status: "SUCCESS",
+          step: "slack-sync-channels",
+          inputs: JSON.stringify({ teamId: team.id, channelCount: channels.length }),
+        }, db);
+        return;
+      }
+
+      nextCursor = apiNextCursor;
+      await upsertSyncTask({
+        integration: "slack",
+        status: "SUCCESS",
+        step: "slack-sync-channels",
+        inputs: JSON.stringify({ teamId: team.id, cursor: nextCursor }),
+      }, db);
+
+      if (singleIteration) return;
+    } catch (e) {
+      await upsertSyncTask({
+        integration: "slack",
+        status: "FAILED",
+        step: "slack-sync-channels",
+        inputs: JSON.stringify({ teamId: team.id, cursor: nextCursor, error: String(e) }),
+      }, db);
+      return;
+    }
   }
-};
-
-const fetchAllPublicChannels = async (token: string): Promise<SlackChannel[]> => {
-  const channels: SlackChannel[] = [];
-  let cursor: string | undefined;
-
-  do {
-    const response = await slackApiFetch<SlackConversationsListResponse>("conversations.list", token, {
-      types: "public_channel",
-      exclude_archived: true,
-      limit: 200,
-      cursor,
-    });
-    channels.push(...response.channels);
-    cursor = response.response_metadata?.next_cursor || undefined;
-  } while (cursor);
-
-  return channels;
 };
