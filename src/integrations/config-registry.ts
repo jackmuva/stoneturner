@@ -5,6 +5,7 @@ import { notionConfig } from "./notion/config";
 import { plaudConfig } from "./plaud/config";
 import { firecrawlConfig } from "./firecrawl/config";
 import { githubConfig } from "./github/config";
+import { spotifyConfig } from "./spotify/config";
 
 export const configRegistry: IntegrationConfig[] = [
   gongConfig,
@@ -13,4 +14,5 @@ export const configRegistry: IntegrationConfig[] = [
   plaudConfig,
   firecrawlConfig,
   githubConfig,
+  spotifyConfig,
 ];
