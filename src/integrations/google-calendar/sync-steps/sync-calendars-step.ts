@@ -6,14 +6,25 @@ import type { GoogleCalendarListResponse } from "../models/models";
 import { GOOGLE_CALENDAR_BASE_API, googleCalendarFetch } from "./google-calendar-utils";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncGoogleCalendarsStep = async (_incremental: boolean = false, db: SqliteDb): Promise<void> => {
-  let pageToken: string | undefined;
+export const syncGoogleCalendarsStep = async (_incremental: boolean = false, db: SqliteDb, cursor?: string): Promise<void> => {
+  let nextCursor: string | undefined = cursor;
 
-  do {
+  while (true) {
+    let response: GoogleCalendarListResponse | null = null;
     try {
-      const response = await retry(async () => await fetchCalendarPage(pageToken, db), 3, 1);
-      const items = response.items ?? [];
+      response = await retry(async () => await fetchCalendarPage(nextCursor, db), 3, 1);
+    } catch (e) {
+      await upsertSyncTask({
+        integration: "google-calendar",
+        status: "FAILED",
+        step: "google-calendar-sync-calendars",
+        inputs: { cursor: nextCursor ?? null, error: String(e) },
+      }, db);
+      break;
+    }
 
+    try {
+      const items = response.items ?? [];
       const rows: GoogleCalendarInsert[] = items.map((cal) => ({
         calendarId: cal.id,
         summary: cal.summary,
@@ -23,24 +34,36 @@ export const syncGoogleCalendarsStep = async (_incremental: boolean = false, db:
       }));
 
       await batchInsertGoogleCalendar(rows, db);
+
+      if (!response.nextPageToken) {
+        await upsertSyncTask({
+          integration: "google-calendar",
+          status: "SUCCESS",
+          step: "google-calendar-sync-calendars",
+          inputs: { cursor: null, count: rows.length },
+        }, db);
+        break;
+      }
+
+      nextCursor = response.nextPageToken;
       await upsertSyncTask({
         integration: "google-calendar",
         status: "SUCCESS",
         step: "google-calendar-sync-calendars",
-        inputs: { pageToken: pageToken ?? null, count: rows.length },
+        inputs: { cursor: nextCursor, count: rows.length },
       }, db);
 
-      pageToken = response.nextPageToken;
+      if (cursor !== undefined) break;
     } catch (e) {
       await upsertSyncTask({
         integration: "google-calendar",
         status: "FAILED",
         step: "google-calendar-sync-calendars",
-        inputs: { pageToken: pageToken ?? null, error: String(e) },
+        inputs: { cursor: nextCursor ?? null, error: String(e) },
       }, db);
       break;
     }
-  } while (pageToken);
+  }
 };
 
 const fetchCalendarPage = async (pageToken: string | undefined, db: SqliteDb): Promise<GoogleCalendarListResponse> => {

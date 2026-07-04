@@ -9,8 +9,8 @@ import type { GoogleCalendarEventSelect } from "../db/schema";
 import type { GoogleEventDateTime } from "../models/models";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const parseGoogleCalendarStep = async (db: SqliteDb, offset?: number): Promise<void> => {
-  let curOffset: number = offset ?? 0;
+export const parseGoogleCalendarStep = async (db: SqliteDb, cursor?: number): Promise<void> => {
+  let curOffset: number = cursor ?? 0;
   let events: GoogleCalendarEventSelect[] = [];
   let firstIteration = true;
 
@@ -28,19 +28,21 @@ export const parseGoogleCalendarStep = async (db: SqliteDb, offset?: number): Pr
       await upsertSyncTask({
         integration: "google-calendar",
         status: failures.length ? "FAILED" : "SUCCESS",
-        inputs: failures.length ? { offset: curOffset, errors: failures } : { offset: curOffset },
+        inputs: failures.length
+          ? { cursor: curOffset, errors: failures }
+          : { cursor: curOffset },
         step: "parse",
       }, db);
     } catch (e) {
       await upsertSyncTask({
         integration: "google-calendar",
         status: "FAILED",
-        inputs: { offset: curOffset, error: String(e) },
+        inputs: { cursor: curOffset, error: String(e) },
         step: "parse",
       }, db);
     }
 
-    if (offset !== undefined) break;
+    if (cursor !== undefined) break;
     curOffset += PAGE_SIZE;
   }
 };

@@ -3,11 +3,21 @@ import { retry } from "@/lib/utils";
 import { batchInsertGoogleCalendarEvent, getGoogleCalendars, getLatestGoogleCalendarEventUpdated } from "../db/queries";
 import type { GoogleCalendarEventInsert } from "../db/schema";
 import type { GoogleCalendarEvent, GoogleEventsListResponse } from "../models/models";
-import { GOOGLE_CALENDAR_BASE_API, googleCalendarFetch, twoYearsAgoIso } from "./google-calendar-utils";
+import {
+  GOOGLE_CALENDAR_BASE_API,
+  calendarsFromCursor,
+  googleCalendarFetch,
+  twoYearsAgoIso,
+  type GoogleCalendarEventsCursor,
+} from "./google-calendar-utils";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncGoogleCalendarEventsStep = async (incremental: boolean = false, db: SqliteDb): Promise<void> => {
-  const calendars = await getGoogleCalendars(db);
+export const syncGoogleCalendarEventsStep = async (
+  incremental: boolean = false,
+  db: SqliteDb,
+  cursor?: GoogleCalendarEventsCursor,
+): Promise<void> => {
+  let calendars = await getGoogleCalendars(db);
   if (calendars.length === 0) {
     await upsertSyncTask({
       integration: "google-calendar",
@@ -18,15 +28,21 @@ export const syncGoogleCalendarEventsStep = async (incremental: boolean = false,
     return;
   }
 
+  calendars = calendarsFromCursor(calendars, cursor?.calendarId);
+
   let updatedMin: string | null = null;
   if (incremental) {
     updatedMin = await getLatestGoogleCalendarEventUpdated(db);
   }
 
   for (const calendar of calendars) {
-    let pageToken: string | undefined;
+    let pageToken: string | undefined =
+      cursor?.calendarId === calendar.calendarId
+        ? (cursor.pageToken ?? undefined)
+        : undefined;
 
     do {
+      const currentPageToken = pageToken ?? null;
       try {
         const response = await retry(
           async () => await fetchEventsPage(calendar.calendarId, pageToken, incremental, updatedMin, db),
@@ -38,18 +54,22 @@ export const syncGoogleCalendarEventsStep = async (incremental: boolean = false,
         const rows: GoogleCalendarEventInsert[] = items.map((event) => eventToRow(calendar.calendarId, event));
 
         await batchInsertGoogleCalendarEvent(rows, db);
+
+        const nextCursor: GoogleCalendarEventsCursor | null = response.nextPageToken
+          ? { calendarId: calendar.calendarId, pageToken: response.nextPageToken }
+          : null;
+
         await upsertSyncTask({
           integration: "google-calendar",
           status: "SUCCESS",
           step: "google-calendar-sync-events",
-          inputs: {
-            calendarId: calendar.calendarId,
-            pageToken: pageToken ?? null,
-            count: rows.length,
-          },
+          inputs: nextCursor
+            ? { calendarId: calendar.calendarId, count: rows.length, cursor: nextCursor }
+            : { calendarId: calendar.calendarId, count: rows.length },
         }, db);
 
         pageToken = response.nextPageToken;
+        if (cursor !== undefined) break;
       } catch (e) {
         await upsertSyncTask({
           integration: "google-calendar",
@@ -57,13 +77,15 @@ export const syncGoogleCalendarEventsStep = async (incremental: boolean = false,
           step: "google-calendar-sync-events",
           inputs: {
             calendarId: calendar.calendarId,
-            pageToken: pageToken ?? null,
+            cursor: { calendarId: calendar.calendarId, pageToken: currentPageToken },
             error: String(e),
           },
         }, db);
         break;
       }
     } while (pageToken);
+
+    if (cursor !== undefined) break;
   }
 };
 

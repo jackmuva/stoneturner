@@ -133,3 +133,17 @@ export const twoYearsAgoIso = (): string => {
   date.setFullYear(date.getFullYear() - 2);
   return date.toISOString();
 };
+
+export type GoogleCalendarEventsCursor = {
+  calendarId: string;
+  pageToken: string | null;
+};
+
+export const calendarsFromCursor = <T extends { calendarId: string }>(
+  calendars: T[],
+  calendarId?: string,
+): T[] => {
+  if (!calendarId) return calendars;
+  const idx = calendars.findIndex((cal) => cal.calendarId === calendarId);
+  return idx === -1 ? calendars : calendars.slice(idx);
+};
