@@ -35,7 +35,7 @@ export const syncSpotifyPlaylistsStep = async (_incremental: boolean, db: Sqlite
       ownerDisplayName: p.owner.display_name ?? p.owner.id,
       ownerId: p.owner.id,
       snapshotId: p.snapshot_id,
-      trackCount: p.items?.total ?? p.tracks?.total ?? 0,
+      trackCount: p.items?.total ?? 0,
       isPublic: p.public ?? false,
       isCollaborative: p.collaborative,
       spotifyUrl: p.external_urls?.spotify,

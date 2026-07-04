@@ -20,8 +20,8 @@ export const isSpotifyPlaylistItemsAccessible = (
 };
 
 export const spotifyApiBottleneck = new Bottleneck({
-  maxConcurrent: 5,
-  minTime: 200,
+  maxConcurrent: 3,
+  minTime: 500,
 });
 
 export const SPOTIFY_API_BASE = "https://api.spotify.com/v1";

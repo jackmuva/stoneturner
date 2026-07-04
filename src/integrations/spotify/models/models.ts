@@ -98,16 +98,11 @@ export type SpotifyPlaylist = {
     href: string;
     total: number;
   };
-  /** @deprecated Spotify recommends `items` instead */
-  tracks?: {
-    href: string;
-    total: number;
-  };
 };
 
 export type SpotifyPlaylistItem = {
   added_at: string;
-  track: SpotifyTrack | SpotifyEpisode | null;
+  item: SpotifyTrack | SpotifyEpisode | null;
 };
 
 export type SpotifyShow = {

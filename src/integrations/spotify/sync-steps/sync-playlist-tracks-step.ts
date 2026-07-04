@@ -96,7 +96,7 @@ export const syncSpotifyPlaylistTracksStep = async (
 
         const rows: SpotifyPlaylistTrackInsert[] = [];
         for (const item of page.items ?? []) {
-          const media = item.track;
+          const media = item.item;
           if (!media) continue;
 
           if (isTrack(media)) {
