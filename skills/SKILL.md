@@ -16,6 +16,7 @@ This skill walks through the whole process. Read the reference files for deeper
 detail and copy-paste-ready patterns drawn from the existing Gong, Notion, and
 Discord integrations.
 
+- `references/integration-specs.md` — how to write an integration spec (the input document for this skill). Includes a template, section guide, and example specs in `references/integration-spec-examples/`.
 - `references/anatomy.md` — the two core types, the folder layout, and the registries.
 - `references/sync-pipeline.md` — how to write sync / parse / index steps, including rate limiting, retries, sync-task logging, and the markdown-artifact contract.
 - `references/auth.md` — `BASIC_TOKEN`, `API_KEY`, and `OAUTH` credential patterns (including `handleRedirect` and `refreshAccessTokens`).
@@ -52,6 +53,17 @@ sync/parse step, and query helper. Accept `db` as a parameter — do **not**
 Work through these in order. Lean on the references rather than reinventing
 patterns — the existing integrations already solved rate limiting, pagination,
 incremental sync, and idempotency.
+
+### 0. Write the integration spec
+
+Before touching code, capture the external API contract in
+`integration-specs/<name>-spec.md`. The spec documents auth, sync endpoints,
+response shapes, and how each data source maps to markdown artifacts — it is the
+blueprint the rest of this skill implements.
+
+See `references/integration-specs.md` for the template and checklist. Use the
+example specs in `references/integration-spec-examples/` (GitHub, Firecrawl,
+Plaud) as references for depth and format.
 
 ### 1. Scaffold the folder
 
