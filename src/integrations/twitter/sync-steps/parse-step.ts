@@ -44,8 +44,8 @@ const renderTweetMarkdown = (row: TwitterTweetSelect): string => {
 ${row.text}`;
 };
 
-export const parseTwitterStep = async (db: SqliteDb, offset?: number): Promise<void> => {
-  let curOffset = offset ?? 0;
+export const parseTwitterStep = async (db: SqliteDb, cursor?: number): Promise<void> => {
+  let curOffset = cursor ?? 0;
   let rows: TwitterTweetSelect[] = [];
   let firstIteration = true;
 
@@ -63,19 +63,19 @@ export const parseTwitterStep = async (db: SqliteDb, offset?: number): Promise<v
       await upsertSyncTask({
         integration: "twitter",
         status: failures.length ? "FAILED" : "SUCCESS",
-        inputs: failures.length ? { offset: curOffset, errors: failures } : { offset: curOffset },
+        inputs: failures.length ? { cursor: curOffset, errors: failures } : { cursor: curOffset },
         step: "parse",
       }, db);
     } catch (e) {
       await upsertSyncTask({
         integration: "twitter",
         status: "FAILED",
-        inputs: { offset: curOffset, error: String(e) },
+        inputs: { cursor: curOffset, error: String(e) },
         step: "parse",
       }, db);
     }
 
-    if (offset !== undefined) break;
+    if (cursor !== undefined) break;
     curOffset += PAGE_SIZE;
   }
 };

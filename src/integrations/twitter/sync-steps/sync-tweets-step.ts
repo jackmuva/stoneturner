@@ -1,4 +1,5 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { retry } from "@/lib/utils";
 import type { SqliteDb } from "@/core/models/db-models";
 import { batchInsertTwitterTweet, getLatestTwitterTweetId } from "../db/queries";
 import type { TwitterTweetInsert } from "../db/schema";
@@ -43,91 +44,109 @@ const syncTweetCollection = async (
   endpointSuffix: "tweets" | "mentions" | "bookmarks",
   incremental: boolean,
   db: SqliteDb,
+  cursor?: string,
 ): Promise<void> => {
   const step = `twitter-sync-${source}`;
 
+  let userId: string;
+  let fallbackUsername: string | undefined;
   try {
-    const userId = await getTwitterUserId(db);
+    userId = await getTwitterUserId(db);
     const cred = await getTwitterCredentials(db);
-    const fallbackUsername = cred?.options?.username;
-
-    let sinceId: string | null = null;
-    if (incremental) {
-      sinceId = await getLatestTwitterTweetId(source, db);
-    }
-
-    let paginationToken: string | undefined;
-    let first = true;
-
-    while (first || paginationToken) {
-      first = false;
-      const params: Record<string, string> = {
-        ...tweetFieldsParams(),
-      };
-      if (sinceId) params.since_id = sinceId;
-      if (paginationToken) params.pagination_token = paginationToken;
-
-      let body: TwitterTweetListResponse;
-      try {
-        body = await twitterFetchWithRefresh<TwitterTweetListResponse>(
-          `/users/${userId}/${endpointSuffix}`,
-          db,
-          params,
-        );
-      } catch (e) {
-        await upsertSyncTask({
-          integration: "twitter",
-          status: "FAILED",
-          step,
-          inputs: { source, paginationToken, error: String(e) },
-        }, db);
-        return;
-      }
-
-      const userMap = userMapFromResponse(body);
-      const tweets = body.data ?? [];
-      const rows = tweets.map((tweet) => tweetToRow(tweet, source, userMap, fallbackUsername));
-
-      try {
-        await batchInsertTwitterTweet(rows, db);
-        await upsertSyncTask({
-          integration: "twitter",
-          status: "SUCCESS",
-          step,
-          inputs: { source, count: rows.length, paginationToken: paginationToken ?? null },
-        }, db);
-      } catch (e) {
-        await upsertSyncTask({
-          integration: "twitter",
-          status: "FAILED",
-          step,
-          inputs: { source, paginationToken, error: String(e) },
-        }, db);
-        return;
-      }
-
-      paginationToken = body.meta?.next_token;
-      if (incremental && tweets.length === 0) break;
-      if (!paginationToken) break;
-    }
+    fallbackUsername = cred?.options?.username;
   } catch (e) {
     await upsertSyncTask({
       integration: "twitter",
       status: "FAILED",
       step,
-      inputs: { source, error: String(e) },
+      inputs: { cursor, source, error: e },
     }, db);
+    return;
+  }
+
+  let sinceId: string | null = null;
+  if (incremental) {
+    sinceId = await getLatestTwitterTweetId(source, db);
+  }
+
+  let paginationToken: string | undefined = cursor;
+
+  while (true) {
+    const requestToken = paginationToken;
+    let body: TwitterTweetListResponse | null = null;
+
+    try {
+      body = await retry(async () => {
+        const params: Record<string, string> = {
+          ...tweetFieldsParams(),
+        };
+        if (sinceId) params.since_id = sinceId;
+        if (requestToken) params.pagination_token = requestToken;
+
+        return await twitterFetchWithRefresh<TwitterTweetListResponse>(
+          `/users/${userId}/${endpointSuffix}`,
+          db,
+          params,
+        );
+      }, 3, 1);
+    } catch (e) {
+      await upsertSyncTask({
+        integration: "twitter",
+        status: "FAILED",
+        step,
+        inputs: { cursor: requestToken, source, error: e },
+      }, db);
+      break;
+    }
+
+    try {
+      const userMap = userMapFromResponse(body);
+      const tweets = body.data ?? [];
+      const rows = tweets.map((tweet) => tweetToRow(tweet, source, userMap, fallbackUsername));
+
+      await batchInsertTwitterTweet(rows, db);
+
+      if (!body.meta?.next_token || (incremental && tweets.length === 0)) break;
+      paginationToken = body.meta.next_token;
+
+      await upsertSyncTask({
+        integration: "twitter",
+        status: "SUCCESS",
+        step,
+        inputs: { cursor: paginationToken, source, count: rows.length },
+      }, db);
+    } catch (e) {
+      await upsertSyncTask({
+        integration: "twitter",
+        status: "FAILED",
+        step,
+        inputs: { cursor: requestToken, source, error: e },
+      }, db);
+      if (!body.meta?.next_token) break;
+    }
   }
 };
 
-export const syncTwitterTweetsStep = async (incremental: boolean, db: SqliteDb): Promise<void> => {
-  await syncTweetCollection("tweet", "tweets", incremental, db);
+export const syncTwitterTweetsStep = async (
+  incremental: boolean,
+  db: SqliteDb,
+  cursor?: string,
+): Promise<void> => {
+  await syncTweetCollection("tweet", "tweets", incremental, db, cursor);
 };
 
-export const syncTwitterMentionsStep = async (incremental: boolean, db: SqliteDb): Promise<void> => {
-  await syncTweetCollection("mention", "mentions", incremental, db);
+export const syncTwitterMentionsStep = async (
+  incremental: boolean,
+  db: SqliteDb,
+  cursor?: string,
+): Promise<void> => {
+  await syncTweetCollection("mention", "mentions", incremental, db, cursor);
 };
 
-export const syncTwitterBookmarksStep = async (incremental: boolean, db: SqliteDb): Promise<void> => {
-  await syncTweetCollection("bookmark", "bookmarks", incremental, db);
+export const syncTwitterBookmarksStep = async (
+  incremental: boolean,
+  db: SqliteDb,
+  cursor?: string,
+): Promise<void> => {
+  await syncTweetCollection("bookmark", "bookmarks", incremental, db, cursor);
 };
