@@ -26,7 +26,7 @@ export const syncPlaudTranscriptsStep = async (db: SqliteDb): Promise<void> => {
         .map((r) => String((r as PromiseRejectedResult).reason));
 
       await upsertSyncTask({
-        integration: "Plaud",
+        integration: "plaud",
         status: failures.length ? "FAILED" : "SUCCESS",
         step: "plaud-sync-transcripts",
         inputs: failures.length ? { count: files.length, errors: failures } : { count: files.length },
@@ -36,7 +36,7 @@ export const syncPlaudTranscriptsStep = async (db: SqliteDb): Promise<void> => {
       if (failures.length === files.length) break;
     } catch (e) {
       await upsertSyncTask({
-        integration: "Plaud",
+        integration: "plaud",
         status: "FAILED",
         step: "plaud-sync-transcripts",
         inputs: { error: String(e) },

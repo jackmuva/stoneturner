@@ -21,7 +21,7 @@ export const syncPlaudFilesStep = async (incremental: boolean = false, db: Sqlit
       response = await retry(async () => await getFilesPage(page, db));
     } catch (e) {
       await upsertSyncTask({
-        integration: "Plaud",
+        integration: "plaud",
         status: "FAILED",
         step: "plaud-sync-files",
         inputs: { page, error: String(e) },
@@ -47,14 +47,14 @@ export const syncPlaudFilesStep = async (incremental: boolean = false, db: Sqlit
       }));
       await batchInsertPlaudFile(rows, db);
       await upsertSyncTask({
-        integration: "Plaud",
+        integration: "plaud",
         status: "SUCCESS",
         step: "plaud-sync-files",
         inputs: { page, count: rows.length },
       }, db);
     } catch (e) {
       await upsertSyncTask({
-        integration: "Plaud",
+        integration: "plaud",
         status: "FAILED",
         step: "plaud-sync-files",
         inputs: { page, error: String(e) },

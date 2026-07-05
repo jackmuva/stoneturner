@@ -25,14 +25,14 @@ export const parsePlaudStep = async (db: SqliteDb, offset?: number): Promise<voi
         .map((r) => String((r as PromiseRejectedResult).reason));
 
       await upsertSyncTask({
-        integration: "Plaud",
+        integration: "plaud",
         status: failures.length ? "FAILED" : "SUCCESS",
         inputs: failures.length ? { offset: curOffset, errors: failures } : { offset: curOffset },
         step: "parse",
       }, db);
     } catch (e) {
       await upsertSyncTask({
-        integration: "Plaud",
+        integration: "plaud",
         status: "FAILED",
         inputs: { offset: curOffset, error: String(e) },
         step: "parse",
