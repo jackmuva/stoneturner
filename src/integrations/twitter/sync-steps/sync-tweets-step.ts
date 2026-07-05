@@ -88,7 +88,7 @@ const syncTweetCollection = async (
           db,
           params,
         );
-      }, 3, 1);
+      });
     } catch (e) {
       await upsertSyncTask({
         integration: "twitter",

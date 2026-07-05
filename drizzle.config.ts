@@ -9,6 +9,8 @@ export default defineConfig({
     './src/integrations/plaud/db/schema.ts',
     './src/integrations/firecrawl/db/schema.ts',
     './src/integrations/github/db/schema.ts',
+    './src/integrations/spotify/db/schema.ts',
+    './src/integrations/slack/db/schema.ts',
     './src/integrations/twitter/db/schema.ts',
   ],
   out: './migrations',

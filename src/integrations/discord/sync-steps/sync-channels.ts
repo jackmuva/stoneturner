@@ -28,7 +28,7 @@ const upsertChannels = async (guild: DiscordGuildSelect, db: SqliteDb): Promise<
   try {
     const channels: DiscordChannel[] = await retry(async () => {
       return await getChannelsByGuild(guild.id);
-    }, 3, 1);
+    });
 
     if (channels.length === 0) return;
     await batchInsertDiscordChannel(channels.map((channel) => {

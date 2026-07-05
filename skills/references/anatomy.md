@@ -46,11 +46,14 @@ created in `src/core/db/db.ts` and **passed in at the route layer**
 **not** `import { db } from "@/core/db/db"` inside integration code — accept
 `db: SqliteDb` as a parameter instead.
 
-By convention `db` is the last positional argument, before any trailing optional
-args (e.g. `syncStep(incremental, db, cursor?)`, `parseStep(db, offset?)`,
-`getRows(offset, db)`, `upsertSyncTask(task, db)`). A few core helpers take it
-first (`getMdArtifactsByIntegration(db, integration, offset, opts)`) — match the
-signature of the helper you're calling.
+By convention `db` is the last required positional argument, before any trailing
+optional args (e.g. `syncStep(incremental, db, cursor?)`, `parseStep(db, offset?)`,
+`getRows(offset, db)`, `upsertSyncTask(task, db)`). Paginated sync steps must
+accept that optional `cursor` and write it to `syncTask.inputs` on each page so
+syncs can resume after failure — see `sync-pipeline.md` and
+`src/integrations/notion/sync-steps/sync-notion-pages.ts`. A few core helpers
+take `db` first (`getMdArtifactsByIntegration(db, integration, offset, opts)`) —
+match the signature of the helper you're calling.
 
 ## Folder layout
 

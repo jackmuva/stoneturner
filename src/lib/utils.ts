@@ -13,16 +13,17 @@ export function cn(...inputs: ClassValue[]) {
 // `eq(lower(col), value.toLowerCase())`.
 export const lower = (column: SQLiteColumn) => sql`lower(${column})`;
 
-export async function retry<T>(func: () => T | Promise<T>, maxAttempt: number = 3, attempt: number = 1, error?: Error): Promise<T> {
-  if (attempt > maxAttempt) throw new Error(String(error));
+export async function retry<T>(func: () => T | Promise<T>, timeouts: number[] = [1, 10, 30, 60], error?: Error): Promise<T> {
+  if (!Array.isArray(timeouts)) timeouts = [1, 10, 30, 60];
+  if (timeouts.length === 0 || timeouts[0] === undefined) throw new Error(String(error));
   try {
     const res: T = await func();
     return res;
   } catch (error) {
     console.error("retry function: ", error);
-    await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 5) * (attempt + 5))
+    await new Promise((resolve) => setTimeout(resolve, timeouts[0]! * 1000)
     );
-    return await retry(func, maxAttempt, attempt + 1, error as Error);
+    return await retry(func, timeouts.slice(1), error as Error);
   }
 }
 

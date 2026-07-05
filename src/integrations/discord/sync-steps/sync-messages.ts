@@ -33,7 +33,7 @@ const upsertMessages = async (channel: DiscordChannelSelect, incremental: boolea
 
     const messages: DiscordMessage[] = await retry(async () => {
       return await getMessages(channel.id, lastMessageId);
-    }, 3, 1);
+    });
 
     if (messages.length === 0) return;
 

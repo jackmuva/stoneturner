@@ -5,6 +5,8 @@ import { notionIntegration } from "./notion/integration";
 import { plaudIntegration } from "./plaud/integration";
 import { firecrawlIntegration } from "./firecrawl/integration";
 import { githubIntegration } from "./github/integration";
+import { spotifyIntegration } from "./spotify/integration";
+import { slackIntegration } from "./slack/integration";
 import { twitterIntegration } from "./twitter/integration";
 
 export const supportedIntegrations: Integration[] = [
@@ -14,5 +16,7 @@ export const supportedIntegrations: Integration[] = [
   plaudIntegration,
   firecrawlIntegration,
   githubIntegration,
+  spotifyIntegration,
+  slackIntegration,
   twitterIntegration,
 ];

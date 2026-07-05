@@ -74,7 +74,7 @@ const initiateCrawl = async (apiKey: string, url: string, maxDepth?: number, lim
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-  }), 3, 1);
+  }));
 
   return (await res.json()) as FirecrawlCrawlInitiateResponse;
 }
@@ -83,7 +83,7 @@ const fetchCrawlStatus = async (apiKey: string, statusUrl: string): Promise<Fire
   const res: Response = await retry(async () => await fetch(statusUrl, {
     method: "GET",
     headers: { "Authorization": `Bearer ${apiKey}` },
-  }), 2, 1);
+  }));
   return (await res.json()) as FirecrawlCrawlStatusResponse;
 }
 

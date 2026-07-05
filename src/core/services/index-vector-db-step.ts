@@ -72,7 +72,7 @@ export const chunkMd = async (artifact: MdArtifactSelect, incremental: boolean, 
         entities: artifact.entities,
         embedding: embeddings[i]!,
       }, db)));
-    }, 3, 1),
+    }),
     retry(async () => {
       if (keyPoints.length === 0) return;
       const embeddings = await embedTexts(keyPoints);
@@ -85,7 +85,7 @@ export const chunkMd = async (artifact: MdArtifactSelect, incremental: boolean, 
         entities: artifact.entities,
         embedding: embeddings[i]!,
       }, db)));
-    }, 3, 1),
+    }),
     retry(async () => {
       if (questionsAnswered.length === 0) return;
       const embeddings = await embedTexts(questionsAnswered);
@@ -98,7 +98,7 @@ export const chunkMd = async (artifact: MdArtifactSelect, incremental: boolean, 
         entities: artifact.entities,
         embedding: embeddings[i]!,
       }, db)));
-    }, 3, 1),
+    }),
   ]);
 }
 

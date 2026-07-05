@@ -47,7 +47,7 @@ export const syncPlaudTranscriptsStep = async (db: SqliteDb): Promise<void> => {
 }
 
 const syncTranscript = async (file: PlaudFileSelect, db: SqliteDb): Promise<void> => {
-  const detail = await retry(async () => await getFileDetail(file.fileId, db), 3, 1);
+  const detail = await retry(async () => await getFileDetail(file.fileId, db));
 
   const transactionSource = detail.source_list?.find((s) => s.data_type === "transaction");
   let segments: PlaudTranscriptSegment[] = [];

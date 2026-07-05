@@ -15,7 +15,7 @@ export const syncNotionPages = async (incremental: boolean = false, db: SqliteDb
     try {
       response = await retry(async () => {
         return await getPages(db, nextCursor);
-      }, 3, 1);
+      });
     } catch (e) {
       await upsertSyncTask({
         integration: "notion",
@@ -54,7 +54,7 @@ const upsertPages = async (pages: NotionPage[], db: SqliteDb): Promise<void> => 
   const titles = new Map<string, string | undefined>();
   await Promise.allSettled(pages.map((page) =>
     notionApiBottleneck.schedule(async () => {
-      const title = await retry(async () => getPage(page.id, db), 3, 1);
+      const title = await retry(async () => getPage(page.id, db));
       titles.set(page.id, title);
     })
   ));
