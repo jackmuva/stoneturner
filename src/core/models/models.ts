@@ -25,8 +25,6 @@ export type Integration = {
   sync: (db: SqliteDb) => Promise<void> | void,
   syncUpdates: (db: SqliteDb) => Promise<void> | void,
   deleteSync: (db: SqliteDb) => Promise<void> | void,
-  /** OAuth flows that require server-side setup (e.g. PKCE) before redirecting to the provider. */
-  initiateOAuth?: (req: BunRequest, db: SqliteDb) => Promise<Response> | Response,
   handleRedirect?: (req: BunRequest, db: SqliteDb) => Promise<Response> | Response,
   refreshAccessTokens?: (db: SqliteDb) => Promise<void> | void,
 }

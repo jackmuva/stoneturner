@@ -8,5 +8,5 @@ export const twitterConfig: IntegrationConfig = {
   icon: "/assets/twitter.svg",
   integrationType: "OAUTH",
   description: "Connect X (Twitter) via OAuth to sync your 100 most recent likes into searchable markdown.",
-  oauthAuthorizationUrl: `${backendBase}/api/oauth/twitter/authorize?client_id=${clientId}`,
+  oauthAuthorizationUrl: `${backendBase}/api/oauth/twitter?client_id=${clientId}`,
 };

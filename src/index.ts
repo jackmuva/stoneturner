@@ -90,21 +90,6 @@ const server = serve({
         handleGetArtifactById(req, db)
       )
     },
-    // cookie should persist with same site lax
-    "/api/oauth/:integration/authorize": {
-      GET: withCors(async (req) => {
-        if (req.params.integration) {
-          const target = req.params.integration.toLowerCase();
-          const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
-          if (index === -1) return Response.json(null, { status: 400 });
-          if (supportedIntegrations[index]!.initiateOAuth) {
-            return await supportedIntegrations[index]!.initiateOAuth!(req, db);
-          }
-          return Response.json({ error: "OAuth initiation not supported for this integration" }, { status: 400 });
-        }
-        return Response.json(null, { status: 400 });
-      }),
-    },
     "/api/oauth/:integration": {
       GET: withCors(async (req) => {
         if (req.params.integration) {

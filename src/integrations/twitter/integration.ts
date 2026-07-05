@@ -8,7 +8,6 @@ import { deleteTwitterData } from "./db/queries";
 import { syncTwitterLikedTweetsStep } from "./sync-steps/sync-liked-tweets-step";
 import { parseTwitterStep } from "./sync-steps/parse-step";
 import {
-  handleTwitterInitiateOAuth,
   handleTwitterOauthRedirect,
   handleTwitterRefresh,
 } from "./sync-steps/twitter-utils";
@@ -29,7 +28,6 @@ export const twitterIntegration: Integration = {
     await deleteMdArtifactsByIntegration("twitter", db);
     await deleteEmbeddingByIntegration("twitter", db);
   },
-  initiateOAuth: handleTwitterInitiateOAuth,
   handleRedirect: handleTwitterOauthRedirect,
   refreshAccessTokens: handleTwitterRefresh,
 };

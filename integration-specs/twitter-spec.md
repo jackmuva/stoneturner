@@ -2,9 +2,9 @@
 
 OAuth 2.0 App (Confidential Client) with **Authorization Code + PKCE**.
 
-X/Twitter requires PKCE for user-context OAuth 2.0. Stoneturner initiates auth via a server-side
-`/api/oauth/twitter/authorize` endpoint that generates PKCE parameters, stores them in cookies,
-and redirects to X. The callback at `/api/oauth/twitter` exchanges the code using the stored
+X/Twitter requires PKCE for user-context OAuth 2.0. Stoneturner uses `/api/oauth/twitter` for both
+OAuth steps: a visit without a `code` query param generates PKCE parameters, stores them in cookies,
+and redirects to X; the callback with `code` exchanges the authorization code using the stored
 `code_verifier`.
 
 Store `BUN_PUBLIC_TWITTER_CLIENT_ID` and `TWITTER_CLIENT_SECRET` as integration env vars.

@@ -128,7 +128,7 @@ const persistTwitterTokens = async (
   }, db);
 };
 
-export const handleTwitterInitiateOAuth = async (_req: BunRequest, _db: SqliteDb): Promise<Response> => {
+const redirectToTwitterAuthorize = async (): Promise<Response> => {
   const clientId = process.env.BUN_PUBLIC_TWITTER_CLIENT_ID ?? "";
   if (!clientId) {
     return Response.json({ error: "missing BUN_PUBLIC_TWITTER_CLIENT_ID" }, { status: 500 });
@@ -163,11 +163,17 @@ export const handleTwitterInitiateOAuth = async (_req: BunRequest, _db: SqliteDb
 export const handleTwitterOauthRedirect = async (req: BunRequest, db: SqliteDb): Promise<Response> => {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
+  if (!code) {
+    const oauthError = url.searchParams.get("error");
+    if (oauthError) {
+      return Response.json({ error: oauthError }, { status: 400 });
+    }
+    return await redirectToTwitterAuthorize();
+  }
+
   const state = url.searchParams.get("state");
   const storedState = readCookie(req, STATE_COOKIE);
   const codeVerifier = readCookie(req, PKCE_COOKIE);
-
-  if (!code) return Response.json({ error: "missing code" }, { status: 400 });
   if (!codeVerifier) return Response.json({ error: "missing PKCE verifier — restart OAuth" }, { status: 400 });
   if (!state || !storedState || state !== storedState) {
     return Response.json({ error: "invalid OAuth state" }, { status: 400 });
