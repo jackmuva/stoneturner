@@ -48,7 +48,7 @@ export const KnowledgeBasePage = () => {
         onChange={(e) => setSearch(e.target.value)}
         className="max-w-sm"
       />
-      <div className="animate-appear grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="animate-appear grid grid-cols-1 md:grid-cols-3 gap-3">
         <ConnectInstructionsCard />
         {configRegistry
           .filter((intConfig: IntegrationConfig) =>

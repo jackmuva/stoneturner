@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 export const ConnectInstructionsCard = () => {
   return (
-    <Card className='flex flex-col col-span-3'>
+    <Card className='flex flex-col col-span-full'>
       <Tabs defaultValue="claude-code">
         <CardHeader className='flex sm:flex-row flex-col sm:items-center'>
           <CardTitle>Connect to</CardTitle>
