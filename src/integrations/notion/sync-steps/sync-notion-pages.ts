@@ -15,7 +15,7 @@ export const syncNotionPages = async (incremental: boolean = false, db: SqliteDb
     try {
       response = await retry(async () => {
         return await getPages(db, nextCursor);
-      }, 3, 1);
+      });
     } catch (e) {
       await upsertSyncTask({
         integration: "notion",

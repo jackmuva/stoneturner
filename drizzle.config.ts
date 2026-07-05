@@ -11,6 +11,7 @@ export default defineConfig({
     './src/integrations/github/db/schema.ts',
     './src/integrations/spotify/db/schema.ts',
     './src/integrations/slack/db/schema.ts',
+    './src/integrations/twitter/db/schema.ts',
   ],
   out: './migrations',
   dialect: 'turso',

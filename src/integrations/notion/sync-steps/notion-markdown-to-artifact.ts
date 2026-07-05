@@ -74,7 +74,7 @@ ${"# " + page.title + "\n" + pageMarkdown.markdown}`;
         entities: z.array(z.string()),
       }),
     }),
-  }), 3, 1);
+  }));
 
   await upsertMdArtifact({
     integrationArtifactId: page.pageId,

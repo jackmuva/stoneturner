@@ -82,7 +82,7 @@ export const syncSpotifyPlaylistTracksStep = async (
           }
           if (!res.ok) throw new Error(await res.text());
           return await res.json() as SpotifyPaginatedResponse<SpotifyPlaylistItem>;
-        }, 3, 1);
+        });
 
         if (!page) {
           await upsertSyncTask({

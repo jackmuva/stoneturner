@@ -16,7 +16,7 @@ export const syncSpotifyPlaylistsStep = async (_incremental: boolean, db: Sqlite
         const res = await spotifyFetch(`/me/playlists?limit=${SPOTIFY_PAGE_SIZE}&offset=${offset}`, db);
         if (!res.ok) throw new Error(await res.text());
         return await res.json() as SpotifyPaginatedResponse<SpotifyPlaylist>;
-      }, 3, 1);
+      });
     } catch (e) {
       await upsertSyncTask({
         integration: "spotify",

@@ -92,7 +92,7 @@ ${md.join("")}`,
           entities: z.array(z.string()),
         }),
       }),
-    }), 3, 1);
+    }));
 
     await upsertMdArtifact({
       integrationArtifactId: transcript.callId,

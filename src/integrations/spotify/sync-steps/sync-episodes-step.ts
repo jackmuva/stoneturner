@@ -43,7 +43,7 @@ export const syncSpotifyEpisodesStep = async (
           );
           if (!res.ok) throw new Error(await res.text());
           return await res.json() as SpotifyPaginatedResponse<SpotifyEpisode>;
-        }, 3, 1);
+        });
 
         const rows: SpotifyEpisodeInsert[] = (page.items ?? []).map((episode) => ({
           episodeId: episode.id,

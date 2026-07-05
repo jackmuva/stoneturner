@@ -57,7 +57,7 @@ const upsertChannelsForTeam = async (
           exclude_archived: true,
           limit: 200,
           cursor: nextCursor,
-        }), 3, 1);
+        }));
 
       const channels = response.channels
         .filter((channel) => !channel.is_private && !channel.is_archived);

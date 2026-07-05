@@ -55,7 +55,7 @@ const upsertUsersForTeam = async (
         slackApiFetch<SlackUsersListResponse>("users.list", token, {
           limit: 200,
           cursor: nextCursor,
-        }), 3, 1);
+        }));
 
       const users = response.members;
       if (users.length > 0) {

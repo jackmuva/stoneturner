@@ -12,7 +12,7 @@ export const syncSpotifyUserStep = async (db: SqliteDb): Promise<SpotifyUserProf
       const res = await spotifyFetch("/me", db);
       if (!res.ok) throw new Error(await res.text());
       return await res.json() as SpotifyUserProfile;
-    }, 3, 1);
+    });
 
     await upsertSyncTask({
       integration: "spotify",

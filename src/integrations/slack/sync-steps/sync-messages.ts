@@ -60,8 +60,6 @@ const upsertMessages = async (
     const token = await getSlackAccessToken(db);
     const { messages, nextCursor } = await retry(
       async () => fetchChannelMessagesPage(token, channel.id, oldest, apiCursor),
-      3,
-      1,
     );
 
     if (messages.length > 0) {

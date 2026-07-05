@@ -21,7 +21,7 @@ export const syncSpotifyShowsStep = async (
         const res = await spotifyFetch(`/me/shows?limit=${SPOTIFY_PAGE_SIZE}&offset=${offset}`, db);
         if (!res.ok) throw new Error(await res.text());
         return await res.json() as SpotifyPaginatedResponse<SpotifySavedShowItem>;
-      }, 3, 1);
+      });
     } catch (e) {
       await upsertSyncTask({
         integration: "spotify",

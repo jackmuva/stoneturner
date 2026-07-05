@@ -7,6 +7,7 @@ import { firecrawlConfig } from "./firecrawl/config";
 import { githubConfig } from "./github/config";
 import { spotifyConfig } from "./spotify/config";
 import { slackConfig } from "./slack/config";
+import { twitterConfig } from "./twitter/config";
 
 export const configRegistry: IntegrationConfig[] = [
   gongConfig,
@@ -17,4 +18,5 @@ export const configRegistry: IntegrationConfig[] = [
   githubConfig,
   spotifyConfig,
   slackConfig,
+  twitterConfig,
 ];

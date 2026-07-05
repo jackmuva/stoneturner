@@ -75,8 +75,6 @@ const upsertThreadReplies = async (
     const token = await getSlackAccessToken(db);
     const { replies, nextCursor } = await retry(
       async () => fetchThreadRepliesPage(token, thread.channelId, thread.threadTs, apiCursor),
-      3,
-      1,
     );
 
     if (replies.length > 0) {

@@ -148,7 +148,7 @@ ${markdown}`,
         entities: z.array(z.string()),
       }),
     }),
-  }), 3, 1);
+  }));
 
   await upsertMdArtifact({
     integrationArtifactId: artifactId,
@@ -191,7 +191,7 @@ ${markdown}`,
         entities: z.array(z.string()),
       }),
     }),
-  }), 3, 1);
+  }));
 
   await upsertMdArtifact({
     integrationArtifactId: artifactId,
