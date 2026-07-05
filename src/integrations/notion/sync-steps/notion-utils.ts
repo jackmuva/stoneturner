@@ -5,8 +5,8 @@ import Bottleneck from "bottleneck";
 import type { BunRequest } from "bun";
 
 export const notionApiBottleneck = new Bottleneck({
-  maxConcurrent: 5,
-  minTime: 200
+  maxConcurrent: 1,
+  minTime: 1000
 });
 
 export const NOTION_BASE_API = "https://api.notion.com/v1";

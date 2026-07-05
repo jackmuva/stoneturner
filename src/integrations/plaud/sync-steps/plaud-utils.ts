@@ -6,8 +6,8 @@ import type { BunRequest } from "bun";
 import type { SqliteDb } from "@/core/models/db-models";
 
 export const plaudApiBottleneck = new Bottleneck({
-  maxConcurrent: 5,
-  minTime: 200,
+  maxConcurrent: 1,
+  minTime: 1000,
 });
 
 export const PLAUD_BASE_API = "https://platform.plaud.ai/developer/api";

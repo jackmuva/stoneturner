@@ -7,7 +7,7 @@ import type { SqliteDb } from "@/core/models/db-models";
 import type { SlackMessageInsert } from "../db/schema";
 
 export const slackApiBottleneck = new Bottleneck({
-  maxConcurrent: 3,
+  maxConcurrent: 1,
   minTime: 1000,
 });
 

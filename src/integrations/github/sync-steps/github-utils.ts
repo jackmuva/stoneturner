@@ -10,8 +10,8 @@ export const GITHUB_API = "https://api.github.com";
 // GitHub allows 5,000 requests/hr on an authorized token. Throttle the codebase
 // blob fan-out (and every other GitHub call) through this shared limiter.
 export const githubApiBottleneck = new Bottleneck({
-  maxConcurrent: 5,
-  minTime: 200,
+  maxConcurrent: 1,
+  minTime: 1000,
 });
 
 export const getGithubCredentials = async (db: SqliteDb) => {

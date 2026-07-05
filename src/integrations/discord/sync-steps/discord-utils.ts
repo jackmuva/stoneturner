@@ -6,8 +6,8 @@ import { batchInsertDiscordGuild } from "../db/queries";
 import type { SqliteDb } from "@/core/models/db-models";
 
 export const discordApiBottleneck = new Bottleneck({
-  maxConcurrent: 5,
-  minTime: 200
+  maxConcurrent: 1,
+  minTime: 1000
 });
 
 export const DISCORD_API_ENDPOINT = "https://discord.com/api/v10";
