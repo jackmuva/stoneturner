@@ -1,4 +1,5 @@
 import { getMdArtifactsByIntegration, upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/integrations/retry-step-utils";
 import type { MdArtifactSelect } from "@/core/db/schema/schema";
 import {
   getEmbeddingsByIntegrationArtifactId,
@@ -12,7 +13,7 @@ import { retry } from "@/lib/utils";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const indexVectorDbStep = async (integration: string, incremental: boolean = true, db: SqliteDb, offset?: number) => {
+export const indexVectorDbStep = async (integration: string, incremental: boolean = true, db: SqliteDb, offset?: number, syncTaskId?: string) => {
   let curOffset: number = offset ? offset : 0;
   let artifacts: MdArtifactSelect[] = [];
   let firstIteration = true;
@@ -24,21 +25,22 @@ export const indexVectorDbStep = async (integration: string, incremental: boolea
       await Promise.allSettled(
         artifacts.map((artifact) => aiGatewayBottleneck.schedule(() => chunkMd(artifact, incremental, db)))
       );
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: integration,
         status: "SUCCESS",
         inputs: JSON.stringify({ offset: curOffset }),
         step: "index-vector",
-      }, db);
+      }, syncTaskId), db);
 
       if (offset !== undefined) break;
     } catch (e) {
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: integration,
-        status: "SUCCESS",
-        inputs: JSON.stringify({ offset: curOffset, error: e }),
+        status: "FAILED",
+        inputs: JSON.stringify({ offset: curOffset }),
+        error: String(e),
         step: "index-vector",
-      }, db);
+      }, syncTaskId), db);
     }
     curOffset += PAGE_SIZE;
   }

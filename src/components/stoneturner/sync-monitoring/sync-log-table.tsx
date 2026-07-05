@@ -52,6 +52,9 @@ export const SyncLogTable = ({
             Inputs
           </TableHead>
           <TableHead>
+            Error
+          </TableHead>
+          <TableHead>
             <button
               type="button"
               onClick={onSort}
@@ -80,6 +83,9 @@ export const SyncLogTable = ({
                 <Skeleton className="h-8 w-[300px]" />
               </TableCell>
               <TableCell>
+                <Skeleton className="h-8 w-[200px]" />
+              </TableCell>
+              <TableCell>
                 <Skeleton className="h-4 w-32" />
               </TableCell>
             </TableRow>
@@ -88,37 +94,42 @@ export const SyncLogTable = ({
           tasks.map((task) => {
             const intConfig = configRegistry.find((c) => c.integration === task.integration);
             return (
-            <TableRow key={task.id} onClick={() => onRowClick(task)} className="cursor-pointer odd:bg-transparent even:bg-brand-grey/5 hover:bg-brand-purple/10">
-              <TableCell>
-                <SyncStatusPill status={task.status} />
-              </TableCell>
-              <TableCell>
-                {task.step ?? "n/a"}
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  {intConfig && (
-                    <img src={intConfig.icon} alt={intConfig.integration} height={20} width={20} />
-                  )}
-                  {task.integration}
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="w-[300px] line-clamp-2 font-mono text-xs text-muted-foreground">
-                  {task.inputs ? JSON.stringify(task.inputs) : ""}
-                </div>
-              </TableCell>
-              <TableCell className="text-muted-foreground tabular-nums">
-                {new Date(task.updateDate).toLocaleString()}
-              </TableCell>
-            </TableRow>
+              <TableRow key={task.id} onClick={() => onRowClick(task)} className="cursor-pointer odd:bg-transparent even:bg-brand-grey/5 hover:bg-brand-purple/10">
+                <TableCell>
+                  <SyncStatusPill status={task.status} />
+                </TableCell>
+                <TableCell>
+                  {task.step ?? "n/a"}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    {intConfig && (
+                      <img src={intConfig.icon} alt={intConfig.integration} height={20} width={20} />
+                    )}
+                    {task.integration}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="w-[300px] line-clamp-2 font-mono text-xs text-muted-foreground">
+                    {task.inputs ? JSON.stringify(task.inputs) : ""}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="w-[200px] line-clamp-2 font-mono text-xs text-red-700 dark:text-red-400">
+                    {task.error ?? ""}
+                  </div>
+                </TableCell>
+                <TableCell className="text-muted-foreground tabular-nums">
+                  {new Date(task.updateDate).toLocaleString()}
+                </TableCell>
+              </TableRow>
             );
           })
         )}
       </TableBody>
       <TableFooter className="sticky bottom-0 z-20 w-full bg-background bg-[linear-gradient(rgba(137,142,211,0.15),rgba(137,142,211,0.15))] border-t-2 border-brand-purple/40">
         <TableRow>
-          <TableCell colSpan={5}>
+          <TableCell colSpan={6}>
             <div className="flex items-center gap-4">
               <Button size={"icon-sm"} variant={"outline"} onClick={() => {
                 setPage((prev) => {

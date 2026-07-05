@@ -3,8 +3,9 @@ import index from "./client/index.html";
 import { handleGetAllSyncTasks, handleGetArtifactById, handleGetArtifacts, handleGetIntegrations, handleGetRecentSyncTasks, handleGetSyncTasks, handleGetSyncTaskSteps, handleNewIntegrationCredential, handleDeleteStaleSyncTasks } from "./core/handlers/handler";
 import { withCors } from "./core/middleware/middleware";
 import { handleMcp } from "./core/handlers/mcp-handler";
-import { supportedIntegrations } from "./integrations/sync-registry";
+import { supportedIntegrations } from "./integrations/integration-registry";
 import { db } from "./core/db/db";
+import { retryFailedTasks } from "./core/services/retry-tasks-cron";
 
 const server = serve({
   routes: {
@@ -104,6 +105,11 @@ const server = serve({
         return Response.json(null, { status: 400 });
       }),
     },
+    "/api/retry-failed": {
+      POST: async (req) => {
+        await retryFailedTasks(db);
+      },
+    },
 
     "/mcp": {
       POST: async (req) => handleMcp(req, db),
@@ -119,6 +125,10 @@ const server = serve({
     // Echo console logs from the browser to the server
     console: true,
   },
+});
+
+const job = Bun.cron("0 0 * * *", async () => {
+  await retryFailedTasks(db);
 });
 
 console.log(`🚀 Server running at ${server.url}`);

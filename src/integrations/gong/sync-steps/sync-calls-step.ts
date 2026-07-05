@@ -1,4 +1,5 @@
 import { getIntegrationCredentialByIntegration, upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/integrations/retry-step-utils";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import { retry } from "@/lib/utils";
 import { batchInsertGongCall, getLatestGongCall } from "../db/queries";
@@ -6,7 +7,7 @@ import type { GongCallResponse } from "../models/models";
 import type { GongCallInsert } from "../db/schema";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncGongCallsStep = async (incremental: boolean = false, db: SqliteDb, cursor?: string) => {
+export const syncGongCallsStep = async (incremental: boolean = false, db: SqliteDb, cursor?: string, syncTaskId?: string) => {
   let latestDate: null | string = null;
   if (incremental) {
     const latestCall = await getLatestGongCall(db);
@@ -19,7 +20,7 @@ export const syncGongCallsStep = async (incremental: boolean = false, db: Sqlite
   let firstIteration: boolean = true;
   while ((curCursor || firstIteration) && baseUrl) {
     firstIteration = false;
-    curCursor = await fetchGongCalls(db, basicToken, baseUrl, curCursor, latestDate);
+    curCursor = await fetchGongCalls(db, basicToken, baseUrl, curCursor, latestDate, syncTaskId);
     if (cursor) break;
   }
 }
@@ -33,7 +34,7 @@ export const getCredentials = async (db: SqliteDb): Promise<{ basicToken: string
   };
 }
 
-const fetchGongCalls = async (db: SqliteDb, basicToken: string, baseUrl: string, curCursor: string | null, startDate: string | null): Promise<string | null> => {
+const fetchGongCalls = async (db: SqliteDb, basicToken: string, baseUrl: string, curCursor: string | null, startDate: string | null, syncTaskId?: string): Promise<string | null> => {
   try {
     const url = new URL(`${baseUrl?.at(-1) === "/" ? baseUrl.slice(0, -1) : baseUrl}/v2/calls`);
     if (curCursor) url.searchParams.append("cursor", curCursor);
@@ -74,24 +75,22 @@ const fetchGongCalls = async (db: SqliteDb, basicToken: string, baseUrl: string,
 
     await batchInsertGongCall(inserts, db);
 
-    await upsertSyncTask({
+    await upsertSyncTask(withSyncTaskId({
       integration: "Gong",
       status: "SUCCESS",
       inputs: JSON.stringify({ cursor: curCursor }),
       step: "gong-sync-call"
-    }, db);
+    }, syncTaskId), db);
 
     return gongResponse.records.cursor;
   } catch (e) {
-    await upsertSyncTask({
+    await upsertSyncTask(withSyncTaskId({
       integration: "Gong",
       status: "FAILED",
-      inputs: JSON.stringify({
-        cursor: curCursor,
-        error: e,
-      }),
+      inputs: JSON.stringify({ cursor: curCursor }),
+      error: String(e),
       step: "gong-sync-call"
-    }, db);
+    }, syncTaskId), db);
     return null;
   }
 }

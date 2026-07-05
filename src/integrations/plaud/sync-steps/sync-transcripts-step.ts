@@ -1,4 +1,5 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/integrations/retry-step-utils";
 import { retry } from "@/lib/utils";
 import { getPlaudFilesWithoutTranscript, upsertPlaudTranscript } from "../db/queries";
 import type { PlaudFileSelect } from "../db/schema";
@@ -6,7 +7,7 @@ import type { PlaudFileDetail, PlaudTranscriptSegment } from "../models/models";
 import { PLAUD_BASE_API, getPlaudCredentials, handlePlaudRefresh, plaudApiBottleneck } from "./plaud-utils";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncPlaudTranscriptsStep = async (db: SqliteDb): Promise<void> => {
+export const syncPlaudTranscriptsStep = async (db: SqliteDb, syncTaskId?: string): Promise<void> => {
   let files: PlaudFileSelect[] = [];
   let firstIteration = true;
 
@@ -25,22 +26,22 @@ export const syncPlaudTranscriptsStep = async (db: SqliteDb): Promise<void> => {
         .filter((r) => r.status === "rejected")
         .map((r) => String((r as PromiseRejectedResult).reason));
 
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "plaud",
         status: failures.length ? "FAILED" : "SUCCESS",
         step: "plaud-sync-transcripts",
-        inputs: failures.length ? { count: files.length, errors: failures } : { count: files.length },
-      }, db);
+        error: failures.length ? JSON.stringify(failures) : undefined,
+      }, syncTaskId), db);
 
       // Guard against an infinite loop if every file in the batch failed.
       if (failures.length === files.length) break;
     } catch (e) {
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "plaud",
         status: "FAILED",
         step: "plaud-sync-transcripts",
-        inputs: { error: String(e) },
-      }, db);
+        error: String(e),
+      }, syncTaskId), db);
       break;
     }
   }

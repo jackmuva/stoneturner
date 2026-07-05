@@ -1,4 +1,5 @@
 import { getIntegrationCredentialByIntegration, upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/integrations/retry-step-utils";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import { retry } from "@/lib/utils";
 import { batchInsertFirecrawlPage } from "../db/queries";
@@ -88,7 +89,7 @@ const fetchCrawlStatus = async (apiKey: string, statusUrl: string): Promise<Fire
 }
 
 // Crawl one seed URL: initiate, poll to completion, persist pages (following `next` pagination).
-const crawlUrl = async (apiKey: string, seedUrl: string, db: SqliteDb, maxDepth?: number, limit?: number): Promise<void> => {
+const crawlUrl = async (apiKey: string, seedUrl: string, db: SqliteDb, maxDepth?: number, limit?: number, syncTaskId?: string): Promise<void> => {
   try {
     const initiated = await initiateCrawl(apiKey, seedUrl, maxDepth, limit);
     if (!initiated.success || !initiated.id) {
@@ -126,38 +127,39 @@ const crawlUrl = async (apiKey: string, seedUrl: string, db: SqliteDb, maxDepth?
       batch = await fetchCrawlStatus(apiKey, batch.next);
     }
 
-    await upsertSyncTask({
+    await upsertSyncTask(withSyncTaskId({
       integration: "Firecrawl",
       status: "SUCCESS",
-      inputs: JSON.stringify({ cursor: seedUrl, pages: pageCount }),
+      inputs: JSON.stringify({ cursor: seedUrl }),
       step: "firecrawl-sync-crawl",
-    }, db);
+    }, syncTaskId), db);
   } catch (e) {
-    await upsertSyncTask({
+    await upsertSyncTask(withSyncTaskId({
       integration: "Firecrawl",
       status: "FAILED",
-      inputs: JSON.stringify({ cursor: seedUrl, error: String(e) }),
+      inputs: JSON.stringify({ cursor: seedUrl }),
+      error: String(e),
       step: "firecrawl-sync-crawl",
-    }, db);
+    }, syncTaskId), db);
   }
 }
 
-export const syncFirecrawlCrawlStep = async (_incremental: boolean = false, db: SqliteDb, cursor?: string): Promise<void> => {
+export const syncFirecrawlCrawlStep = async (_incremental: boolean = false, db: SqliteDb, cursor?: string, syncTaskId?: string): Promise<void> => {
   const { apiKey, urls, maxDepth, limit } = await getCredentials(db);
 
   if (!apiKey || urls.length === 0) {
-    await upsertSyncTask({
+    await upsertSyncTask(withSyncTaskId({
       integration: "Firecrawl",
       status: "FAILED",
-      inputs: JSON.stringify({ error: "missing API key or URLs in credential options" }),
+      error: "missing API key or URLs in credential options",
       step: "firecrawl-sync-crawl",
-    }, db);
+    }, syncTaskId), db);
     return;
   }
 
   // Firecrawl has no "changed-since" API, so every sync re-crawls all URLs.
   // Upserts on the page URL keep re-crawls idempotent.
   for (const url of urls) {
-    await crawlUrl(apiKey, url, db, maxDepth, limit);
+    await crawlUrl(apiKey, url, db, maxDepth, limit, syncTaskId);
   }
 }

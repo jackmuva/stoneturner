@@ -1,4 +1,5 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/integrations/retry-step-utils";
 import { retry } from "@/lib/utils";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { SpotifyUserProfile } from "../models/models";
@@ -6,7 +7,7 @@ import { spotifyFetch } from "./spotify-utils";
 
 const STEP = "spotify-sync-user";
 
-export const syncSpotifyUserStep = async (db: SqliteDb): Promise<SpotifyUserProfile | undefined> => {
+export const syncSpotifyUserStep = async (db: SqliteDb, syncTaskId?: string): Promise<SpotifyUserProfile | undefined> => {
   try {
     const user = await retry(async () => {
       const res = await spotifyFetch("/me", db);
@@ -14,21 +15,20 @@ export const syncSpotifyUserStep = async (db: SqliteDb): Promise<SpotifyUserProf
       return await res.json() as SpotifyUserProfile;
     });
 
-    await upsertSyncTask({
+    await upsertSyncTask(withSyncTaskId({
       integration: "spotify",
       status: "SUCCESS",
       step: STEP,
-      inputs: { userId: user.id, country: user.country },
-    }, db);
+    }, syncTaskId), db);
 
     return user;
   } catch (e) {
-    await upsertSyncTask({
+    await upsertSyncTask(withSyncTaskId({
       integration: "spotify",
       status: "FAILED",
       step: STEP,
-      inputs: { error: String(e) },
-    }, db);
+      error: String(e),
+    }, syncTaskId), db);
     return undefined;
   }
 };

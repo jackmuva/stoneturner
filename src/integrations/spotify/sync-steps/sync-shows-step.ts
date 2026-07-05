@@ -1,4 +1,5 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/integrations/retry-step-utils";
 import { retry } from "@/lib/utils";
 import type { SqliteDb } from "@/core/models/db-models";
 import { batchInsertSpotifyShow, getLatestSpotifyShowAddedAt } from "../db/queries";
@@ -10,6 +11,7 @@ export const syncSpotifyShowsStep = async (
   incremental: boolean,
   db: SqliteDb,
   cursor?: SpotifyOffsetCursor,
+  syncTaskId?: string,
 ): Promise<void> => {
   const latestAddedAt = incremental ? await getLatestSpotifyShowAddedAt(db) : null;
   let offset = cursor ?? 0;
@@ -23,12 +25,13 @@ export const syncSpotifyShowsStep = async (
         return await res.json() as SpotifyPaginatedResponse<SpotifySavedShowItem>;
       });
     } catch (e) {
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "spotify",
         status: "FAILED",
         step: "spotify-sync-shows",
-        inputs: { cursor: offset, error: String(e) },
-      }, db);
+        inputs: { cursor: offset },
+        error: String(e),
+      }, syncTaskId), db);
       break;
     }
 
@@ -52,19 +55,20 @@ export const syncSpotifyShowsStep = async (
       const nextOffset = offset + SPOTIFY_PAGE_SIZE;
       const hasMore = items.length >= SPOTIFY_PAGE_SIZE && nextOffset < page.total
         && !(incremental && fresh.length < items.length);
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "spotify",
         status: "SUCCESS",
         step: "spotify-sync-shows",
-        inputs: hasMore ? { cursor: nextOffset, count: rows.length } : { count: rows.length },
-      }, db);
+        inputs: hasMore ? { cursor: nextOffset } : {},
+      }, syncTaskId), db);
     } catch (e) {
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "spotify",
         status: "FAILED",
         step: "spotify-sync-shows",
-        inputs: { cursor: offset, error: String(e) },
-      }, db);
+        inputs: { cursor: offset },
+        error: String(e),
+      }, syncTaskId), db);
       break;
     }
 

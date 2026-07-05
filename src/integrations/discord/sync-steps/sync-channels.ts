@@ -1,20 +1,21 @@
 import type { DiscordChannel } from "../models/models";
 import { DISCORD_API_ENDPOINT, discordApiBottleneck } from "./discord-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/integrations/retry-step-utils";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertDiscordChannel, getDiscordGuilds } from "../db/queries";
 import type { DiscordGuildSelect } from "../db/schema";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncChannels = async (db: SqliteDb, incremental: boolean = true, guildId?: string) => {
+export const syncChannels = async (db: SqliteDb, incremental: boolean = true, guildId?: string, syncTaskId?: string) => {
   let curOffset = 0;
   let guilds: DiscordGuildSelect[] = await getDiscordGuilds(curOffset, db);
 
   while (guilds.length > 0) {
     const workerQueue = guildId ? guilds.filter((guild) => guild.id === guildId) : guilds;
     await Promise.allSettled(workerQueue.map((guild) =>
-      discordApiBottleneck.schedule(() => upsertChannels(guild, db))
+      discordApiBottleneck.schedule(() => upsertChannels(guild, db, syncTaskId))
     ));
 
     if (guilds.length < PAGE_SIZE) break;
@@ -24,7 +25,7 @@ export const syncChannels = async (db: SqliteDb, incremental: boolean = true, gu
   return;
 }
 
-const upsertChannels = async (guild: DiscordGuildSelect, db: SqliteDb): Promise<void> => {
+const upsertChannels = async (guild: DiscordGuildSelect, db: SqliteDb, syncTaskId?: string): Promise<void> => {
   try {
     const channels: DiscordChannel[] = await retry(async () => {
       return await getChannelsByGuild(guild.id);
@@ -71,19 +72,20 @@ const upsertChannels = async (guild: DiscordGuildSelect, db: SqliteDb): Promise<
       }
     }), db);
 
-    await upsertSyncTask({
+    await upsertSyncTask(withSyncTaskId({
       integration: "discord",
       status: "SUCCESS",
       step: "discord-sync-channel-by-guild",
       inputs: JSON.stringify({ guildId: guild.id }),
-    }, db);
+    }, syncTaskId), db);
   } catch (e) {
-    await upsertSyncTask({
+    await upsertSyncTask(withSyncTaskId({
       integration: "discord",
       status: "FAILED",
       step: "discord-sync-channel-by-guild",
-      inputs: JSON.stringify({ guildId: guild.id, error: e }),
-    }, db);
+      inputs: JSON.stringify({ guildId: guild.id }),
+      error: String(e),
+    }, syncTaskId), db);
   }
   return;
 }

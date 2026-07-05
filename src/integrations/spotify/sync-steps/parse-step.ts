@@ -1,4 +1,5 @@
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/integrations/retry-step-utils";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import { generateText, Output } from "ai";
@@ -13,16 +14,16 @@ import {
 import type { SpotifyEpisodeSelect, SpotifyPlaylistSelect } from "../db/schema";
 import { formatDuration, type SpotifyParseCursor } from "./spotify-utils";
 
-export const parseSpotifyStep = async (db: SqliteDb, cursor?: SpotifyParseCursor): Promise<void> => {
+export const parseSpotifyStep = async (db: SqliteDb, cursor?: SpotifyParseCursor, syncTaskId?: string): Promise<void> => {
   if (!cursor || cursor.type === "playlist") {
-    await parsePlaylists(db, cursor?.type === "playlist" ? cursor.offset : undefined);
+    await parsePlaylists(db, cursor?.type === "playlist" ? cursor.offset : undefined, syncTaskId);
   }
   if (!cursor || cursor.type === "episode") {
-    await parseEpisodes(db, cursor?.type === "episode" ? cursor.offset : undefined);
+    await parseEpisodes(db, cursor?.type === "episode" ? cursor.offset : undefined, syncTaskId);
   }
 };
 
-const parsePlaylists = async (db: SqliteDb, cursor?: number): Promise<void> => {
+const parsePlaylists = async (db: SqliteDb, cursor?: number, syncTaskId?: string): Promise<void> => {
   let curOffset = cursor ?? 0;
   let playlists: SpotifyPlaylistSelect[] = [];
   let firstIteration = true;
@@ -40,23 +41,25 @@ const parsePlaylists = async (db: SqliteDb, cursor?: number): Promise<void> => {
 
       const nextCursor = curOffset + PAGE_SIZE;
       const hasMore = playlists.length >= PAGE_SIZE;
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "spotify",
         status: failures.length ? "FAILED" : "SUCCESS",
         inputs: failures.length
-          ? { cursor: { type: "playlist", offset: curOffset }, errors: failures }
+          ? { cursor: { type: "playlist", offset: curOffset } }
           : hasMore
             ? { cursor: { type: "playlist", offset: nextCursor } }
             : { type: "playlist" },
+        error: failures.length ? JSON.stringify(failures) : undefined,
         step: "parse",
-      }, db);
+      }, syncTaskId), db);
     } catch (e) {
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "spotify",
         status: "FAILED",
-        inputs: { cursor: { type: "playlist", offset: curOffset }, error: String(e) },
+        inputs: { cursor: { type: "playlist", offset: curOffset } },
+        error: String(e),
         step: "parse",
-      }, db);
+      }, syncTaskId), db);
     }
 
     if (cursor !== undefined) break;
@@ -64,7 +67,7 @@ const parsePlaylists = async (db: SqliteDb, cursor?: number): Promise<void> => {
   }
 };
 
-const parseEpisodes = async (db: SqliteDb, cursor?: number): Promise<void> => {
+const parseEpisodes = async (db: SqliteDb, cursor?: number, syncTaskId?: string): Promise<void> => {
   let curOffset = cursor ?? 0;
   let episodes: SpotifyEpisodeSelect[] = [];
   let firstIteration = true;
@@ -82,23 +85,25 @@ const parseEpisodes = async (db: SqliteDb, cursor?: number): Promise<void> => {
 
       const nextCursor = curOffset + PAGE_SIZE;
       const hasMore = episodes.length >= PAGE_SIZE;
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "spotify",
         status: failures.length ? "FAILED" : "SUCCESS",
         inputs: failures.length
-          ? { cursor: { type: "episode", offset: curOffset }, errors: failures }
+          ? { cursor: { type: "episode", offset: curOffset } }
           : hasMore
             ? { cursor: { type: "episode", offset: nextCursor } }
             : { type: "episode" },
+        error: failures.length ? JSON.stringify(failures) : undefined,
         step: "parse",
-      }, db);
+      }, syncTaskId), db);
     } catch (e) {
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "spotify",
         status: "FAILED",
-        inputs: { cursor: { type: "episode", offset: curOffset }, error: String(e) },
+        inputs: { cursor: { type: "episode", offset: curOffset } },
+        error: String(e),
         step: "parse",
-      }, db);
+      }, syncTaskId), db);
     }
 
     if (cursor !== undefined) break;

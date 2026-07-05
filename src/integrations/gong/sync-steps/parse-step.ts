@@ -1,4 +1,5 @@
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/integrations/retry-step-utils";
 import { retry } from "@/lib/utils";
 import { getGongCallByCallId, getGongTranscripts } from "../db/queries";
 import type { GongCallSelect, GongTranscriptSelect } from "../db/schema";
@@ -8,7 +9,7 @@ import * as z from "zod";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const parseGongStep = async (db: SqliteDb, offset?: number) => {
+export const parseGongStep = async (db: SqliteDb, offset?: number, syncTaskId?: string) => {
   let curOffset: number = offset ?? 0;
   let transcripts: GongTranscriptSelect[] = [];
   let firstIteration = true;
@@ -24,19 +25,21 @@ export const parseGongStep = async (db: SqliteDb, offset?: number) => {
         .filter((r) => r.status === "rejected")
         .map((r) => String((r as PromiseRejectedResult).reason));
 
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "Gong",
         status: failures.length ? "FAILED" : "SUCCESS",
-        inputs: JSON.stringify(failures.length ? { offset: curOffset, errors: failures } : { offset: curOffset }),
+        inputs: JSON.stringify({ offset: curOffset }),
+        error: failures.length ? JSON.stringify(failures) : undefined,
         step: "parse",
-      }, db);
+      }, syncTaskId), db);
     } catch (e) {
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "Gong",
         status: "FAILED",
-        inputs: JSON.stringify({ offset: curOffset, error: e }),
+        inputs: JSON.stringify({ offset: curOffset }),
+        error: String(e),
         step: "parse"
-      }, db);
+      }, syncTaskId), db);
     }
 
     if (offset !== undefined) {

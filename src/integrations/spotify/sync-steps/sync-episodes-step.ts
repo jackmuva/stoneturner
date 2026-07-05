@@ -1,4 +1,5 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/integrations/retry-step-utils";
 import { retry } from "@/lib/utils";
 import type { SqliteDb } from "@/core/models/db-models";
 import { batchInsertSpotifyEpisode, getAllSpotifyShows, getSpotifyShowsWithoutEpisodes } from "../db/queries";
@@ -18,6 +19,7 @@ export const syncSpotifyEpisodesStep = async (
   db: SqliteDb,
   user: SpotifyUserProfile | undefined,
   cursor?: SpotifyEpisodesCursor,
+  syncTaskId?: string,
 ): Promise<void> => {
   const showsToSync = incremental
     ? await getSpotifyShowsWithoutEpisodes(db)
@@ -65,25 +67,26 @@ export const syncSpotifyEpisodesStep = async (
           ? { showId, offset: nextOffset }
           : null;
 
-        await upsertSyncTask({
+        await upsertSyncTask(withSyncTaskId({
           integration: "spotify",
           status: "SUCCESS",
           step: STEP,
           inputs: nextCursor
-            ? { cursor: nextCursor, count: rows.length }
-            : { showId, count: rows.length },
-        }, db);
+            ? { cursor: nextCursor }
+            : { showId },
+        }, syncTaskId), db);
 
         if (!hasMore) break;
         offset = nextOffset;
         if (cursor !== undefined) break;
       } catch (e) {
-        await upsertSyncTask({
+        await upsertSyncTask(withSyncTaskId({
           integration: "spotify",
           status: "FAILED",
           step: STEP,
-          inputs: { cursor: { showId, offset }, error: String(e) },
-        }, db);
+          inputs: { cursor: { showId, offset } },
+          error: String(e),
+        }, syncTaskId), db);
         break;
       }
     }

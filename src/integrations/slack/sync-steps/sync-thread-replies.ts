@@ -14,6 +14,7 @@ import {
   getSlackThreadParents,
 } from "../db/queries";
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/integrations/retry-step-utils";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { SlackConversationsRepliesResponse } from "../models/models";
 
@@ -25,6 +26,7 @@ export const syncThreadReplies = async (
   incremental: boolean = true,
   db: SqliteDb,
   cursor?: SlackThreadRepliesCursor,
+  syncTaskId?: string,
 ) => {
   let offset = 0;
   while (true) {
@@ -46,6 +48,7 @@ export const syncThreadReplies = async (
           cursor?.channelId === thread.channelId && cursor.threadTs === thread.threadTs
             ? cursor
             : undefined,
+          syncTaskId,
         )
       )
     ));
@@ -61,6 +64,7 @@ const upsertThreadReplies = async (
   incremental: boolean,
   db: SqliteDb,
   cursor?: SlackThreadRepliesCursor,
+  syncTaskId?: string,
 ): Promise<void> => {
   let apiCursor: string | undefined = cursor?.cursor;
 
@@ -89,7 +93,7 @@ const upsertThreadReplies = async (
     }
 
     if (nextCursor) {
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "slack",
         status: "SUCCESS",
         step: "slack-sync-thread-replies",
@@ -98,7 +102,7 @@ const upsertThreadReplies = async (
           threadTs: thread.threadTs,
           cursor: nextCursor,
         }),
-      }, db);
+      }, syncTaskId), db);
 
       if (cursor) return;
 
@@ -106,22 +110,21 @@ const upsertThreadReplies = async (
         channelId: thread.channelId,
         threadTs: thread.threadTs,
         cursor: nextCursor,
-      });
+      }, syncTaskId);
       return;
     }
 
-    await upsertSyncTask({
+    await upsertSyncTask(withSyncTaskId({
       integration: "slack",
       status: "SUCCESS",
       step: "slack-sync-thread-replies",
       inputs: JSON.stringify({
         channelId: thread.channelId,
         threadTs: thread.threadTs,
-        replyCount: replies.length,
       }),
-    }, db);
+    }, syncTaskId), db);
   } catch (e) {
-    await upsertSyncTask({
+    await upsertSyncTask(withSyncTaskId({
       integration: "slack",
       status: "FAILED",
       step: "slack-sync-thread-replies",
@@ -129,9 +132,9 @@ const upsertThreadReplies = async (
         channelId: thread.channelId,
         threadTs: thread.threadTs,
         cursor: apiCursor,
-        error: String(e),
       }),
-    }, db);
+      error: String(e),
+    }, syncTaskId), db);
   }
 };
 

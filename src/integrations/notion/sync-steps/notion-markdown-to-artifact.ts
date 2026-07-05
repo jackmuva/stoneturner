@@ -2,13 +2,14 @@ import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import type { NotionPageSelect } from "../db/schema";
 import { getNotionPageMarkdownById, getNotionPages } from "../db/queries";
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/integrations/retry-step-utils";
 import type { SqliteDb } from "@/core/models/db-models";
 import { retry } from "@/lib/utils";
 import { generateText, Output } from "ai";
 import * as z from "zod";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 
-export const notionMarkdownToArtifact = async (db: SqliteDb, incremental?: { lastEditedDate: string | null }, cursor?: number) => {
+export const notionMarkdownToArtifact = async (db: SqliteDb, incremental?: { lastEditedDate: string | null }, cursor?: number, syncTaskId?: string) => {
   let curOffset: number = cursor ? cursor : 0;
   let notionPages: NotionPageSelect[] = await getNotionPages(curOffset, db);
 
@@ -26,19 +27,21 @@ export const notionMarkdownToArtifact = async (db: SqliteDb, incremental?: { las
         .filter((r) => r.status === "rejected")
         .map((r) => String((r as PromiseRejectedResult).reason));
 
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "notion",
         status: failures.length ? "FAILED" : "SUCCESS",
         step: "notion-markdown-to-artifact",
-        inputs: failures.length ? { cursor: curOffset, errors: failures } : { cursor: curOffset },
-      }, db)
+        inputs: { cursor: curOffset },
+        error: failures.length ? JSON.stringify(failures) : undefined,
+      }, syncTaskId), db)
     } catch (e) {
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "notion",
         status: "FAILED",
         step: "notion-markdown-to-artifact",
-        inputs: { cursor: curOffset, error: e },
-      }, db)
+        inputs: { cursor: curOffset },
+        error: String(e),
+      }, syncTaskId), db)
     }
     if (cursor !== undefined) break;
     curOffset += PAGE_SIZE;
