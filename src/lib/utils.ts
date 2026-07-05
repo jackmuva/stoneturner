@@ -14,6 +14,7 @@ export function cn(...inputs: ClassValue[]) {
 export const lower = (column: SQLiteColumn) => sql`lower(${column})`;
 
 export async function retry<T>(func: () => T | Promise<T>, timeouts: number[] = [1, 10, 30, 60], error?: Error): Promise<T> {
+  if (!Array.isArray(timeouts)) timeouts = [1, 10, 30, 60];
   if (timeouts.length === 0 || timeouts[0] === undefined) throw new Error(String(error));
   try {
     const res: T = await func();
