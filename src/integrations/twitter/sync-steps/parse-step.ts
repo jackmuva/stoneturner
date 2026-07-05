@@ -9,12 +9,6 @@ import { getTwitterTweets } from "../db/queries";
 import type { TwitterTweetSelect } from "../db/schema";
 import type { TwitterPublicMetrics } from "../models/models";
 
-const sourceLabel: Record<string, string> = {
-  tweet: "Post",
-  mention: "Mention",
-  bookmark: "Bookmark",
-};
-
 const formatMetrics = (metrics: TwitterPublicMetrics | null | undefined): string => {
   if (!metrics) return "";
   const parts: string[] = [];
@@ -27,7 +21,6 @@ const formatMetrics = (metrics: TwitterPublicMetrics | null | undefined): string
 };
 
 const renderTweetMarkdown = (row: TwitterTweetSelect): string => {
-  const label = sourceLabel[row.source] ?? "Tweet";
   const author = row.authorUsername
     ? `@${row.authorUsername}${row.authorName ? ` (${row.authorName})` : ""}`
     : row.authorName ?? "Unknown author";
@@ -36,7 +29,7 @@ const renderTweetMarkdown = (row: TwitterTweetSelect): string => {
     ? `\n\n**References:** ${row.referencedTweets.map((r) => `${r.type} ${r.id}`).join(", ")}`
     : "";
 
-  return `# ${label} — ${author}
+  return `# Liked post — ${author}
 
 **Date:** ${row.createdAt ?? "unknown"}
 **URL:** ${row.url ?? ""}${formatMetrics(row.publicMetrics)}${refs}

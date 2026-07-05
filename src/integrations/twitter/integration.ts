@@ -5,9 +5,7 @@ import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { twitterConfig } from "./config";
 import { deleteTwitterData } from "./db/queries";
-import { syncTwitterTweetsStep } from "./sync-steps/sync-tweets-step";
-import { syncTwitterMentionsStep } from "./sync-steps/sync-mentions-step";
-import { syncTwitterBookmarksStep } from "./sync-steps/sync-bookmarks-step";
+import { syncTwitterLikedTweetsStep } from "./sync-steps/sync-liked-tweets-step";
 import { parseTwitterStep } from "./sync-steps/parse-step";
 import {
   handleTwitterInitiateOAuth,
@@ -16,11 +14,7 @@ import {
 } from "./sync-steps/twitter-utils";
 
 export const syncTwitterPipeline = async (incremental: boolean = false, db: SqliteDb) => {
-  await Promise.all([
-    syncTwitterTweetsStep(incremental, db),
-    syncTwitterMentionsStep(incremental, db),
-    syncTwitterBookmarksStep(incremental, db),
-  ]);
+  await syncTwitterLikedTweetsStep(incremental, db);
   await parseTwitterStep(db);
   await indexVectorDbStep("twitter", incremental, db);
 };

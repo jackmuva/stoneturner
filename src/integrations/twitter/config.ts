@@ -7,6 +7,6 @@ export const twitterConfig: IntegrationConfig = {
   integration: "twitter",
   icon: "/assets/twitter.svg",
   integrationType: "OAUTH",
-  description: "Connect X (Twitter) via OAuth to sync your posts, mentions, and bookmarks into searchable markdown. Requires an [X developer app](https://developer.x.com) with OAuth 2.0 PKCE enabled.",
+  description: "Connect X (Twitter) via OAuth to sync your 100 most recent likes into searchable markdown.",
   oauthAuthorizationUrl: `${backendBase}/api/oauth/twitter/authorize?client_id=${clientId}`,
 };

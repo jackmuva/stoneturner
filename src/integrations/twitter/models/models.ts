@@ -62,7 +62,6 @@ export type TwitterUserResponse = {
   data?: TwitterUser;
   errors?: { detail?: string; title?: string }[];
 };
-
 export type TwitterTokenResponse = {
   token_type?: string;
   expires_in?: number;
@@ -70,5 +69,3 @@ export type TwitterTokenResponse = {
   scope?: string;
   refresh_token?: string;
 };
-
-export type TwitterTweetSource = "tweet" | "mention" | "bookmark";

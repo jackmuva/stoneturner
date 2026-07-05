@@ -22,7 +22,7 @@ export const TWITTER_TOKEN_URL = "https://api.twitter.com/2/oauth2/token";
 export const TWITTER_SCOPES = [
   "tweet.read",
   "users.read",
-  "bookmark.read",
+  "like.read",
   "offline.access",
 ].join(" ");
 
@@ -76,11 +76,14 @@ export const getTwitterCredentials = async (db: SqliteDb): Promise<IntegrationCr
   return await getIntegrationCredentialByIntegration("twitter", db);
 };
 
-export const getTwitterUserId = async (db: SqliteDb): Promise<string> => {
-  const cred = await getTwitterCredentials(db);
-  const userId = cred?.options?.userId?.trim();
-  if (!userId) throw new Error("Missing Twitter userId — re-authorize the integration");
-  return userId;
+export const getAuthenticatedTwitterUser = async (db: SqliteDb): Promise<TwitterUser> => {
+  const body = await twitterFetchWithRefresh<TwitterUserResponse>(
+    "/users/me",
+    db,
+    { "user.fields": "id" },
+  );
+  if (!body.data?.id) throw new Error("Failed to resolve authenticated Twitter user");
+  return body.data;
 };
 
 export const getTwitterToken = async (db: SqliteDb): Promise<string> => {
@@ -121,23 +124,8 @@ const persistTwitterTokens = async (
     accessToken: token.access_token,
     refreshToken: token.refresh_token ?? existing?.refreshToken ?? null,
     tokenExpiration,
-    options: existing?.options ?? {},
+    options: null,
   }, db);
-};
-
-const fetchAuthenticatedUser = async (accessToken: string): Promise<TwitterUser> => {
-  const url = new URL(`${TWITTER_API}/users/me`);
-  url.searchParams.set("user.fields", "username,name,created_at,description,public_metrics");
-
-  const res = await retry(async () => await fetch(url, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${accessToken}` },
-  }));
-
-  if (!res.ok) throw new Error(await res.text());
-  const body = await res.json() as TwitterUserResponse;
-  if (!body.data?.id) throw new Error("Failed to resolve authenticated Twitter user");
-  return body.data;
 };
 
 export const handleTwitterInitiateOAuth = async (_req: BunRequest, _db: SqliteDb): Promise<Response> => {
@@ -199,22 +187,6 @@ export const handleTwitterOauthRedirect = async (req: BunRequest, db: SqliteDb):
     }));
 
     await persistTwitterTokens(db, token, existing);
-
-    const user = await fetchAuthenticatedUser(token.access_token);
-    await upsertIntegrationCredential({
-      id: existing?.id ?? crypto.randomUUID(),
-      integration: "twitter",
-      integrationType: "OAUTH",
-      accessToken: token.access_token,
-      refreshToken: token.refresh_token ?? existing?.refreshToken ?? null,
-      tokenExpiration: new Date(Date.now() + (token.expires_in ?? 7200) * 1000).toISOString(),
-      options: {
-        ...(existing?.options ?? {}),
-        userId: user.id,
-        username: user.username ?? "",
-        name: user.name ?? "",
-      },
-    }, db);
   } catch (e) {
     return Response.json({ error: `token exchange failed: ${String(e)}` }, { status: 502 });
   }
@@ -299,7 +271,7 @@ export const twitterFetchWithRefresh = async <T>(
 
 export const tweetFieldsParams = (): Record<string, string> => ({
   max_results: "100",
-  "tweet.fields": "created_at,author_id,conversation_id,in_reply_to_user_id,lang,public_metrics,entities,referenced_tweets",
+  "tweet.fields": "article,created_at,author_id,conversation_id,in_reply_to_user_id,lang,public_metrics,entities,referenced_tweets",
   expansions: "author_id,referenced_tweets.id",
   "user.fields": "username,name",
 });

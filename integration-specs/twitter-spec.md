@@ -13,9 +13,9 @@ Store `BUN_PUBLIC_TWITTER_CLIENT_ID` and `TWITTER_CLIENT_SECRET` as integration 
 
 | Scope | Purpose |
 |---|---|
-| `tweet.read` | Read tweets the user can view (own timeline, mentions, bookmarks) |
+| `tweet.read` | Read post content |
 | `users.read` | Read user profile (`GET /2/users/me`) |
-| `bookmark.read` | Read bookmarked tweets |
+| `like.read` | Read posts the user has liked |
 | `offline.access` | Refresh tokens for long-lived access |
 
 ## OAuth Endpoints
@@ -29,7 +29,7 @@ GET https://twitter.com/i/oauth2/authorize
   ?response_type=code
   &client_id={client_id}
   &redirect_uri={redirect_uri}
-  &scope=tweet.read%20users.read%20bookmark.read%20offline.access
+  &scope=tweet.read%20users.read%20like.read%20offline.access
   &state={state}
   &code_challenge={code_challenge}
   &code_challenge_method=S256
@@ -59,7 +59,7 @@ Response:
   "token_type": "bearer",
   "expires_in": 7200,
   "access_token": "...",
-  "scope": "tweet.read users.read bookmark.read offline.access",
+  "scope": "tweet.read users.read like.read offline.access",
   "refresh_token": "..."
 }
 ```
@@ -78,53 +78,37 @@ grant_type=refresh_token
 
 # User Context
 
-After OAuth, call `GET /2/users/me?user.fields=username,name,created_at,description,public_metrics`
-to capture the authenticated user's ID and username. Store `userId` and `username` in credential
-`options` for subsequent sync requests.
+OAuth stores only the bearer token and refresh token. At sync time, resolve the authenticated
+user's ID via:
+
+```
+GET /2/users/me?user.fields=id
+```
+
+Use `data.id` as `{id}` in the liked tweets request below.
 
 All data requests use `Authorization: Bearer {access_token}`.
 
-# Sync Data Sources
+# Sync Data Source
 
 Base URL: `https://api.twitter.com/2`
 
-Common query parameters for tweet endpoints:
-- `max_results=100` (max per page)
+Query parameters:
+- `max_results=100` (single request — no pagination)
 - `tweet.fields=created_at,author_id,conversation_id,in_reply_to_user_id,lang,public_metrics,entities,referenced_tweets`
 - `expansions=author_id,referenced_tweets.id`
 - `user.fields=username,name`
-- `pagination_token` — pass `meta.next_token` from prior response
-- `since_id` — for incremental sync, pass the newest tweet ID already stored for that source
 
-## 1. User Tweets (timeline)
+## Liked Posts
 
 ```
-GET /2/users/{user_id}/tweets
+GET /2/users/{id}/liked_tweets?max_results=100
 ```
 
-Returns posts authored by the authenticated user, reverse-chronological.
+Returns the authenticated user's 100 most recently liked posts. One API call per sync — no
+pagination, no historical backfill beyond the latest 100 likes.
 
-**Artifact:** One markdown artifact per tweet — text, metrics, conversation context, URL.
-
-## 2. Mentions
-
-```
-GET /2/users/{user_id}/mentions
-```
-
-Returns tweets mentioning the authenticated user.
-
-**Artifact:** One markdown artifact per mention — prefixed as a mention, includes author and metrics.
-
-## 3. Bookmarks
-
-```
-GET /2/users/{user_id}/bookmarks
-```
-
-Requires `bookmark.read` scope.
-
-**Artifact:** One markdown artifact per bookmarked tweet.
+**Artifact:** One markdown artifact per liked post — author, text, metrics, conversation context, URL.
 
 # Rate Limits
 
@@ -135,9 +119,8 @@ On 401, attempt token refresh via `refreshAccessTokens` and retry once.
 
 # Incremental Sync
 
-For each source (tweets, mentions, bookmarks), track the highest `tweetId` (snowflake ID) already
-stored. On incremental sync, pass `since_id={latest_tweet_id}` so only newer posts are fetched.
-Stop pagination early when a page returns no new IDs.
+Each sync re-fetches the latest 100 liked posts and upserts by `tweetId`. Parse and vector index
+steps run incrementally on artifacts that changed.
 
 # Developer Setup
 

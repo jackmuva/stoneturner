@@ -1,8 +1,7 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, sql } from "drizzle-orm";
 import { PAGE_SIZE } from "@/lib/constants";
 import type { SqliteDb } from "@/core/models/db-models";
 import { twitterTweet, type TwitterTweetInsert, type TwitterTweetSelect } from "./schema";
-import type { TwitterTweetSource } from "../models/models";
 
 export const batchInsertTwitterTweet = async (tweets: TwitterTweetInsert[], db: SqliteDb): Promise<void> => {
   if (tweets.length === 0) return;
@@ -11,7 +10,6 @@ export const batchInsertTwitterTweet = async (tweets: TwitterTweetInsert[], db: 
     .onConflictDoUpdate({
       target: twitterTweet.tweetId,
       set: {
-        source: sql`excluded.source`,
         text: sql`excluded.text`,
         authorId: sql`excluded.authorId`,
         authorUsername: sql`excluded.authorUsername`,
@@ -34,18 +32,6 @@ export const getTwitterTweets = async (offset: number = 0, db: SqliteDb): Promis
     .orderBy(desc(twitterTweet.createdAt))
     .limit(PAGE_SIZE)
     .offset(offset);
-};
-
-export const getLatestTwitterTweetId = async (
-  source: TwitterTweetSource,
-  db: SqliteDb,
-): Promise<string | null> => {
-  const [row] = await db.select({ tweetId: twitterTweet.tweetId })
-    .from(twitterTweet)
-    .where(eq(twitterTweet.source, source))
-    .orderBy(desc(twitterTweet.tweetId))
-    .limit(1);
-  return row?.tweetId ?? null;
 };
 
 export const deleteTwitterData = async (db: SqliteDb): Promise<void> => {
