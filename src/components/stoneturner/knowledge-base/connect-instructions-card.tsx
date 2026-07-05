@@ -50,7 +50,7 @@ url = "${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/mcp"`}
               code={`{
   "mcpServers": {
     "stoneturner": {
-      "url": "http://app.stoneturner.app/mcp"
+      "url": "${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/mcp"
     }
   }
 }`}
@@ -66,7 +66,7 @@ url = "${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/mcp"`}
               <li>2. Enable <strong>Developer Mode</strong></li>
               <li>3. Create an app and make sure "Authentication" is set to <strong>OAuth</strong></li>
               <li>4. Under "Connection" set it to:</li>
-              <CodeBlock label="Connection" code='https://app.stoneturner.app/mcp' />
+              <CodeBlock label="Connection" code={`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/mcp`} />
             </ol>
           </TabsContent>
           <TabsContent value="claude-web" className="flex flex-col gap-3">
@@ -78,7 +78,7 @@ url = "${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/mcp"`}
               </li>
               <li>2. Give the connector a name (i.e. Stoneturner)</li>
               <li>3. Under "Remote MCP Server URL" set it to:</li>
-              <CodeBlock label="MCP URL" code='https://app.stoneturner.app/mcp' />
+              <CodeBlock label="MCP URL" code={`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/mcp`} />
             </ol>
           </TabsContent>
         </CardContent>
