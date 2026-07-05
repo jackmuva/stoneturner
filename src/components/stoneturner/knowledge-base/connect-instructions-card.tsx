@@ -8,12 +8,15 @@ export const ConnectInstructionsCard = () => {
   return (
     <Card className='flex flex-col col-span-full'>
       <Tabs defaultValue="claude-code">
-        <CardHeader className='flex sm:flex-row flex-col sm:items-center'>
+        <CardHeader className='flex sm:flex-row flex-col sm:items-center overflow-x-auto'>
           <CardTitle>Connect to</CardTitle>
-          <TabsList variant={"line"}>
+          <TabsList variant={"line"} className=''>
             <TabsTrigger value="claude-code">Claude Code</TabsTrigger>
             <TabsTrigger value="codex">Codex</TabsTrigger>
             <TabsTrigger value="opencode">OpenCode</TabsTrigger>
+            <TabsTrigger value="cursor">Cursor</TabsTrigger>
+            <TabsTrigger value="chatgpt">ChatGPT</TabsTrigger>
+            <TabsTrigger value="claude-web">Claude Web</TabsTrigger>
           </TabsList>
         </CardHeader>
         <CardContent>
@@ -41,6 +44,42 @@ url = "${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/mcp"`}
   }
 }`}
             />
+          </TabsContent>
+          <TabsContent value="cursor" className="flex flex-col gap-3">
+            <CodeBlock label=".cursor/mcp.json"
+              code={`{
+  "mcpServers": {
+    "stoneturner": {
+      "url": "http://app.stoneturner.app/mcp"
+    }
+  }
+}`}
+            />
+          </TabsContent>
+          <TabsContent value="chatgpt" className="flex flex-col gap-3">
+            <ol>
+              <li>1. Go to&nbsp;
+                <a href='https://chatgpt.com/apps#settings/Connectors' target='_blank' className='underline'>
+                  ChatGPT's App Settings
+                </a>
+              </li>
+              <li>2. Enable <strong>Developer Mode</strong></li>
+              <li>3. Create an app and make sure "Authentication" is set to <strong>OAuth</strong></li>
+              <li>4. Under "Connection" set it to:</li>
+              <CodeBlock label="Connection" code='https://app.stoneturner.app/mcp' />
+            </ol>
+          </TabsContent>
+          <TabsContent value="claude-web" className="flex flex-col gap-3">
+            <ol>
+              <li>1. Go to&nbsp;
+                <a href='https://claude.ai/customize/connectors?modal=add-custom-connector' target='_blank' className='underline'>
+                  Claude's Add Custom Connector
+                </a>
+              </li>
+              <li>2. Give the connector a name (i.e. Stoneturner)</li>
+              <li>3. Under "Remote MCP Server URL" set it to:</li>
+              <CodeBlock label="MCP URL" code='https://app.stoneturner.app/mcp' />
+            </ol>
           </TabsContent>
         </CardContent>
       </Tabs>

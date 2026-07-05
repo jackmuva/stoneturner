@@ -41,15 +41,14 @@ export const KnowledgeBasePage = () => {
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
-      <Input
-        type="search"
-        placeholder="Search integrations..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="max-w-sm"
-      />
       <div className="animate-appear grid grid-cols-1 md:grid-cols-3 gap-3">
         <ConnectInstructionsCard />
+        <Input type="search"
+          placeholder="Search integrations..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          
+          className="max-w-sm col-span-full" />
         {configRegistry
           .filter((intConfig: IntegrationConfig) =>
             intConfig.integration.toLowerCase().includes(search.toLowerCase()))
