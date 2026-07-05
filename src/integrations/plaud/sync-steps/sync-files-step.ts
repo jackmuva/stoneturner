@@ -18,7 +18,7 @@ export const syncPlaudFilesStep = async (incremental: boolean = false, db: Sqlit
   while (true) {
     let response: PlaudFileListResponse;
     try {
-      response = await retry(async () => await getFilesPage(page, db), 3, 1);
+      response = await retry(async () => await getFilesPage(page, db));
     } catch (e) {
       await upsertSyncTask({
         integration: "Plaud",
