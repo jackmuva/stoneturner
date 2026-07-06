@@ -1,5 +1,5 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/integrations/retry-step-utils";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import type { SqliteDb } from "@/core/models/db-models";
 import { batchInsertSpotifyShow, getLatestSpotifyShowAddedAt } from "../db/queries";

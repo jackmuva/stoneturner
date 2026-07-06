@@ -1,6 +1,6 @@
 import type { IntegrationSteps } from "@/core/models/models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
-import { asInputs, resumeCursor, resumeOffset } from "@/integrations/retry-step-utils";
+import { asInputs, resumeCursor, resumeOffset } from "@/core/services/retry-cron";
 import { parseSpotifyStep } from "./sync-steps/parse-step";
 import { syncSpotifyEpisodesStep } from "./sync-steps/sync-episodes-step";
 import { syncSpotifyPlaylistTracksStep } from "./sync-steps/sync-playlist-tracks-step";

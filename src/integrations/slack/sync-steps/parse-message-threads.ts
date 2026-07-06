@@ -1,5 +1,5 @@
 import { getLastArtifactDateByIntegration, getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/integrations/retry-step-utils";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import {
   getMessagesByThreadTs,
   getMessageTimestampRangeByChannelId,

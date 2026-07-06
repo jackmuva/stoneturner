@@ -1,5 +1,5 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/integrations/retry-step-utils";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { GithubContentEntry, GithubRepoRef } from "../models/models";
 import { githubFetch, githubFetchJson, getConfiguredRepos, getGithubToken, reposFromCursor, repoKey, type GithubDocsCursor } from "./github-utils";

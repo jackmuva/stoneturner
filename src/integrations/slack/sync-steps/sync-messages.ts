@@ -10,7 +10,7 @@ import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertSlackMessage, getLastMessageByChannelId, getSlackChannels } from "../db/queries";
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/integrations/retry-step-utils";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { SlackChannelSelect } from "../db/schema";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { SlackConversationsHistoryResponse } from "../models/models";

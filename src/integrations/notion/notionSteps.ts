@@ -1,6 +1,6 @@
 import type { IntegrationSteps } from "@/core/models/models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
-import { resumeOffset, resumeStringCursor } from "@/integrations/retry-step-utils";
+import { resumeOffset, resumeStringCursor } from "@/core/services/retry-cron";
 import { notionMarkdownToArtifact } from "./sync-steps/notion-markdown-to-artifact";
 import { syncNotionMarkdown } from "./sync-steps/sync-notion-markdown";
 import { syncNotionPages } from "./sync-steps/sync-notion-pages";

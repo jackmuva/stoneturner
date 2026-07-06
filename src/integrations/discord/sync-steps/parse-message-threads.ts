@@ -1,5 +1,5 @@
 import { getLastArtifactDateByIntegration, getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/integrations/retry-step-utils";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import { getDiscordChannelById, getDiscordChannels, getDiscordThreadIds, getMessagesByThreadId, getMessageTimestampRangeByChannelId, getTopLevelMessagesByChannelId } from "../db/queries";
 import type { DiscordChannelSelect, DiscordMessageSelect } from "../db/schema";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";

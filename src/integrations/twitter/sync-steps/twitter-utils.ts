@@ -3,7 +3,7 @@ import {
   upsertIntegrationCredential,
   upsertSyncTask,
 } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/integrations/retry-step-utils";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import type { SqliteDb } from "@/core/models/db-models";
 import { retry } from "@/lib/utils";

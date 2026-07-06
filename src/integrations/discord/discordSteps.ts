@@ -1,6 +1,6 @@
 import type { IntegrationSteps } from "@/core/models/models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
-import { asInputs, resumeOffset } from "@/integrations/retry-step-utils";
+import { asInputs, resumeOffset } from "@/core/services/retry-cron";
 import { parseDiscordMessages } from "./sync-steps/parse-message-threads";
 import { syncChannels } from "./sync-steps/sync-channels";
 import { syncMessages } from "./sync-steps/sync-messages";

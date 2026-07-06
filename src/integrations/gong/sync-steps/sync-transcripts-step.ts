@@ -1,5 +1,5 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/integrations/retry-step-utils";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import { batchInsertGongTranscript, getLatestGongCall } from "../db/queries";
 import type { GongTranscriptResponse } from "../models/models";

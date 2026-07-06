@@ -1,7 +1,7 @@
 import type { IntegrationSteps } from "@/core/models/models";
 import type { SqliteDb } from "@/core/models/db-models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
-import { asInputs, resumeCursor, resumeOffset } from "@/integrations/retry-step-utils";
+import { asInputs, resumeCursor, resumeOffset } from "@/core/services/retry-cron";
 import {
   parseGithubCodeStep,
   parseGithubDiscussionsStep,

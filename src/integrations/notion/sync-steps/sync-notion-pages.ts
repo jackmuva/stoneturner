@@ -1,7 +1,7 @@
 import type { NotionChildPageBlock, NotionPage, NotionSearchResponse } from "../models/models";
 import { NOTION_BASE_API, NOTION_VERSION, getNotionCredentials, handleNotionRefresh, notionApiBottleneck } from "./notion-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/integrations/retry-step-utils";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { SqliteDb } from "@/core/models/db-models";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";

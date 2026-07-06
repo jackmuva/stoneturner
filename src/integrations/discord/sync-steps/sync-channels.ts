@@ -1,7 +1,7 @@
 import type { DiscordChannel } from "../models/models";
 import { DISCORD_API_ENDPOINT, discordApiBottleneck } from "./discord-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/integrations/retry-step-utils";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertDiscordChannel, getDiscordGuilds } from "../db/queries";

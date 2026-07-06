@@ -3,7 +3,7 @@ import type { NotionPageMarkdownInsert, NotionPageSelect } from "../db/schema";
 import { batchInsertNotionPageMarkdown, getNotionPages } from "../db/queries";
 import { getNotionCredentials, handleNotionRefresh, NOTION_BASE_API, NOTION_VERSION, notionApiBottleneck } from "./notion-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/integrations/retry-step-utils";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { NotionPageMarkdown } from "../models/models";
 

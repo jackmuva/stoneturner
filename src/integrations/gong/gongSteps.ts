@@ -1,6 +1,6 @@
 import type { IntegrationSteps } from "@/core/models/models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
-import { resumeOffset, resumeStringCursor } from "@/integrations/retry-step-utils";
+import { resumeOffset, resumeStringCursor } from "@/core/services/retry-cron";
 import { parseGongStep } from "./sync-steps/parse-step";
 import { syncGongCallsStep } from "./sync-steps/sync-calls-step";
 import { syncGongTranscriptsStep } from "./sync-steps/sync-transcripts-step";

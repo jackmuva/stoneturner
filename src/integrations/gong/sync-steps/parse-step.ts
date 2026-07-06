@@ -1,5 +1,5 @@
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/integrations/retry-step-utils";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import { getGongCallByCallId, getGongTranscripts } from "../db/queries";
 import type { GongCallSelect, GongTranscriptSelect } from "../db/schema";

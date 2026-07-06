@@ -1,6 +1,6 @@
 import type { IntegrationSteps } from "@/core/models/models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
-import { resumeOffset } from "@/integrations/retry-step-utils";
+import { resumeOffset } from "@/core/services/retry-cron";
 import { parseTwitterStep } from "./sync-steps/parse-step";
 import { syncTwitterLikedTweetsStep } from "./sync-steps/sync-liked-tweets-step";
 

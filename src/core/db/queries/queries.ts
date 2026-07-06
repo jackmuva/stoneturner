@@ -1,5 +1,5 @@
 import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact, type IntegrationCredentialInsert } from '@/core/db/schema/schema';
-import { and, eq, like, gt, or, asc, desc, sql, inArray } from 'drizzle-orm';
+import { and, eq, like, gt, or, asc, desc, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import type { SqliteDb } from '@/core/models/db-models';
 import { lower } from '@/lib/utils';
@@ -64,10 +64,11 @@ export const upsertSyncTask = async (syncTaskData: SyncTaskInsert, db: SqliteDb)
 
 export const incrementSyncTaskRetries = async (ids: string[], db: SqliteDb): Promise<void> => {
   if (ids.length === 0) return;
+  const idList = sql.join(ids.map((id) => sql`${id}`), sql`, `);
   await db.update(syncTask).set({
-    retries: sql`COALESCE(${syncTask.retries}, 0) + 1`,
+    retries: sql`"retries" + 1`,
     updateDate: (new Date()).toISOString(),
-  }).where(inArray(syncTask.id, ids));
+  }).where(sql`"id" in (${idList})`);
 }
 
 export const batchUpsertSyncTask = async (tasks: SyncTaskInsert[], db: SqliteDb): Promise<void> => {
@@ -206,28 +207,6 @@ export const deleteSyncTasksByIntegration = async (integration: string, db: Sqli
 
 export const deleteSyncTasksPriorToDate = async (date: string, db: SqliteDb): Promise<void> => {
   await db.delete(syncTask).where(sql`"updateDate" <= ${date}`);
-}
-
-export const dedupeSyncTasks = async (db: SqliteDb): Promise<void> => {
-  await db.run(sql`
-    DELETE FROM "syncTask"
-    WHERE "id" NOT IN (
-      SELECT "id" FROM (
-        SELECT
-          "id",
-          ROW_NUMBER() OVER (
-            PARTITION BY
-              "integration",
-              COALESCE("step", ''),
-              COALESCE("error", ''),
-              COALESCE(CAST("inputs" AS TEXT), '')
-            ORDER BY "retries" DESC, "updateDate" DESC
-          ) AS rn
-        FROM "syncTask"
-      )
-      WHERE rn = 1
-    )
-  `);
 }
 
 export const deleteIntegrationCredentialByIntegration = async (integration: string, db: SqliteDb): Promise<void> => {

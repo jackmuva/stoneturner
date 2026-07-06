@@ -1,6 +1,6 @@
 import type { IntegrationSteps } from "@/core/models/models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
-import { asInputs, resumeOffset } from "@/integrations/retry-step-utils";
+import { asInputs, resumeOffset } from "@/core/services/retry-cron";
 import { parseSlackMessages, type SlackParseCursor } from "./sync-steps/parse-message-threads";
 import { syncChannels, type SlackChannelsCursor } from "./sync-steps/sync-channels";
 import { syncMessages, type SlackMessagesCursor } from "./sync-steps/sync-messages";

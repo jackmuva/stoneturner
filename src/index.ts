@@ -5,7 +5,7 @@ import { withCors } from "./core/middleware/middleware";
 import { handleMcp } from "./core/handlers/mcp-handler";
 import { supportedIntegrations } from "./integrations/integration-registry";
 import { db } from "./core/db/db";
-import { retryFailedTasks } from "./core/services/retry-tasks-cron";
+import { retryFailedTasks } from "./core/services/retry-cron";
 
 const server = serve({
   routes: {
@@ -105,10 +105,11 @@ const server = serve({
         return Response.json(null, { status: 400 });
       }),
     },
-    "/api/retry-failed": {
-      POST: async (req) => {
-        await retryFailedTasks(db);
-      },
+    "/api/syncTasks/retry": {
+      POST: withCors(async (req) => {
+        retryFailedTasks(db);
+        return Response.json(null, { status: 200 });
+      }),
     },
 
     "/mcp": {
@@ -128,7 +129,9 @@ const server = serve({
 });
 
 const job = Bun.cron("0 0 * * *", async () => {
-  await retryFailedTasks(db);
+  if (process.env.CRON_ENABLED !== 'false') {
+    await retryFailedTasks(db);
+  }
 });
 
 console.log(`🚀 Server running at ${server.url}`);
