@@ -1,4 +1,5 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { GithubDiscussionsResponse, GithubRepoRef, StoredComment } from "../models/models";
 import { GITHUB_API, githubApiBottleneck, getConfiguredRepos, getGithubToken, reposFromCursor, repoKey, type GithubDiscussionsCursor } from "./github-utils";
@@ -27,14 +28,14 @@ const DISCUSSIONS_QUERY = `query($owner: String!, $repo: String!, $cursor: Strin
   }
 }`;
 
-export const syncGithubDiscussionsStep = async (_incremental: boolean = false, db: SqliteDb, cursor?: GithubDiscussionsCursor) => {
+export const syncGithubDiscussionsStep = async (_incremental: boolean = false, db: SqliteDb, cursor?: GithubDiscussionsCursor, syncTaskId?: string) => {
   let token: string;
   let repos: GithubRepoRef[];
   try {
     token = await getGithubToken(db);
     repos = reposFromCursor(await getConfiguredRepos(db), cursor?.repo);
   } catch (e) {
-    await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { error: String(e) } }, db);
+    await upsertSyncTask(withSyncTaskId({ integration: "github", status: "FAILED", step: STEP, error: String(e) }, syncTaskId), db);
     return;
   }
 
@@ -50,7 +51,13 @@ export const syncGithubDiscussionsStep = async (_incremental: boolean = false, d
         const discussions = body.data?.repository?.discussions;
         if (!discussions) {
           if (body.errors) {
-            await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { repo: key, errors: body.errors } }, db);
+            await upsertSyncTask(withSyncTaskId({
+              integration: "github",
+              status: "FAILED",
+              step: STEP,
+              inputs: { repo: key },
+              error: JSON.stringify(body.errors),
+            }, syncTaskId), db);
           }
           break;
         }
@@ -73,22 +80,23 @@ export const syncGithubDiscussionsStep = async (_incremental: boolean = false, d
         const nextCursor: GithubDiscussionsCursor | null = hasNext
           ? { repo: key, cursor: discussions.pageInfo.endCursor }
           : null;
-        await upsertSyncTask({
+        await upsertSyncTask(withSyncTaskId({
           integration: "github",
           status: "SUCCESS",
           step: STEP,
-          inputs: nextCursor ? { repo: key, count: rows.length, cursor: nextCursor } : { repo: key, count: rows.length },
-        }, db);
+          inputs: nextCursor ? { repo: key, cursor: nextCursor } : { repo: key },
+        }, syncTaskId), db);
 
         pageCursor = discussions.pageInfo.endCursor;
         if (cursor) break;
       } catch (e) {
-        await upsertSyncTask({
+        await upsertSyncTask(withSyncTaskId({
           integration: "github",
           status: "FAILED",
           step: STEP,
-          inputs: { repo: key, cursor: { repo: key, cursor: pageCursor }, error: String(e) },
-        }, db);
+          inputs: { repo: key, cursor: { repo: key, cursor: pageCursor } },
+          error: String(e),
+        }, syncTaskId), db);
         break;
       }
     }

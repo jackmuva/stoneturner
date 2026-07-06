@@ -1,4 +1,5 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { GithubContentEntry, GithubRepoRef } from "../models/models";
 import { githubFetch, githubFetchJson, getConfiguredRepos, getGithubToken, reposFromCursor, repoKey, type GithubDocsCursor } from "./github-utils";
@@ -7,14 +8,14 @@ import type { GithubDocInsert } from "../db/schema";
 
 const STEP = "github-sync-docs";
 
-export const syncGithubDocsStep = async (_incremental: boolean = false, db: SqliteDb, cursor?: GithubDocsCursor) => {
+export const syncGithubDocsStep = async (_incremental: boolean = false, db: SqliteDb, cursor?: GithubDocsCursor, syncTaskId?: string) => {
   let token: string;
   let repos: GithubRepoRef[];
   try {
     token = await getGithubToken(db);
     repos = reposFromCursor(await getConfiguredRepos(db), cursor?.repo);
   } catch (e) {
-    await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { error: String(e) } }, db);
+    await upsertSyncTask(withSyncTaskId({ integration: "github", status: "FAILED", step: STEP, error: String(e) }, syncTaskId), db);
     return;
   }
 
@@ -38,30 +39,32 @@ export const syncGithubDocsStep = async (_incremental: boolean = false, db: Sqli
           const nextCursor: GithubDocsCursor | null = i + 1 < orderedPaths.length
             ? { repo: key, pathIndex: i + 1 }
             : null;
-          await upsertSyncTask({
+          await upsertSyncTask(withSyncTaskId({
             integration: "github",
             status: "SUCCESS",
             step: STEP,
             inputs: nextCursor ? { repo: key, path, cursor: nextCursor } : { repo: key, path },
-          }, db);
+          }, syncTaskId), db);
         } catch (e) {
-          await upsertSyncTask({
+          await upsertSyncTask(withSyncTaskId({
             integration: "github",
             status: "FAILED",
             step: STEP,
-            inputs: { repo: key, path, cursor: { repo: key, pathIndex: i }, error: String(e) },
-          }, db);
+            inputs: { repo: key, path, cursor: { repo: key, pathIndex: i } },
+            error: String(e),
+          }, syncTaskId), db);
           break;
         }
         if (cursor) break;
       }
     } catch (e) {
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "github",
         status: "FAILED",
         step: STEP,
-        inputs: { repo: key, cursor: { repo: key, pathIndex: 0 }, error: String(e) },
-      }, db);
+        inputs: { repo: key, cursor: { repo: key, pathIndex: 0 } },
+        error: String(e),
+      }, syncTaskId), db);
     }
     if (cursor) break;
   }

@@ -61,6 +61,14 @@ export const SyncLogSheet = ({
             <span className="text-sm text-muted-foreground">No inputs.</span>
           )}
         </div>
+        {task.error && (
+          <div className="flex flex-col gap-1 min-h-0">
+            <span className="text-xs font-semibold text-muted-foreground uppercase">Error</span>
+            <pre className="overflow-auto rounded-md bg-red-500/10 p-3 text-xs font-mono text-red-700 dark:text-red-400 whitespace-pre-wrap break-words">
+              {task.error}
+            </pre>
+          </div>
+        )}
       </div>
     </div>
   );

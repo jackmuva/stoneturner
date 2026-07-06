@@ -1,5 +1,5 @@
 import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact, type IntegrationCredentialInsert } from '@/core/db/schema/schema';
-import { and, eq, gte, like, lte, gt, or, asc, desc, sql } from 'drizzle-orm';
+import { and, eq, like, gt, or, asc, desc, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import type { SqliteDb } from '@/core/models/db-models';
 import { lower } from '@/lib/utils';
@@ -52,12 +52,40 @@ export const upsertSyncTask = async (syncTaskData: SyncTaskInsert, db: SqliteDb)
         updateDate: (new Date()).toISOString(),
         status: syncTaskData.status,
         inputs: syncTaskData.inputs,
+        error: syncTaskData.error,
         step: syncTaskData.step,
+        retries: syncTaskData.retries ?? existing.retries,
       }).where(sql`"id" = ${existing.id}`);
       return;
     }
   }
   await db.insert(syncTask).values(syncTaskData);
+}
+
+export const incrementSyncTaskRetries = async (ids: string[], db: SqliteDb): Promise<void> => {
+  if (ids.length === 0) return;
+  const idList = sql.join(ids.map((id) => sql`${id}`), sql`, `);
+  await db.update(syncTask).set({
+    retries: sql`"retries" + 1`,
+    updateDate: (new Date()).toISOString(),
+  }).where(sql`"id" in (${idList})`);
+}
+
+export const batchUpsertSyncTask = async (tasks: SyncTaskInsert[], db: SqliteDb): Promise<void> => {
+  await db.insert(syncTask)
+    .values(tasks)
+    .onConflictDoUpdate({
+      target: syncTask.id,
+      set: {
+        integration: sql`excluded.integration`,
+        updateDate: sql`excluded.updateDate`,
+        status: sql`excluded.status`,
+        inputs: sql`excluded.inputs`,
+        error: sql`excluded.error`,
+        step: sql`excluded.step`,
+        retries: sql`excluded.retries`,
+      }
+    });
 }
 
 export const getSyncTasksByStatus = async (status: "FAILED" | "PENDING" | "SUCCESS", offset: number = 0, sortOrder: SortOrder = "desc", db: SqliteDb): Promise<SyncTaskSelect[] | undefined> => {
@@ -126,7 +154,7 @@ export const getMdArtifactsByIntegration = async (
   const sortColumn = options?.sortBy === "updateDate" ? mdArtifact.updateDate : mdArtifact.artifactDate;
   const orderBy = options?.sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
 
- const query = db.select({
+  const query = db.select({
     id: mdArtifact.id,
     integrationArtifactId: mdArtifact.integrationArtifactId,
     integration: mdArtifact.integration,

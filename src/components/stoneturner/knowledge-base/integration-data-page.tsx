@@ -130,14 +130,14 @@ export const IntegrationDataPage = () => {
           <div className="flex flex-col gap-4 w-full">
             <ButtonGroup className="flex">
               <Button variant={"outline"} size="sm" className="bg-brand-purple/20 dark:bg-brand-purple/70"
-                disabled={(syncTasks && syncTasks.length > 0)}
+                disabled={(syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)}
                 onClick={() => setConfirmAction("fullSync")}>
                 <ArrowBigDownDashIcon size={12} />
                 Full Sync
               </Button>
               <ButtonGroupSeparator />
               <Button variant={"outline"} size={"sm"} className="bg-brand-cream/20 dark:bg-brand-cream/70"
-                disabled={(syncTasks && syncTasks.length > 0)}
+                disabled={(syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)}
                 onClick={() => setConfirmAction("syncUpdates")}>
                 <RefreshCwIcon size={12} />
                 Sync Updates

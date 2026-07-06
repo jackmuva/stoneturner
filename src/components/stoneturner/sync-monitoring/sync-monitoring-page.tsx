@@ -20,6 +20,7 @@ export const SyncMonitoringPage = () => {
   const [step, setStep] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState<SyncSortOrder>("desc");
   const [selectedTask, setSelectedTask] = useState<SyncTaskSelect | null>(null);
+  const [retrySucceeded, setRetrySucceeded] = useState(false);
 
   const { data: syncTasks, mutate: syncMutate, isLoading } = useSWR<SyncTaskSelect[]>(`syncTasks/all/${integration}/${status}/${step}/${sortOrder}/${page}`, async (): Promise<SyncTaskSelect[]> => {
     const params = new URLSearchParams({ offset: String(page * PAGE_SIZE), sortOrder });
@@ -49,6 +50,15 @@ export const SyncMonitoringPage = () => {
     setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
   };
 
+  const handleRetryFailed = async () => {
+    await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/syncTasks/retry`, {
+      method: "POST",
+    });
+    setRetrySucceeded(true);
+    syncMutate();
+    setTimeout(() => setRetrySucceeded(false), 3000);
+  };
+
   return (
     <div className="w-full h-full min-w-0 min-h-0 flex flex-col gap-4 p-4 font-sans">
       <Breadcrumb>
@@ -62,8 +72,8 @@ export const SyncMonitoringPage = () => {
       </Breadcrumb>
       <div className="flex-1 min-h-0 flex flex-row gap-4">
         <div className="flex-1 min-w-0 flex flex-col gap-4 min-h-0">
-          <div className="flex flex-row gap-3 items-center justify-between">
-            <div className="flex gap-3 items-center">
+          <div className="flex flex-row gap-3 items-center justify-between overflow-x-auto">
+            <div className="flex gap-3 items-start flex-col sm:flex-row">
               <Select value={integration} onValueChange={(value) => { setIntegration(value); setPage(0); }}>
                 <SelectTrigger size="sm" className="w-44">
                   <SelectValue placeholder="Integration" />
@@ -103,9 +113,14 @@ export const SyncMonitoringPage = () => {
                 </SelectContent>
               </Select>
             </div>
-            <Button variant={"outline"} size={"icon-sm"} onClick={() => syncMutate()}>
-              <RefreshCwIcon size={12} />
-            </Button>
+            <div className="flex gap-2 items-end flex-col sm:flex-row">
+              <Button variant="outline" size="sm" onClick={handleRetryFailed} disabled={retrySucceeded}>
+                {retrySucceeded ? "retry initiated" : "Retry failed tasks"}
+              </Button>
+              <Button variant={"outline"} size={"icon-sm"} onClick={() => syncMutate()}>
+                <RefreshCwIcon size={12} />
+              </Button>
+            </div>
           </div>
           <SyncLogTable
             setPage={setPage}

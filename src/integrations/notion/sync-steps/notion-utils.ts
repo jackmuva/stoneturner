@@ -1,4 +1,5 @@
 import { getIntegrationCredentialByIntegration, upsertIntegrationCredential, upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import type { SqliteDb } from "@/core/models/db-models";
 import Bottleneck from "bottleneck";
@@ -16,7 +17,7 @@ export const getNotionCredentials = async (db: SqliteDb) => {
   return await getIntegrationCredentialByIntegration("notion", db);
 }
 
-export const handleNotionRefresh = async (db: SqliteDb) => {
+export const handleNotionRefresh = async (db: SqliteDb, syncTaskId?: string) => {
   const cred: IntegrationCredential | undefined = await getIntegrationCredentialByIntegration("notion", db);
   if (!cred) return;
 
@@ -36,12 +37,12 @@ export const handleNotionRefresh = async (db: SqliteDb) => {
   });
 
   if (!res.ok) {
-    upsertSyncTask({
+    upsertSyncTask(withSyncTaskId({
       integration: "notion",
       status: "FAILED",
-      inputs: { cred },
       step: "notion-token-revalidation",
-    }, db)
+      error: await res.text(),
+    }, syncTaskId), db)
   }
 
   const token = await res.json() as {

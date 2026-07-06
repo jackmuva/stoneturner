@@ -28,3 +28,7 @@ export type Integration = {
   handleRedirect?: (req: BunRequest, db: SqliteDb) => Promise<Response> | Response,
   refreshAccessTokens?: (db: SqliteDb) => Promise<void> | void,
 }
+
+export type IntegrationStepFn = (db: SqliteDb, inputs?: unknown, syncTaskId?: string) => Promise<void> | void;
+export type IntegrationSteps = { [step: string]: IntegrationStepFn };
+export type StepMapping = { [integration: string]: IntegrationSteps };

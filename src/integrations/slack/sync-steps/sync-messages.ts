@@ -10,6 +10,7 @@ import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertSlackMessage, getLastMessageByChannelId, getSlackChannels } from "../db/queries";
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { SlackChannelSelect } from "../db/schema";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { SlackConversationsHistoryResponse } from "../models/models";
@@ -18,7 +19,7 @@ const MAX_MESSAGES = 200;
 
 export type SlackMessagesCursor = { channelId: string; cursor?: string; oldest?: string };
 
-export const syncMessages = async (incremental: boolean = true, db: SqliteDb, cursor?: SlackMessagesCursor) => {
+export const syncMessages = async (incremental: boolean = true, db: SqliteDb, cursor?: SlackMessagesCursor, syncTaskId?: string) => {
   let offset = 0;
   while (true) {
     const channels = await getSlackChannels(offset, db);
@@ -32,6 +33,7 @@ export const syncMessages = async (incremental: boolean = true, db: SqliteDb, cu
           incremental,
           db,
           cursor?.channelId === channel.id ? cursor : undefined,
+          syncTaskId,
         )
       )
     ));
@@ -47,6 +49,7 @@ const upsertMessages = async (
   incremental: boolean,
   db: SqliteDb,
   cursor?: SlackMessagesCursor,
+  syncTaskId?: string,
 ): Promise<void> => {
   let oldest: string | undefined = cursor?.oldest;
   let apiCursor: string | undefined = cursor?.cursor;
@@ -70,12 +73,12 @@ const upsertMessages = async (
     }
 
     if (nextCursor && !oldest) {
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "slack",
         status: "SUCCESS",
         step: "slack-sync-channel-messages",
         inputs: JSON.stringify({ channelId: channel.id, oldest, cursor: nextCursor }),
-      }, db);
+      }, syncTaskId), db);
 
       if (cursor) return;
 
@@ -83,23 +86,24 @@ const upsertMessages = async (
         channelId: channel.id,
         oldest,
         cursor: nextCursor,
-      });
+      }, syncTaskId);
       return;
     }
 
-    await upsertSyncTask({
+    await upsertSyncTask(withSyncTaskId({
       integration: "slack",
       status: "SUCCESS",
       step: "slack-sync-channel-messages",
-      inputs: JSON.stringify({ channelId: channel.id, oldest, messageCount: messages.length }),
-    }, db);
+      inputs: JSON.stringify({ channelId: channel.id, oldest }),
+    }, syncTaskId), db);
   } catch (e) {
-    await upsertSyncTask({
+    await upsertSyncTask(withSyncTaskId({
       integration: "slack",
       status: "FAILED",
       step: "slack-sync-channel-messages",
-      inputs: JSON.stringify({ channelId: channel.id, oldest, cursor: apiCursor, error: String(e) }),
-    }, db);
+      inputs: JSON.stringify({ channelId: channel.id, oldest, cursor: apiCursor }),
+      error: String(e),
+    }, syncTaskId), db);
   }
 };
 

@@ -1,4 +1,5 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import type { SqliteDb } from "@/core/models/db-models";
 import {
@@ -54,6 +55,7 @@ export const syncSpotifyPlaylistTracksStep = async (
   db: SqliteDb,
   user: SpotifyUserProfile | undefined,
   cursor?: SpotifyPlaylistTracksCursor,
+  syncTaskId?: string,
 ): Promise<void> => {
   const playlistIds = stringsFromCursor(
     await getPlaylistsNeedingTrackSync(incremental, db, user),
@@ -85,12 +87,12 @@ export const syncSpotifyPlaylistTracksStep = async (
         });
 
         if (!page) {
-          await upsertSyncTask({
+          await upsertSyncTask(withSyncTaskId({
             integration: "spotify",
             status: "SUCCESS",
             step: STEP,
-            inputs: { playlistId, skipped: true, reason: "not_owner_or_collaborator" },
-          }, db);
+            inputs: { playlistId },
+          }, syncTaskId), db);
           break;
         }
 
@@ -136,25 +138,26 @@ export const syncSpotifyPlaylistTracksStep = async (
           ? { playlistId, offset: nextOffset }
           : null;
 
-        await upsertSyncTask({
+        await upsertSyncTask(withSyncTaskId({
           integration: "spotify",
           status: "SUCCESS",
           step: STEP,
           inputs: nextCursor
-            ? { cursor: nextCursor, count: rows.length }
-            : { playlistId, count: rows.length },
-        }, db);
+            ? { cursor: nextCursor }
+            : { playlistId },
+        }, syncTaskId), db);
 
         if (!hasMore) break;
         offset = nextOffset;
         if (cursor !== undefined) break;
       } catch (e) {
-        await upsertSyncTask({
+        await upsertSyncTask(withSyncTaskId({
           integration: "spotify",
           status: "FAILED",
           step: STEP,
-          inputs: { cursor: { playlistId, offset }, error: String(e) },
-        }, db);
+          inputs: { cursor: { playlistId, offset } },
+          error: String(e),
+        }, syncTaskId), db);
         break;
       }
     }

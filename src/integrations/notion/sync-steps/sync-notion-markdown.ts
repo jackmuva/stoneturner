@@ -3,10 +3,11 @@ import type { NotionPageMarkdownInsert, NotionPageSelect } from "../db/schema";
 import { batchInsertNotionPageMarkdown, getNotionPages } from "../db/queries";
 import { getNotionCredentials, handleNotionRefresh, NOTION_BASE_API, NOTION_VERSION, notionApiBottleneck } from "./notion-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { NotionPageMarkdown } from "../models/models";
 
-export const syncNotionMarkdown = async (db: SqliteDb, incremental?: { lastEditedDate: string | null }, cursor?: number) => {
+export const syncNotionMarkdown = async (db: SqliteDb, incremental?: { lastEditedDate: string | null }, cursor?: number, syncTaskId?: string) => {
   let curOffset: number = cursor ? cursor : 0;
   let notionPages: NotionPageSelect[] = await getNotionPages(curOffset, db);
 
@@ -35,19 +36,21 @@ export const syncNotionMarkdown = async (db: SqliteDb, incremental?: { lastEdite
         .filter((r) => r.status === "rejected")
         .map((r) => String((r as PromiseRejectedResult).reason));
 
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "notion",
         status: failures.length ? "FAILED" : "SUCCESS",
         step: "notion-sync-markdown",
-        inputs: failures.length ? { cursor: curOffset, errors: failures } : { cursor: curOffset },
-      }, db)
+        inputs: { cursor: curOffset },
+        error: failures.length ? JSON.stringify(failures) : undefined,
+      }, syncTaskId), db)
     } catch (e) {
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "notion",
         status: "FAILED",
         step: "notion-sync-markdown",
-        inputs: { cursor: curOffset, error: e },
-      }, db)
+        inputs: { cursor: curOffset },
+        error: String(e),
+      }, syncTaskId), db)
     }
     if (cursor !== undefined) break;
     curOffset += PAGE_SIZE;

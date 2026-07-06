@@ -1,4 +1,5 @@
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import { generateText, Output } from "ai";
@@ -37,7 +38,7 @@ const renderTweetMarkdown = (row: TwitterTweetSelect): string => {
 ${row.text}`;
 };
 
-export const parseTwitterStep = async (db: SqliteDb, cursor?: number): Promise<void> => {
+export const parseTwitterStep = async (db: SqliteDb, cursor?: number, syncTaskId?: string): Promise<void> => {
   let curOffset = cursor ?? 0;
   let rows: TwitterTweetSelect[] = [];
   let firstIteration = true;
@@ -53,19 +54,21 @@ export const parseTwitterStep = async (db: SqliteDb, cursor?: number): Promise<v
         .filter((r) => r.status === "rejected")
         .map((r) => String((r as PromiseRejectedResult).reason));
 
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "twitter",
         status: failures.length ? "FAILED" : "SUCCESS",
-        inputs: failures.length ? { cursor: curOffset, errors: failures } : { cursor: curOffset },
+        inputs: { cursor: curOffset },
+        error: failures.length ? JSON.stringify(failures) : undefined,
         step: "parse",
-      }, db);
+      }, syncTaskId), db);
     } catch (e) {
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "twitter",
         status: "FAILED",
-        inputs: { cursor: curOffset, error: String(e) },
+        inputs: { cursor: curOffset },
+        error: String(e),
         step: "parse",
-      }, db);
+      }, syncTaskId), db);
     }
 
     if (cursor !== undefined) break;

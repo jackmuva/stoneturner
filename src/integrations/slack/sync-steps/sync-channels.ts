@@ -4,6 +4,7 @@ import {
   slackApiFetch,
 } from "./slack-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertSlackChannel, getSlackTeams as getSlackTeamsFromDb } from "../db/queries";
@@ -13,7 +14,7 @@ import type { SlackConversationsListResponse } from "../models/models";
 
 export type SlackChannelsCursor = { teamId: string; cursor?: string };
 
-export const syncChannels = async (db: SqliteDb, cursor?: SlackChannelsCursor) => {
+export const syncChannels = async (db: SqliteDb, cursor?: SlackChannelsCursor, syncTaskId?: string) => {
   let offset = 0;
   let teams: SlackTeamSelect[] = await getSlackTeamsFromDb(offset, db);
 
@@ -29,6 +30,7 @@ export const syncChannels = async (db: SqliteDb, cursor?: SlackChannelsCursor) =
           db,
           cursor?.teamId === team.id ? cursor.cursor : undefined,
           Boolean(cursor),
+          syncTaskId,
         )
       )
     ));
@@ -45,6 +47,7 @@ const upsertChannelsForTeam = async (
   db: SqliteDb,
   startCursor?: string,
   singleIteration = false,
+  syncTaskId?: string,
 ): Promise<void> => {
   let nextCursor: string | undefined = startCursor;
 
@@ -77,31 +80,32 @@ const upsertChannelsForTeam = async (
 
       const apiNextCursor = response.response_metadata?.next_cursor || undefined;
       if (!apiNextCursor) {
-        await upsertSyncTask({
+        await upsertSyncTask(withSyncTaskId({
           integration: "slack",
           status: "SUCCESS",
           step: "slack-sync-channels",
-          inputs: JSON.stringify({ teamId: team.id, channelCount: channels.length }),
-        }, db);
+          inputs: JSON.stringify({ teamId: team.id }),
+        }, syncTaskId), db);
         return;
       }
 
       nextCursor = apiNextCursor;
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "slack",
         status: "SUCCESS",
         step: "slack-sync-channels",
         inputs: JSON.stringify({ teamId: team.id, cursor: nextCursor }),
-      }, db);
+      }, syncTaskId), db);
 
       if (singleIteration) return;
     } catch (e) {
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "slack",
         status: "FAILED",
         step: "slack-sync-channels",
-        inputs: JSON.stringify({ teamId: team.id, cursor: nextCursor, error: String(e) }),
-      }, db);
+        inputs: JSON.stringify({ teamId: team.id, cursor: nextCursor }),
+        error: String(e),
+      }, syncTaskId), db);
       return;
     }
   }

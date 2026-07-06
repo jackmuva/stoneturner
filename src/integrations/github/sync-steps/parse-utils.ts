@@ -1,4 +1,5 @@
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { SqliteDb } from "@/core/models/db-models";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
@@ -25,6 +26,7 @@ export const parseTable = async <T extends Artifactable>(
   getDate: (row: T) => string | null,
   db: SqliteDb,
   offset?: number,
+  syncTaskId?: string,
 ) => {
   let curOffset = offset ?? 0;
   let rows = await getRows(curOffset);
@@ -36,21 +38,23 @@ export const parseTable = async <T extends Artifactable>(
       );
       const failures = results.filter((r) => r.status === "rejected").map((r) => String((r as PromiseRejectedResult).reason));
       const nextCursor = { offset: curOffset + PAGE_SIZE };
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "github",
         status: failures.length ? "FAILED" : "SUCCESS",
         step: PARSE_STEP,
         inputs: failures.length
-          ? { stepLabel, cursor: { offset: curOffset }, errors: failures }
+          ? { stepLabel, cursor: { offset: curOffset } }
           : { stepLabel, cursor: nextCursor },
-      }, db);
+        error: failures.length ? JSON.stringify(failures) : undefined,
+      }, syncTaskId), db);
     } catch (e) {
-      await upsertSyncTask({
+      await upsertSyncTask(withSyncTaskId({
         integration: "github",
         status: "FAILED",
         step: PARSE_STEP,
-        inputs: { stepLabel, cursor: { offset: curOffset }, error: String(e) },
-      }, db);
+        inputs: { stepLabel, cursor: { offset: curOffset } },
+        error: String(e),
+      }, syncTaskId), db);
     }
     if (offset !== undefined) break;
     curOffset += PAGE_SIZE;

@@ -1,4 +1,5 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { GithubRepoRef, GithubTreeResponse } from "../models/models";
 import { githubFetch, githubFetchJson, getConfiguredBranch, getConfiguredRepos, getDefaultBranch, getGithubToken, reposFromCursor, repoKey, type GithubCodeCursor } from "./github-utils";
@@ -33,7 +34,7 @@ const isExcluded = (path: string): boolean => {
 
 const isIncluded = (path: string): boolean => INCLUDE_EXTENSIONS.some((ext) => path.toLowerCase().endsWith(ext));
 
-export const syncGithubCodeStep = async (_incremental: boolean = false, db: SqliteDb, cursor?: GithubCodeCursor) => {
+export const syncGithubCodeStep = async (_incremental: boolean = false, db: SqliteDb, cursor?: GithubCodeCursor, syncTaskId?: string) => {
   let token: string;
   let repos: GithubRepoRef[];
   let configuredBranch: string | undefined;
@@ -42,7 +43,7 @@ export const syncGithubCodeStep = async (_incremental: boolean = false, db: Sqli
     repos = reposFromCursor(await getConfiguredRepos(db), cursor?.repo);
     configuredBranch = await getConfiguredBranch(db);
   } catch (e) {
-    await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { error: String(e) } }, db);
+    await upsertSyncTask(withSyncTaskId({ integration: "github", status: "FAILED", step: STEP, error: String(e) }, syncTaskId), db);
     return;
   }
 
@@ -56,7 +57,13 @@ export const syncGithubCodeStep = async (_incremental: boolean = false, db: Sqli
       );
 
       if (tree.truncated) {
-        await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { repo: key, note: "tree truncated — repo too large to fully enumerate" } }, db);
+        await upsertSyncTask(withSyncTaskId({
+          integration: "github",
+          status: "FAILED",
+          step: STEP,
+          inputs: { repo: key },
+          error: "tree truncated — repo too large to fully enumerate",
+        }, syncTaskId), db);
       }
 
       const blobs = tree.tree.filter((entry) =>
@@ -95,33 +102,35 @@ export const syncGithubCodeStep = async (_incremental: boolean = false, db: Sqli
 
           const nextOffset = i + PAGE_SIZE;
           const nextCursor: GithubCodeCursor | null = nextOffset < blobs.length ? { repo: key, offset: nextOffset } : null;
-          await upsertSyncTask({
+          await upsertSyncTask(withSyncTaskId({
             integration: "github",
             status: failures.length ? "FAILED" : "SUCCESS",
             step: STEP,
             inputs: failures.length
-              ? { repo: key, count: rows.length, cursor: { repo: key, offset: i }, errors: failures }
+              ? { repo: key, cursor: { repo: key, offset: i } }
               : nextCursor
-                ? { repo: key, count: rows.length, cursor: nextCursor }
-                : { repo: key, count: rows.length },
-          }, db);
+                ? { repo: key, cursor: nextCursor }
+                : { repo: key },
+            error: failures.length ? JSON.stringify(failures) : undefined,
+          }, syncTaskId), db);
           if (cursor) break;
         } catch (e) {
-          await upsertSyncTask({
+          await upsertSyncTask(withSyncTaskId({
             integration: "github",
             status: "FAILED",
             step: STEP,
-            inputs: { repo: key, cursor: { repo: key, offset: i }, error: String(e) },
-          }, db);
+            inputs: { repo: key, cursor: { repo: key, offset: i } },
+            error: String(e),
+          }, syncTaskId), db);
           break;
         }
       }
 
       if (!cursor) {
-        await upsertSyncTask({ integration: "github", status: "SUCCESS", step: STEP, inputs: { repo: key, branch, totalSynced: synced } }, db);
+        await upsertSyncTask(withSyncTaskId({ integration: "github", status: "SUCCESS", step: STEP, inputs: { repo: key } }, syncTaskId), db);
       }
     } catch (e) {
-      await upsertSyncTask({ integration: "github", status: "FAILED", step: STEP, inputs: { repo: key, error: String(e) } }, db);
+      await upsertSyncTask(withSyncTaskId({ integration: "github", status: "FAILED", step: STEP, inputs: { repo: key }, error: String(e) }, syncTaskId), db);
     }
     if (cursor) break;
   }

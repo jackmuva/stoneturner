@@ -1,4 +1,5 @@
 import { getIntegrationCredentialByIntegration, upsertIntegrationCredential, upsertSyncTask } from "@/core/db/queries/queries";
+import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import type { SqliteDb } from "@/core/models/db-models";
 import Bottleneck from "bottleneck";
@@ -65,7 +66,7 @@ const persistSpotifyToken = async (
   }, db);
 };
 
-export const handleSpotifyRefresh = async (db: SqliteDb): Promise<void> => {
+export const handleSpotifyRefresh = async (db: SqliteDb, syncTaskId?: string): Promise<void> => {
   const cred = await getSpotifyCredentials(db);
   if (!cred?.refreshToken) return;
 
@@ -75,12 +76,12 @@ export const handleSpotifyRefresh = async (db: SqliteDb): Promise<void> => {
   }));
 
   if (!token) {
-    await upsertSyncTask({
+    await upsertSyncTask(withSyncTaskId({
       integration: "spotify",
       status: "FAILED",
       step: "spotify-token-revalidation",
-      inputs: { error: "refresh failed" },
-    }, db);
+      error: "refresh failed",
+    }, syncTaskId), db);
     return;
   }
 

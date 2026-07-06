@@ -24,9 +24,9 @@ const renderSourceFile = (row: GithubSourceFileSelect): string => {
   return `# File: ${path}\n\n\`\`\`${lang}\n${row.content ?? ""}\n\`\`\``;
 };
 
-export const parseGithubCodeStep = async (db: SqliteDb, offset?: number) => {
+export const parseGithubCodeStep = async (db: SqliteDb, offset?: number, syncTaskId?: string) => {
   await parseTable("github-parse-code", (o) => getGithubSourceFiles(o, db),
-    renderSourceFile, () => null, db, offset,);
+    renderSourceFile, () => null, db, offset, syncTaskId);
 };
 
 const renderDiscussion = (row: GithubDiscussionSelect): string => {
@@ -39,8 +39,8 @@ const renderDiscussion = (row: GithubDiscussionSelect): string => {
 ${row.body ?? ""}${renderComments(row.comments)}`;
 };
 
-export const parseGithubDiscussionsStep = async (db: SqliteDb, offset?: number) => {
-  await parseTable("github-parse-discussions", (o) => getGithubDiscussions(o, db), renderDiscussion, (r) => r.createdAt, db, offset,);
+export const parseGithubDiscussionsStep = async (db: SqliteDb, offset?: number, syncTaskId?: string) => {
+  await parseTable("github-parse-discussions", (o) => getGithubDiscussions(o, db), renderDiscussion, (r) => r.createdAt, db, offset, syncTaskId);
 };
 
 const renderDoc = (row: GithubDocSelect): string => {
@@ -49,10 +49,9 @@ const renderDoc = (row: GithubDocSelect): string => {
 ${row.content ?? ""}`;
 };
 
-export const parseGithubDocsStep = async (db: SqliteDb, offset?: number) => {
+export const parseGithubDocsStep = async (db: SqliteDb, offset?: number, syncTaskId?: string) => {
   await parseTable("github-parse-docs", (o) => getGithubDocs(o, db),
-    renderDoc, () => null, db, offset,
-  );
+    renderDoc, () => null, db, offset, syncTaskId);
 };
 
 const renderIssue = (row: GithubIssueSelect): string => {
@@ -67,9 +66,9 @@ const renderIssue = (row: GithubIssueSelect): string => {
 ${row.body ?? ""}${renderComments(row.comments)}`;
 };
 
-export const parseGithubIssuesStep = async (db: SqliteDb, offset?: number) => {
-  await parseTable( "github-parse-issues", (o) => getGithubIssues(o, db), renderIssue,
-    (r) => r.updatedAt ?? r.createdAt, db, offset,);
+export const parseGithubIssuesStep = async (db: SqliteDb, offset?: number, syncTaskId?: string) => {
+  await parseTable("github-parse-issues", (o) => getGithubIssues(o, db), renderIssue,
+    (r) => r.updatedAt ?? r.createdAt, db, offset, syncTaskId);
 };
 
 const renderPullFiles = (files: StoredPullFile[] | null): string => {
@@ -99,7 +98,7 @@ const renderPull = (row: GithubPullSelect): string => {
 ${row.body ?? ""}${renderPullFiles(row.files)}${renderReviewComments(row.reviewComments)}`;
 };
 
-export const parseGithubPullsStep = async (db: SqliteDb, offset?: number) => {
-  await parseTable( "github-parse-pulls", (o) => getGithubPulls(o, db), renderPull,
-    (r) => r.updatedAt ?? r.createdAt, db, offset,);
+export const parseGithubPullsStep = async (db: SqliteDb, offset?: number, syncTaskId?: string) => {
+  await parseTable("github-parse-pulls", (o) => getGithubPulls(o, db), renderPull,
+    (r) => r.updatedAt ?? r.createdAt, db, offset, syncTaskId);
 };

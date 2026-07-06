@@ -6,7 +6,7 @@ import {
 } from "@/core/db/queries/queries";
 import type { McpToolResult } from "@/core/models/mcp-models";
 import type { SqliteDb } from "@/core/models/db-models";
-import { supportedIntegrations } from "@/integrations/sync-registry";
+import { supportedIntegrations } from "@/integrations/integration-registry";
 import { textResult } from "@/lib/utils";
 
 export const getIntegrationSourcesSchema = z.object({});

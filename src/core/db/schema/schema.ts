@@ -1,5 +1,5 @@
 import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
-import { index, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const integrationCredential = sqliteTable("integrationCredential", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -24,7 +24,9 @@ export const syncTask = sqliteTable("syncTask", {
   updateDate: text("updateDate").notNull().$defaultFn(() => (new Date()).toISOString()),
   status: text("status").$type<"SUCCESS" | "FAILED" | "PENDING">(),
   inputs: text("inputs", { mode: "json" }),
+  error: text("error"),
   step: text("step"),
+  retries: integer("retries").notNull().$defaultFn(() => 0),
 },);
 
 export type SyncTaskSelect = InferSelectModel<typeof syncTask>;
