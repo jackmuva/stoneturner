@@ -18,7 +18,7 @@ Discord integrations.
 
 - `references/integration-specs.md` — how to write an integration spec (the input document for this skill). Includes a template, section guide, and example specs in `references/integration-spec-examples/`.
 - `references/anatomy.md` — the two core types, the folder layout, and the registries.
-- `references/sync-pipeline.md` — how to write sync / parse / index steps, including rate limiting, retries, sync-task logging, and the markdown-artifact contract.
+- `references/sync-pipeline.md` — how to write sync / parse / index steps, including rate limiting, retries, sync-task logging, the step registry, and the markdown-artifact contract.
 - `references/auth.md` — `BASIC_TOKEN`, `API_KEY`, and `OAUTH` credential patterns (including `handleRedirect` and `refreshAccessTokens`).
 - `references/checklist.md` — a copy-pasteable end-to-end checklist plus the commands to run.
 
@@ -78,6 +78,7 @@ Plaud) as references for depth and format.
 src/integrations/<name>/
   config.ts                 # exports IntegrationConfig
   integration.ts            # exports Integration (pipeline + hooks)
+  <name>Steps.ts            # exports IntegrationSteps for failed-task retries
   db/
     schema.ts               # drizzle tables for the raw source data
     queries.ts              # typed insert/select/delete helpers
@@ -114,6 +115,10 @@ register the schema path in `drizzle.config.ts`. See `references/anatomy.md`.
 - Accept an optional `cursor` trailing arg on paginated sync steps so a failed
   sync can resume where it left off; persist the cursor in each page's
   `syncTask.inputs` (see `src/integrations/notion/sync-steps/sync-notion-pages.ts`).
+- Accept an optional `syncTaskId` trailing arg; pass it to `withSyncTaskId(...)`
+  on every `upsertSyncTask` call so retries update the same row.
+- When a cursor is passed in (retry mode), process one page/batch and stop —
+  do not loop to completion.
 - Record a `syncTask` row (SUCCESS/FAILED) at each step.
 - The parse step upserts `mdArtifact` rows — that is the contract the shared
   vector step consumes.
@@ -130,9 +135,12 @@ tables. Add `handleRedirect(req, db)` / `refreshAccessTokens(db)` only for OAuth
 ### 6. Register it
 
 Add the config to `src/integrations/config-registry.ts` and the integration to
-`src/integrations/sync-registry.ts`. Routes in `src/index.ts` dispatch by
-matching the `:integration` path param against `config.integration`
-(case-insensitive) — no route changes needed.
+`src/integrations/integration-registry.ts`. Export a `<name>Steps: IntegrationSteps`
+object mapping each `syncTask.step` string to a retryable function, and register
+it in `src/integrations/step-registry.ts`. See `references/anatomy.md` → "Step
+registry". Routes in `src/index.ts` dispatch by matching the `:integration`
+path param against `config.integration` (case-insensitive) — no route changes
+needed.
 
 ### 7. Migrate and test
 

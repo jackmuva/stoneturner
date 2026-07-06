@@ -14,8 +14,9 @@ everywhere".
 - [ ] `src/integrations/<name>/models/models.ts` — types for the external API JSON.
 - [ ] `src/integrations/<name>/db/schema.ts` — drizzle tables (unique business key per row) + `InferInsert/SelectModel` exports.
 - [ ] `src/integrations/<name>/db/queries.ts` — `batchInsert*` (with `onConflictDoUpdate`), `get*`, `getLatest*`/`getMostRecent*` (for incremental), and a `delete*Data` that purges your tables. Each takes `db: SqliteDb`.
-- [ ] `src/integrations/<name>/sync-steps/sync-*-step.ts` — fetch + insert; paginated; `retry()`-wrapped; logs `syncTask` with cursor in `inputs`. Signature `(incremental, db, cursor?)` (typed object when pagination is multi-dimensional).
-- [ ] `src/integrations/<name>/sync-steps/parse-step.ts` — raw rows → `upsertMdArtifact`; LLM via `aiGatewayBottleneck.schedule(...)`. Signature `(db, offset?)`.
+- [ ] `src/integrations/<name>/sync-steps/sync-*-step.ts` — fetch + insert; paginated; `retry()`-wrapped; logs `syncTask` with cursor in `inputs`; uses `withSyncTaskId`. Signature `(incremental, db, cursor?, syncTaskId?)` (typed object when pagination is multi-dimensional).
+- [ ] `src/integrations/<name>/sync-steps/parse-step.ts` — raw rows → `upsertMdArtifact`; LLM via `aiGatewayBottleneck.schedule(...)`; uses `withSyncTaskId`. Signature `(db, offset?, syncTaskId?)`.
+- [ ] `src/integrations/<name>/<name>Steps.ts` — `IntegrationSteps` mapping each `syncTask.step` to a retryable function.
 - [ ] `src/integrations/<name>/integration.ts` — `syncPipeline(incremental, db)` + the `Integration` object (incl. `deleteSync(db)`).
 - [ ] OAuth only: `handleRedirect(req, db)` + `refreshAccessTokens(db)` (see `auth.md`).
 
@@ -23,7 +24,8 @@ everywhere".
 
 - [ ] `drizzle.config.ts` — add `'./src/integrations/<name>/db/schema.ts'` to `schema`.
 - [ ] `src/integrations/config-registry.ts` — add `<name>Config` to `configRegistry`.
-- [ ] `src/integrations/sync-registry.ts` — add `<name>Integration` to `supportedIntegrations`.
+- [ ] `src/integrations/integration-registry.ts` — add `<name>Integration` to `supportedIntegrations`.
+- [ ] `src/integrations/step-registry.ts` — add `<name>Steps` to `stepRegistry`.
 - [ ] `.env` — add any OAuth/secret vars (e.g. `BUN_PUBLIC_<NAME>_CLIENT_ID`, `<NAME>_CLIENT_SECRET`).
 - [ ] Add the icon at `src/assets/<name>.png` to match `config.icon`.
 
@@ -63,6 +65,9 @@ of `stoneturner.db`.
    retrievable (optionally filter by `integration: "<name>"`).
 7. Test teardown: `curl -X DELETE http://localhost:9000/api/sync/<name>` and
    confirm all four data classes are gone.
+8. Test retries: force a FAILED `syncTask` (or wait for one), then click
+   "Retry failed tasks" in the UI or `POST /api/syncTasks/retry`. Confirm the
+   task re-runs from its saved cursor/offset and `retries` increments.
 
 ## Common gotchas
 
@@ -75,5 +80,8 @@ of `stoneturner.db`.
 - Don't `import { db } from "@/core/db/db"` in integration code — accept
   `db: SqliteDb` as a parameter and thread it through.
 - Every AI Gateway call (embeddings + LLM) must go through `aiGatewayBottleneck`.
+- Paginated steps must stop after one page when a cursor is passed (retry mode).
+- Register every `syncTask.step` string in `<name>Steps.ts` and `step-registry.ts` so failed tasks can be retried.
+- Use `withSyncTaskId` on every `upsertSyncTask` so retries update the same row.
 - Give each artifact a stable `integrationArtifactId` so re-syncs upsert instead
   of duplicating, and so the parse step's unchanged-markdown skip works.

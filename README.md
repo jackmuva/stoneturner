@@ -18,7 +18,18 @@ The sync pipeline for each integration follows this pattern:
 sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector (embed + upsert)
 ```
 
-All network and LLM calls are wrapped in retry logic with quadratic backoff. Syncs are fire-and-forget from the HTTP handler.
+Network and LLM calls are wrapped in `retry()` with escalating backoff (1s → 10s → 30s → 60s). Failed sync steps are retried separately via the step registry — up to 3 times — using the cursor/offset stored in the failed `syncTask.inputs`. Syncs are fire-and-forget from the HTTP handler.
+
+### Failed-task retries
+
+Each integration registers its pipeline steps in `src/integrations/step-registry.ts` (e.g. `gong-sync-call`, `parse`, `index-vector`). When a step fails, its `syncTask` row records the step name, cursor/offset in `inputs`, and a `retries` count.
+
+Failed tasks can be retried two ways:
+
+- **Web UI** — "Retry failed tasks" on the Sync Monitoring page (`POST /api/syncTasks/retry`)
+- **Cron** — daily at midnight (`Bun.cron`), disabled when `CRON_ENABLED=false`
+
+`retryFailedTasks` (`src/core/services/retry-cron.ts`) looks up the step function via `getStepFn(integration, step)`, re-runs it with the saved `inputs` and `syncTaskId` (so the same row is updated), and increments `retries`. Tasks with `retries >= 3` or an unregistered step are skipped.
 
 ## MCP tools
 
@@ -100,8 +111,9 @@ src/
     models/          # Shared type definitions
     services/        # Embedding, vector indexing, MCP server, tools
   integrations/
-    config-registry.ts   # Frontend UI config for all integrations
-    sync-registry.ts     # Sync dispatch for all integrations
+    config-registry.ts       # Frontend UI config for all integrations
+    integration-registry.ts  # Sync dispatch for all integrations
+    step-registry.ts         # Step name → function mapping for failed-task retries
     gong/                 # Gong integration
       config.ts           # IntegrationConfig definition
       integration.ts      # Integration object (sync pipeline, delete)
@@ -130,6 +142,7 @@ Stoneturner is designed to make adding integrations straightforward. Each integr
 src/integrations/my-integration/
   config.ts
   integration.ts
+  myIntegrationSteps.ts   # step name → retryable step function
   db/
     schema.ts
     queries.ts
@@ -221,7 +234,7 @@ export const configRegistry: IntegrationConfig[] = [
 ];
 ```
 
-Add your integration to `src/integrations/sync-registry.ts`:
+Add your integration to `src/integrations/integration-registry.ts`:
 
 ```ts
 import { myIntegration } from "./my-integration/integration";
@@ -231,6 +244,29 @@ export const supportedIntegrations: Integration[] = [
   myIntegration,    // add yours
 ];
 ```
+
+### 7. Register steps for retries
+
+Export a `<name>Steps` object mapping each `syncTask.step` string to a retryable function, then add it to `src/integrations/step-registry.ts`:
+
+```ts
+// my-integration/myIntegrationSteps.ts
+import type { IntegrationSteps } from "@/core/models/models";
+import { resumeOffset, resumeStringCursor } from "@/core/services/retry-cron";
+import { syncMyDataStep } from "./sync-steps/sync-data-step";
+import { parseMyStep } from "./sync-steps/parse-step";
+import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
+
+export const myIntegrationSteps: IntegrationSteps = {
+  "my-sync-data": (db, inputs, syncTaskId) =>
+    syncMyDataStep(false, db, resumeStringCursor(inputs), syncTaskId),
+  "parse": (db, inputs, syncTaskId) => parseMyStep(db, resumeOffset(inputs), syncTaskId),
+  "index-vector": (db, inputs, syncTaskId) =>
+    indexVectorDbStep("MyIntegration", true, db, resumeOffset(inputs), syncTaskId),
+};
+```
+
+Each sync/parse step must accept an optional `syncTaskId` trailing arg and pass it to `withSyncTaskId(...)` when calling `upsertSyncTask`, so retries update the same row. Paginated steps must persist the cursor in `syncTask.inputs` and, when a cursor is passed in (retry mode), process one page/batch and stop.
 
 ## License
 

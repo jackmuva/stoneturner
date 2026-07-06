@@ -19,7 +19,7 @@ Stoneturner is a data sync & search layer for agents: it syncs external integrat
 
 - `src/index.ts` — single `Bun.serve()` with all routes + HMR in dev, port 9000.
 - `@/*` alias → `src/*`.
-- `src/core/` — shared plumbing; `src/integrations/<name>/` — one folder per integration (gong, discord, notion, plaud, firecrawl, github).
+- `src/core/` — shared plumbing; `src/integrations/<name>/` — one folder per integration (gong, discord, notion, plaud, firecrawl, github, slack, spotify, twitter).
 - Bun-first: `Bun.serve()`, `Bun.file`, `bunx`. No express/vite/webpack. Exception: database is Turso/libSQL via Drizzle (`@tursodatabase/database`), not `bun:sqlite`.
 
 ### Adding an integration
@@ -29,7 +29,9 @@ Create `src/integrations/<name>/` with `config.ts`, `integration.ts`, `db/`, `mo
 - `sync()` — full sync, `syncUpdates()` — incremental sync (both usually call one pipeline fn with an `incremental` flag), `deleteSync()` — purge syncTasks + artifacts + embeddings + integration tables.
 - optional `handleRedirect(req)` — OAuth callback, `refreshAccessTokens()`.
 
-Then register in `src/integrations/sync-registry.ts` (sync dispatch), `src/integrations/config-registry.ts` (frontend UI), and add the integration's `db/schema.ts` to the `schema` array in `drizzle.config.ts` so migrations pick it up. Routes in `src/index.ts` dispatch by matching the `:integration` path param against `config.integration` (case-insensitive): `POST /api/sync/:integration` → `sync()`, `DELETE` → `deleteSync()`, `POST /api/sync/updates/:integration` → `syncUpdates()`, `GET /api/oauth/:integration` → `handleRedirect()`.
+Then register in `src/integrations/integration-registry.ts` (sync dispatch), `src/integrations/config-registry.ts` (frontend UI), `src/integrations/step-registry.ts` (failed-task retry dispatch), and add the integration's `db/schema.ts` to the `schema` array in `drizzle.config.ts` so migrations pick it up. Routes in `src/index.ts` dispatch by matching the `:integration` path param against `config.integration` (case-insensitive): `POST /api/sync/:integration` → `sync()`, `DELETE` → `deleteSync()`, `POST /api/sync/updates/:integration` → `syncUpdates()`, `GET /api/oauth/:integration` → `handleRedirect()`.
+
+Each integration also exports a `<name>Steps: IntegrationSteps` object (e.g. `gongSteps.ts`) mapping `syncTask.step` strings to `(db, inputs?, syncTaskId?) => ...` functions. Register it in `step-registry.ts` so `retryFailedTasks` can re-run failed steps.
 
 There is a `build-stoneturner-integration` skill (`skills/`) that scaffolds a new integration end-to-end; `integration-specs/` holds per-integration spec docs (e.g. `firecrawl-spec.md`, `github-spec.md`, `plaud-spec.md`) used as input when building one.
 
@@ -39,12 +41,28 @@ There is a `build-stoneturner-integration` skill (`skills/`) that scaffolds a ne
 sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector (embed + upsert)
 ```
 
-e.g. Gong: `sync-calls + sync-transcripts (parallel) → parse → index-vector`. GitHub: `sync-issues + sync-pulls + sync-docs + sync-discussions + sync-code (parallel) → parse → index-vector`. Fire-and-forget from the HTTP handler (no `await`). Each step writes `syncTask` rows.
+e.g. Gong: `sync-calls + sync-transcripts (parallel) → parse → index-vector`. GitHub: `sync-issues + sync-pulls + sync-docs + sync-discussions + sync-code (parallel) → parse → index-vector`. Fire-and-forget from the HTTP handler (no `await`). Each step writes `syncTask` rows with the step name, status, cursor/offset in `inputs`, and a `retries` counter.
+
+### Step registry
+
+`src/integrations/step-registry.ts` maps `(integration, step)` → retryable step function via `getStepFn`. Each integration's `<name>Steps.ts` exports an `IntegrationSteps` object whose keys must exactly match the `step` field written by that integration's sync/parse/index steps. The function signature is `IntegrationStepFn = (db, inputs?, syncTaskId?) => Promise<void> | void`.
+
+Resume helpers in `src/core/services/retry-cron.ts` extract position from failed `syncTask.inputs`:
+
+- `withSyncTaskId(task, syncTaskId?)` — reuse the same `syncTask` row on retry
+- `resumeCursor` / `resumeOffset` / `resumeStringCursor` — extract cursor or offset from `inputs`
+- `asInputs(inputs?)` — safely cast `inputs` to a record
+
+Paginated steps accept an optional cursor/offset and an optional `syncTaskId`. When a cursor is provided (retry mode), the step processes one page/batch and returns — it does not loop to completion.
 
 ### Rate limiting & retries
 
-- Network/LLM calls are wrapped in `retry()` (quadratic backoff, `src/lib/utils.ts`).
-- All Vercel AI Gateway calls (embeddings + LLM parsing) are throttled through a shared `bottleneck` limiter `aiGatewayBottleneck` (`src/core/services/rate-limiter.ts`, `maxConcurrent: 5`, `minTime: 200`). Schedule gateway work with `aiGatewayBottleneck.schedule(() => ...)` rather than firing concurrently — this is the pattern the sync steps use to avoid rate-limit errors.
+Two layers:
+
+1. **In-call `retry()`** (`src/lib/utils.ts`) — wraps individual network/LLM calls. Default timeouts: 1s, 10s, 30s, 60s between attempts; re-throws on exhaustion.
+2. **Failed-task retries** (`src/core/services/retry-cron.ts`) — `retryFailedTasks(db)` re-runs FAILED `syncTask` rows via the step registry. A task is retriable when it has a `step`, `retries < 3`, and the step is registered. Triggered by `POST /api/syncTasks/retry` (web UI button) and a daily `Bun.cron` job (set `CRON_ENABLED=false` to disable). On retry, the step is called with `(db, task.inputs, task.id)` and `retries` is incremented.
+
+All Vercel AI Gateway calls (embeddings + LLM parsing) are throttled through a shared `bottleneck` limiter `aiGatewayBottleneck` (`src/core/services/rate-limiter.ts`, `maxConcurrent: 5`, `minTime: 200`). Schedule gateway work with `aiGatewayBottleneck.schedule(() => ...)` rather than firing concurrently — this is the pattern the sync steps use to avoid rate-limit errors.
 
 ## Models
 
