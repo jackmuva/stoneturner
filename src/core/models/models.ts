@@ -29,6 +29,6 @@ export type Integration = {
   refreshAccessTokens?: (db: SqliteDb) => Promise<void> | void,
 }
 
-export type IntegrationStepFn = (db: SqliteDb, inputs?: unknown, syncTaskId?: string) => Promise<void> | void;
+export type IntegrationStepFn = (incremental: boolean, db: SqliteDb, inputs?: any, syncTaskId?: string) => Promise<void> | void;
 export type IntegrationSteps = { [step: string]: IntegrationStepFn };
 export type StepMapping = { [integration: string]: IntegrationSteps };

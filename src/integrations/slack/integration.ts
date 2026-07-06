@@ -1,5 +1,4 @@
 import type { Integration } from "@/core/models/models";
-import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { slackConfig } from "./config";
@@ -11,14 +10,15 @@ import { syncThreadReplies } from "./sync-steps/sync-thread-replies";
 import { parseSlackMessages } from "./sync-steps/parse-message-threads";
 import { deleteAllSlackData } from "./db/queries";
 import type { SqliteDb } from "@/core/models/db-models";
+import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
 
 export const syncSlackPipeline = async (incremental: boolean = true, db: SqliteDb) => {
-  await syncChannels(db);
-  await syncUsers(db);
+  await syncChannels(incremental, db);
+  await syncUsers(incremental, db);
   await syncMessages(incremental, db);
   await syncThreadReplies(incremental, db);
   await parseSlackMessages(incremental, db);
-  await indexVectorDbStep("slack", incremental, db);
+  await indexVectorDbStep(incremental, db, { integration: "slack" });
 };
 
 export const slackIntegration: Integration = {

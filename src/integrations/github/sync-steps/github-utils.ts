@@ -55,6 +55,13 @@ export type GithubPaginatedCursor = { repo: string; url: string };
 export type GithubDiscussionsCursor = { repo: string; cursor: string | null };
 export type GithubCodeCursor = { repo: string; offset: number };
 export type GithubDocsCursor = { repo: string; pathIndex: number };
+
+export type GithubPaginatedSyncInputs = { repo?: string; cursor?: GithubPaginatedCursor };
+export type GithubDocsSyncInputs = { repo?: string; path?: string; cursor?: GithubDocsCursor };
+export type GithubCodeSyncInputs = { repo?: string; cursor?: GithubCodeCursor };
+export type GithubDiscussionsSyncInputs = { repo?: string; cursor?: GithubDiscussionsCursor };
+export type GithubParseInputs = { stepLabel: string; offset?: number };
+export type GithubParseTableInputs = { offset?: number };
 // When resuming, only process repos at or after the cursor repo.
 export const reposFromCursor = (repos: GithubRepoRef[], cursorRepo?: string): GithubRepoRef[] => {
   if (!cursorRepo) return repos;

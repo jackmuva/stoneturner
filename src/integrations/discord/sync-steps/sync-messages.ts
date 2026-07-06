@@ -4,20 +4,24 @@ import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertDiscordMessage, getDiscordChannels, getLastMessageByChannelId } from "../db/queries";
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { DiscordChannelSelect } from "../db/schema";
 import type { SqliteDb } from "@/core/models/db-models";
 
 const MAX_MESSAGES = 100;
 
-export const syncMessages = async (incremental: boolean = true, db: SqliteDb, cursor?: { channelId: string, lastMessageId: string }, syncTaskId?: string) => {
+export type DiscordSyncMessagesInputs = { channelId: string; cursor?: string };
+
+export const syncMessages = async (incremental: boolean = true, db: SqliteDb, inputs?: DiscordSyncMessagesInputs, syncTaskId?: string) => {
+  const channelId = inputs?.channelId;
+  const lastMessageId = inputs?.cursor;
+  const resumeCursor = channelId && lastMessageId ? { channelId, lastMessageId } : undefined;
   let offset = 0;
   while (true) {
     const channels = await getDiscordChannels(offset, db);
     if (channels.length === 0) break;
-    const workerQueue = cursor ? channels.filter((channel) => channel.id === cursor.channelId) : channels;
+    const workerQueue = resumeCursor ? channels.filter((channel) => channel.id === resumeCursor.channelId) : channels;
     await Promise.all(workerQueue.map((channel) =>
-      discordApiBottleneck.schedule(() => upsertMessages(channel, incremental, db, cursor?.lastMessageId, syncTaskId))
+      discordApiBottleneck.schedule(() => upsertMessages(channel, incremental, db, resumeCursor?.lastMessageId, syncTaskId))
     ));
     if (channels.length < PAGE_SIZE) break;
     offset += PAGE_SIZE;
@@ -80,24 +84,26 @@ const upsertMessages = async (channel: DiscordChannelSelect, incremental: boolea
       }
     }), db);
 
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "discord",
       status: "SUCCESS",
       step: "discord-sync-channel",
-      inputs: JSON.stringify({ channelId: channel.id, cursor: lastMessageId }),
-    }, syncTaskId), db);
+      inputs: { channelId: channel.id, cursor: lastMessageId },
+    }, db);
 
     if (messages.length === MAX_MESSAGES) {
       await upsertMessages(channel, incremental, db, messages.at(-1)!.id, syncTaskId);
     }
   } catch (e) {
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "discord",
       status: "FAILED",
       step: "discord-sync-channel",
-      inputs: JSON.stringify({ channelId: channel.id, cursor: lastMessageId }),
+      inputs: { channelId: channel.id, cursor: lastMessageId },
       error: String(e),
-    }, syncTaskId), db);
+    }, db);
     return;
   }
 }

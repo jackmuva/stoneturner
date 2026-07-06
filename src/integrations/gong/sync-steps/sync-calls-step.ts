@@ -1,5 +1,4 @@
 import { getIntegrationCredentialByIntegration, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import { retry } from "@/lib/utils";
 import { batchInsertGongCall, getLatestGongCall } from "../db/queries";
@@ -7,7 +6,10 @@ import type { GongCallResponse } from "../models/models";
 import type { GongCallInsert } from "../db/schema";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncGongCallsStep = async (incremental: boolean = false, db: SqliteDb, cursor?: string, syncTaskId?: string) => {
+export type GongSyncCallsInputs = { cursor?: string | null };
+
+export const syncGongCallsStep = async (incremental: boolean = true, db: SqliteDb, inputs?: GongSyncCallsInputs, syncTaskId?: string) => {
+  const cursor = inputs?.cursor;
   let latestDate: null | string = null;
   if (incremental) {
     const latestCall = await getLatestGongCall(db);
@@ -75,22 +77,24 @@ const fetchGongCalls = async (db: SqliteDb, basicToken: string, baseUrl: string,
 
     await batchInsertGongCall(inserts, db);
 
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "Gong",
       status: "SUCCESS",
-      inputs: JSON.stringify({ cursor: curCursor }),
+      inputs: { cursor: curCursor },
       step: "gong-sync-call"
-    }, syncTaskId), db);
+    }, db);
 
     return gongResponse.records.cursor;
   } catch (e) {
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "Gong",
       status: "FAILED",
-      inputs: JSON.stringify({ cursor: curCursor }),
+      inputs: { cursor: curCursor },
       error: String(e),
       step: "gong-sync-call"
-    }, syncTaskId), db);
+    }, db);
     return null;
   }
 }

@@ -1,6 +1,6 @@
 import type { Integration } from "@/core/models/models";
 import type { SqliteDb } from "@/core/models/db-models";
-import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
+import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { githubConfig } from "./config";
@@ -22,13 +22,13 @@ export const syncGithubPipeline = async (incremental: boolean = false, db: Sqlit
     syncGithubCodeStep(incremental, db),
   ]);
   await Promise.all([
-    parseGithubIssuesStep(db),
-    parseGithubPullsStep(db),
-    parseGithubDocsStep(db),
-    parseGithubDiscussionsStep(db),
-    parseGithubCodeStep(db),
+    parseGithubIssuesStep(incremental, db),
+    parseGithubPullsStep(incremental, db),
+    parseGithubDocsStep(incremental, db),
+    parseGithubDiscussionsStep(incremental, db),
+    parseGithubCodeStep(incremental, db),
   ]);
-  await indexVectorDbStep("github", incremental, db);
+  await indexVectorDbStep(incremental, db, { integration: "github" });
 };
 
 export const githubIntegration: Integration = {

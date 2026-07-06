@@ -1,5 +1,4 @@
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import { generateText, Output } from "ai";
@@ -38,8 +37,11 @@ const renderTweetMarkdown = (row: TwitterTweetSelect): string => {
 ${row.text}`;
 };
 
-export const parseTwitterStep = async (db: SqliteDb, cursor?: number, syncTaskId?: string): Promise<void> => {
-  let curOffset = cursor ?? 0;
+export type TwitterParseInputs = { offset?: number };
+
+export const parseTwitterStep = async (_incremental: boolean = false, db: SqliteDb, inputs?: TwitterParseInputs, syncTaskId?: string): Promise<void> => {
+  const offset = inputs?.offset;
+  let curOffset = offset ?? 0;
   let rows: TwitterTweetSelect[] = [];
   let firstIteration = true;
 
@@ -54,24 +56,26 @@ export const parseTwitterStep = async (db: SqliteDb, cursor?: number, syncTaskId
         .filter((r) => r.status === "rejected")
         .map((r) => String((r as PromiseRejectedResult).reason));
 
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "twitter",
         status: failures.length ? "FAILED" : "SUCCESS",
-        inputs: { cursor: curOffset },
+        inputs: { offset: curOffset },
         error: failures.length ? JSON.stringify(failures) : undefined,
         step: "parse",
-      }, syncTaskId), db);
+      }, db);
     } catch (e) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "twitter",
         status: "FAILED",
-        inputs: { cursor: curOffset },
+        inputs: { offset: curOffset },
         error: String(e),
         step: "parse",
-      }, syncTaskId), db);
+      }, db);
     }
 
-    if (cursor !== undefined) break;
+    if (offset !== undefined) break;
     curOffset += PAGE_SIZE;
   }
 };

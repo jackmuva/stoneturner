@@ -26,7 +26,7 @@ export const syncTask = sqliteTable("syncTask", {
   inputs: text("inputs", { mode: "json" }),
   error: text("error"),
   step: text("step"),
-  retries: integer("retries").notNull().$defaultFn(() => 0),
+  retries: integer("retries").notNull().default(0),
 },);
 
 export type SyncTaskSelect = InferSelectModel<typeof syncTask>;

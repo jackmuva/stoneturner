@@ -1,6 +1,6 @@
 import type { Integration } from "@/core/models/models";
 import type { SqliteDb } from "@/core/models/db-models";
-import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
+import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { twitterConfig } from "./config";
@@ -14,8 +14,8 @@ import {
 
 export const syncTwitterPipeline = async (incremental: boolean = false, db: SqliteDb) => {
   await syncTwitterLikedTweetsStep(incremental, db);
-  await parseTwitterStep(db);
-  await indexVectorDbStep("twitter", incremental, db);
+  await parseTwitterStep(incremental, db);
+  await indexVectorDbStep(incremental, db, { integration: "twitter" });
 };
 
 export const twitterIntegration: Integration = {

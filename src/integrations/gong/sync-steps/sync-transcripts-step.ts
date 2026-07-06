@@ -1,5 +1,4 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import { batchInsertGongTranscript, getLatestGongCall } from "../db/queries";
 import type { GongTranscriptResponse } from "../models/models";
@@ -7,7 +6,10 @@ import type { GongTranscriptInsert } from "../db/schema";
 import { getCredentials } from "./sync-calls-step";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncGongTranscriptsStep = async (incremental: boolean = false, db: SqliteDb, cursor?: string, syncTaskId?: string) => {
+export type GongSyncTranscriptsInputs = { cursor?: string | null };
+
+export const syncGongTranscriptsStep = async (incremental: boolean = true, db: SqliteDb, inputs?: GongSyncTranscriptsInputs, syncTaskId?: string) => {
+  const cursor = inputs?.cursor;
   let latestDate: null | string = null;
   if (incremental) {
     const latestCall = await getLatestGongCall(db);
@@ -48,13 +50,14 @@ const fetchGongTranscripts = async (db: SqliteDb, basicToken: string, baseUrl: s
     }));
 
     if (!gongReq.ok) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "Gong",
         status: "FAILED",
-        inputs: JSON.stringify({ cursor: curCursor }),
+        inputs: { cursor: curCursor },
         error: `HTTP ${gongReq.status}`,
         step: "sync-transcript"
-      }, syncTaskId), db);
+      }, db);
       return null;
     }
 
@@ -67,22 +70,24 @@ const fetchGongTranscripts = async (db: SqliteDb, basicToken: string, baseUrl: s
 
     await batchInsertGongTranscript(inserts, db);
 
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "Gong",
       status: "SUCCESS",
-      inputs: JSON.stringify({ cursor: curCursor }),
+      inputs: { cursor: curCursor },
       step: "sync-transcript"
-    }, syncTaskId), db);
+    }, db);
 
     return gongResponse.records.cursor ?? null;
   } catch (e) {
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "Gong",
       status: "FAILED",
-      inputs: JSON.stringify({ cursor: curCursor }),
+      inputs: { cursor: curCursor },
       error: String(e),
       step: "gong-sync-transcript"
-    }, syncTaskId), db);
+    }, db);
     return null;
   }
 }

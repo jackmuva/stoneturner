@@ -1,5 +1,4 @@
 import type { Integration } from "@/core/models/models";
-import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { plaudConfig } from "./config";
@@ -9,12 +8,13 @@ import { syncPlaudTranscriptsStep } from "./sync-steps/sync-transcripts-step";
 import { parsePlaudStep } from "./sync-steps/parse-step";
 import { handleOauthRedirect, handlePlaudRefresh } from "./sync-steps/plaud-utils";
 import type { SqliteDb } from "@/core/models/db-models";
+import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
 
 export const syncPlaudPipeline = async (incremental: boolean = false, db: SqliteDb) => {
   await syncPlaudFilesStep(incremental, db);   // must run first — detail fetch needs file ids
-  await syncPlaudTranscriptsStep(db);
-  await parsePlaudStep(db);
-  await indexVectorDbStep("plaud", incremental, db);
+  await syncPlaudTranscriptsStep(incremental, db);
+  await parsePlaudStep(incremental, db);
+  await indexVectorDbStep(incremental, db, { integration: "plaud" });
 }
 
 export const plaudIntegration: Integration = {
