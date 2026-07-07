@@ -28,7 +28,22 @@ export type Integration = {
   handleRedirect?: (req: BunRequest, db: SqliteDb) => Promise<Response> | Response,  // OAuth callback
   refreshAccessTokens?: (db: SqliteDb) => Promise<void> | void,  // OAuth token refresh
 };
+
+export type IntegrationStepFn = (
+  incremental: boolean,
+  db: SqliteDb,
+  inputs?: any,
+  syncTaskId?: string,
+) => Promise<void> | void;
+
+export type IntegrationSteps = { [step: string]: IntegrationStepFn };
+export type StepMapping = { [integration: string]: IntegrationSteps };
 ```
+
+Every sync/parse/index step function matches `IntegrationStepFn`. The `inputs`
+arg carries resume state from a failed `syncTask` (cursor, offset, etc.); when
+present, paginated steps process one batch and stop. Pass `syncTaskId` as `id`
+to `upsertSyncTask` so retries update the same row.
 
 The `inputs[].input` union is fixed because each value maps to a column on the
 shared `integrationCredential` table (`accessKey`, `secretKey`, `baseUrl`). You
@@ -46,11 +61,12 @@ created in `src/core/db/db.ts` and **passed in at the route layer**
 **not** `import { db } from "@/core/db/db"` inside integration code — accept
 `db: SqliteDb` as a parameter instead.
 
-By convention `db` is the last required positional argument, before any trailing
-optional args (e.g. `syncStep(incremental, db, cursor?)`, `parseStep(db, offset?)`,
-`getRows(offset, db)`, `upsertSyncTask(task, db)`). Paginated sync steps must
-accept that optional `cursor` and write it to `syncTask.inputs` on each page so
-syncs can resume after failure — see `sync-pipeline.md` and
+By convention `db` is the second positional argument (after `incremental`), before
+any trailing optional args (e.g. `syncStep(incremental, db, inputs?, syncTaskId?)`,
+`parseStep(incremental, db, inputs?, syncTaskId?)`, `getRows(offset, db)`,
+`upsertSyncTask(task, db)`). Paginated sync steps must accept `inputs` with
+resume state and write it to `syncTask.inputs` on each page so syncs can resume
+after failure — see `sync-pipeline.md` and
 `src/integrations/notion/sync-steps/sync-notion-pages.ts`. A few core helpers
 take `db` first (`getMdArtifactsByIntegration(db, integration, offset, opts)`) —
 match the signature of the helper you're calling.
@@ -63,6 +79,7 @@ A complete integration (modeled on `src/integrations/gong/`):
 src/integrations/<name>/
   config.ts             # exports the IntegrationConfig
   integration.ts        # exports the Integration (pipeline + lifecycle)
+  <name>Steps.ts        # exports IntegrationSteps map for retry lookup
   db/
     schema.ts           # drizzle tables for raw source data + Insert/Select types
     queries.ts          # batch insert / select / delete helpers
@@ -115,8 +132,8 @@ export const syncGongPipeline = async (incremental: boolean = false, db: SqliteD
     syncGongCallsStep(incremental, db),
     syncGongTranscriptsStep(incremental, db),
   ]);                                       // parallel fetches
-  await parseGongStep(db);                  // raw rows → mdArtifact
-  await indexVectorDbStep("Gong", incremental, db);  // shared embed + upsert
+  await parseGongStep(incremental, db);                  // raw rows → mdArtifact
+  await indexVectorDbStep(incremental, db, { integration: "gong" });  // shared embed + upsert
 };
 
 export const gongIntegration: Integration = {
@@ -209,7 +226,7 @@ export default defineConfig({
 
 ## Register the integration
 
-Two registries, both in `src/integrations/`:
+Three registries, all in `src/integrations/`:
 
 ```ts
 // config-registry.ts  (drives the frontend UI)
@@ -217,7 +234,33 @@ export const configRegistry: IntegrationConfig[] = [gongConfig, /* ... */ myConf
 
 // sync-registry.ts  (drives sync dispatch)
 export const supportedIntegrations: Integration[] = [gongIntegration, /* ... */ myIntegration];
+
+// step-registry.ts  (drives retry of failed sync steps)
+import { gongSteps } from "./gong/gongSteps";
+export const stepRegistry: StepMapping = { gong: gongSteps, /* ... */ };
 ```
+
+Each integration exports an `IntegrationSteps` map (e.g. `gongSteps.ts`):
+
+```ts
+import type { IntegrationSteps } from "@/core/models/models";
+import { syncGongCallsStep } from "./sync-steps/sync-calls-step";
+import { syncGongTranscriptsStep } from "./sync-steps/sync-transcripts-step";
+import { parseGongStep } from "./sync-steps/parse-step";
+import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
+
+export const gongSteps: IntegrationSteps = {
+  "gong-sync-call": syncGongCallsStep,
+  "gong-sync-transcript": syncGongTranscriptsStep,
+  "parse": parseGongStep,
+  "index-vector": indexVectorDbStep,
+};
+```
+
+Keys must match the `step` strings your steps write to `syncTask`. The retry
+cron (`src/core/services/retry-cron.ts`) looks up failed tasks via
+`getStepFn(integration, step)` and re-invokes with `task.inputs` and
+`task.id` as `syncTaskId`.
 
 ## How routes find your integration
 

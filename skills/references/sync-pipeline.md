@@ -12,6 +12,16 @@ Every step and query takes the shared `db: SqliteDb` handle as a parameter (it
 is threaded down from the route — see `anatomy.md`). Never import `db` directly;
 accept it and pass it through.
 
+All step functions share the `IntegrationStepFn` signature:
+
+```ts
+(incremental: boolean, db: SqliteDb, inputs?: any, syncTaskId?: string) => Promise<void> | void
+```
+
+- `inputs` — resume state (cursor, offset, etc.) from a failed `syncTask`. When
+  provided, paginated steps process **one batch** and stop.
+- `syncTaskId` — pass as `id` to `upsertSyncTask` so retries update the same row.
+
 ## Shared building blocks
 
 | Helper | Location | Use |
@@ -23,25 +33,28 @@ accept it and pass it through.
 | `PAGE_SIZE` | `src/lib/constants.ts` | `20` — standard pagination window |
 | `upsertSyncTask(task, db)` | `src/core/db/queries/queries.ts` | record step status |
 | `upsertMdArtifact(artifact, db)` | `src/core/db/queries/queries.ts` | write the parse output |
-| `indexVectorDbStep(integration, incremental, db)` | `src/core/services/index-vector-db-step.ts` | the entire vector step — **reuse, don't rewrite** |
+| `indexVectorDbStep(incremental, db, inputs, syncTaskId?)` | `src/core/services/index-vector-db-step.ts` | the entire vector step — **reuse, don't rewrite**; `inputs` is `{ integration, offset? }` |
 
 ## Step 1 — sync-data
 
 Fetch from the source and batch-insert into your raw tables. Read credentials,
 paginate, wrap fetches in `retry()`, and log a `syncTask` each page.
 
-### Optional cursor (required for paginated steps)
+### Resume inputs (required for paginated steps)
 
-Every paginated sync-data step **must** accept an optional `cursor` as the last
-parameter (after `db`). When omitted, start from the beginning; when provided,
-resume from that position. Persist the cursor in each page's `syncTask.inputs` so
-a failed sync can be retried — on SUCCESS write the *next* cursor, on FAILED
-write the cursor you were on when the error happened.
+Every paginated sync-data step **must** accept an optional `inputs` object as the
+third parameter (after `db`). When omitted, start from the beginning; when
+provided, resume from that position. Persist resume state in each page's
+`syncTask.inputs` so a failed sync can be retried — on SUCCESS write the *next*
+position, on FAILED write the position you were on when the error happened.
 
-Signature convention: `(incremental, db, cursor?)`. Use a plain `string` when
-pagination is a single API cursor; use a typed object when you need to resume
-multi-dimensional work (e.g. `{ repo, url }` for GitHub, `{ channelId, cursor }`
-for Discord/Slack).
+Signature convention: `(incremental, db, inputs?, syncTaskId?)`. Use a plain
+`{ cursor }` when pagination is a single API cursor; use a typed object when you
+need to resume multi-dimensional work (e.g. `{ repo, url }` for GitHub,
+`{ channelId, cursor }` for Discord/Slack).
+
+When `inputs` is provided (retry mode), process **one batch** and stop — the
+retry cron re-invokes the step for the next batch.
 
 Condensed from `src/integrations/notion/sync-steps/sync-notion-pages.ts`:
 
@@ -50,8 +63,15 @@ import { upsertSyncTask } from "@/core/db/queries/queries";
 import { retry } from "@/lib/utils";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncNotionPages = async (incremental: boolean = false, db: SqliteDb, cursor?: string) => {
-  let nextCursor: string | undefined = cursor;
+export type NotionSyncPagesInputs = { cursor?: string };
+
+export const syncNotionPages = async (
+  incremental: boolean = false,
+  db: SqliteDb,
+  inputs?: NotionSyncPagesInputs,
+  syncTaskId?: string,
+) => {
+  let nextCursor: string | undefined = inputs?.cursor;
 
   while (true) {
     let response: NotionSearchResponse | null = null;
@@ -59,8 +79,9 @@ export const syncNotionPages = async (incremental: boolean = false, db: SqliteDb
       response = await retry(async () => getPages(db, nextCursor), 3, 1);
     } catch (e) {
       await upsertSyncTask({
+        id: syncTaskId,
         integration: "notion", status: "FAILED", step: "notion-sync-pages",
-        inputs: { cursor: nextCursor, error: e },
+        inputs: { cursor: nextCursor }, error: String(e),
       }, db);
       break;
     }
@@ -69,13 +90,16 @@ export const syncNotionPages = async (incremental: boolean = false, db: SqliteDb
       if (!response.has_more || !response.next_cursor) break;
       nextCursor = response.next_cursor;
       await upsertSyncTask({
+        id: syncTaskId,
         integration: "notion", status: "SUCCESS", step: "notion-sync-pages",
         inputs: { cursor: nextCursor },
       }, db);
+      if (inputs?.cursor !== undefined) break;  // retry mode: one batch only
     } catch (e) {
       await upsertSyncTask({
+        id: syncTaskId,
         integration: "notion", status: "FAILED", step: "notion-sync-pages",
-        inputs: { cursor: nextCursor, error: e },
+        inputs: { cursor: nextCursor }, error: String(e),
       }, db);
       if (!response.next_cursor) break;
     }
@@ -83,8 +107,8 @@ export const syncNotionPages = async (incremental: boolean = false, db: SqliteDb
 };
 ```
 
-Gong uses the same optional-cursor signature with a simpler loop — condensed
-from `src/integrations/gong/sync-steps/sync-calls-step.ts`:
+Gong uses the same pattern — condensed from
+`src/integrations/gong/sync-steps/sync-calls-step.ts`:
 
 ```ts
 import { getIntegrationCredentialByIntegration, upsertSyncTask } from "@/core/db/queries/queries";
@@ -92,8 +116,14 @@ import { retry } from "@/lib/utils";
 import { batchInsertGongCall, getLatestGongCall } from "../db/queries";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncGongCallsStep = async (incremental: boolean = false, db: SqliteDb, cursor?: string) => {
-  // incremental: only fetch items newer than what we already have
+export type GongSyncCallsInputs = { cursor?: string | null };
+
+export const syncGongCallsStep = async (
+  incremental: boolean = true,
+  db: SqliteDb,
+  inputs?: GongSyncCallsInputs,
+  syncTaskId?: string,
+) => {
   let latestDate: string | null = null;
   if (incremental) {
     const latestCall = await getLatestGongCall(db);
@@ -102,16 +132,16 @@ export const syncGongCallsStep = async (incremental: boolean = false, db: Sqlite
 
   const { basicToken, baseUrl } = await getCredentials(db);
 
-  let curCursor: string | null = cursor ?? null;
+  let curCursor: string | null = inputs?.cursor ?? null;
   let first = true;
   while ((curCursor || first) && baseUrl) {
     first = false;
-    curCursor = await fetchPage(db, basicToken, baseUrl, curCursor, latestDate);  // returns next cursor
-    if (cursor) break;   // when resuming with a passed-in cursor, fetch one page only
+    curCursor = await fetchPage(db, basicToken, baseUrl, curCursor, latestDate, syncTaskId);
+    if (inputs?.cursor !== undefined) break;  // retry mode: one batch only
   }
 };
 
-const fetchPage = async (db, token, baseUrl, cursor, startDate): Promise<string | null> => {
+const fetchPage = async (db, token, baseUrl, cursor, startDate, syncTaskId): Promise<string | null> => {
   try {
     const url = new URL(`${baseUrl}/v2/calls`);
     if (cursor) url.searchParams.append("cursor", cursor);
@@ -125,10 +155,18 @@ const fetchPage = async (db, token, baseUrl, cursor, startDate): Promise<string 
 
     await batchInsertGongCall(body.calls.map(c => ({ callId: c.id, title: c.title, started: c.started /* ... */ })), db);
 
-    await upsertSyncTask({ integration: "Gong", status: "SUCCESS", inputs: JSON.stringify({ cursor }), step: "gong-sync-call" }, db);
+    await upsertSyncTask({
+      id: syncTaskId,
+      integration: "gong", status: "SUCCESS",
+      inputs: { cursor: body.records.cursor }, step: "gong-sync-call",
+    }, db);
     return body.records.cursor;       // null when done
   } catch (e) {
-    await upsertSyncTask({ integration: "Gong", status: "FAILED", inputs: JSON.stringify({ cursor, error: e }), step: "gong-sync-call" }, db);
+    await upsertSyncTask({
+      id: syncTaskId,
+      integration: "gong", status: "FAILED",
+      inputs: { cursor }, error: String(e), step: "gong-sync-call",
+    }, db);
     return null;
   }
 };
@@ -160,8 +198,13 @@ import * as z from "zod";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const parseGongStep = async (db: SqliteDb) => {
-  let offset = 0;
+export const parseGongStep = async (
+  _incremental: boolean = false,
+  db: SqliteDb,
+  inputs?: GongParseInputs,
+  syncTaskId?: string,
+) => {
+  let offset = inputs?.offset ?? 0;
   let rows = [];
   let first = true;
   while (rows.length > 0 || first) {
@@ -173,12 +216,15 @@ export const parseGongStep = async (db: SqliteDb) => {
     );
     const failures = results.filter(r => r.status === "rejected").map(r => String(r.reason));
     await upsertSyncTask({
-      integration: "Gong",
+      id: syncTaskId,
+      integration: "gong",
       status: failures.length ? "FAILED" : "SUCCESS",
-      inputs: JSON.stringify(failures.length ? { offset, errors: failures } : { offset }),
+      inputs: failures.length ? { offset, errors: failures } : { offset },
       step: "parse",
+      error: failures.length ? failures.join("; ") : undefined,
     }, db);
     offset += PAGE_SIZE;
+    if (inputs?.offset !== undefined) break;  // retry mode: one batch only
   }
 };
 
@@ -237,7 +283,7 @@ Call the shared step from your pipeline:
 
 ```ts
 import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
-await indexVectorDbStep("Gong", incremental, db);
+await indexVectorDbStep(incremental, db, { integration: "gong" });
 ```
 
 `indexVectorDbStep` (`src/core/services/index-vector-db-step.ts`) pages through
@@ -246,8 +292,8 @@ words/chunk), embeds content + key points + questions via `embedTexts` (each
 scheduled through `aiGatewayBottleneck` and wrapped in `retry`), and upserts
 `contentEmbedding` / `keyPointsEmbedding` / `questionsAnsweredEmbedding`. When
 `incremental` is `false` it skips artifacts that already have embeddings. It
-writes its own `index-vector` syncTask rows. You pass the integration string,
-the flag, and `db` — nothing else.
+writes its own `index-vector` syncTask rows. Register it in your
+`<name>Steps.ts` as `"index-vector": indexVectorDbStep`.
 
 ## Rate limiting & retries — the rules
 
@@ -258,3 +304,18 @@ the flag, and `db` — nothing else.
 - Combine them as `aiGatewayBottleneck.schedule(() => retry(() => llmCall()))`.
 - Use `Promise.allSettled` for a page of independent LLM jobs so one failure
   doesn't drop the others; summarize failures into the `syncTask`.
+
+## Automatic retry of failed steps
+
+`src/core/services/retry-cron.ts` (`retryFailedTasks`) scans FAILED `syncTask`
+rows and re-invokes the matching step via `getStepFn` from
+`src/integrations/step-registry.ts`. It calls:
+
+```ts
+await stepFunc(false, db, task.inputs, task.id);
+```
+
+Tasks are retried up to 3 times (`syncTask.retries`). Retries run on a daily
+cron (disable with `CRON_ENABLED=false`) and manually via
+`POST /api/syncTasks/retry`. Every step must be registered in
+`<name>Steps.ts` + `step-registry.ts` for this to work.

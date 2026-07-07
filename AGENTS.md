@@ -16,3 +16,8 @@ Standard commands and architecture are documented in `CLAUDE.md` and `README.md`
 ### Running & ports
 - `bun dev` runs the whole product (React SPA + REST API + MCP server) as one process on port **9000**.
 - The dev server inlines `BUN_PUBLIC_*` at bundle time. After editing `.env` (or these config files), restart `bun dev` for changes to take effect in the browser — HMR alone does not re-inline env values reliably.
+
+### Failed sync step retries
+- Failed `syncTask` rows are retried via `src/core/services/retry-cron.ts`, which looks up step functions in `src/integrations/step-registry.ts`.
+- Retries run on a daily cron (midnight UTC) unless `CRON_ENABLED=false`. Trigger manually with `POST /api/syncTasks/retry`.
+- Each task retries up to 3 times (`syncTask.retries`). Steps resume from `syncTask.inputs` (cursor/offset) and update the same row via `syncTaskId`.

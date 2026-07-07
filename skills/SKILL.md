@@ -17,8 +17,8 @@ detail and copy-paste-ready patterns drawn from the existing Gong, Notion, and
 Discord integrations.
 
 - `references/integration-specs.md` — how to write an integration spec (the input document for this skill). Includes a template, section guide, and example specs in `references/integration-spec-examples/`.
-- `references/anatomy.md` — the two core types, the folder layout, and the registries.
-- `references/sync-pipeline.md` — how to write sync / parse / index steps, including rate limiting, retries, sync-task logging, and the markdown-artifact contract.
+- `references/anatomy.md` — the two core types, the folder layout, and the registries (config, sync, step).
+- `references/sync-pipeline.md` — how to write sync / parse / index steps, including rate limiting, retries, sync-task logging, step-registry registration, and the markdown-artifact contract.
 - `references/auth.md` — `BASIC_TOKEN`, `API_KEY`, and `OAUTH` credential patterns (including `handleRedirect` and `refreshAccessTokens`).
 - `references/checklist.md` — a copy-pasteable end-to-end checklist plus the commands to run.
 
@@ -33,7 +33,7 @@ sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector
 2. **parse** — read those rows, render markdown, call the summarization LLM to
    extract `keyPoints` / `questionsAnswered` / `entities`, and upsert one
    `mdArtifact` per logical item.
-3. **index-vector** — `indexVectorDbStep(integration, incremental, db)` from
+3. **index-vector** — `indexVectorDbStep(incremental, db, { integration })` from
    `src/core/services/index-vector-db-step.ts`. **This step is shared — you do
    not write it.** It chunks each artifact's markdown, embeds content / key
    points / questions, and upserts the vector rows.
@@ -78,6 +78,7 @@ Plaud) as references for depth and format.
 src/integrations/<name>/
   config.ts                 # exports IntegrationConfig
   integration.ts            # exports Integration (pipeline + hooks)
+  <name>Steps.ts            # exports IntegrationSteps map for retry lookup
   db/
     schema.ts               # drizzle tables for the raw source data
     queries.ts              # typed insert/select/delete helpers
@@ -105,16 +106,24 @@ register the schema path in `drizzle.config.ts`. See `references/anatomy.md`.
 
 ### 4. Write the sync steps (`sync-steps/`)
 
-- Take `db: SqliteDb` as a parameter (by convention last, before trailing
-  optional args) and pass it to every query call.
+All step functions share the `IntegrationStepFn` signature:
+
+```ts
+(incremental: boolean, db: SqliteDb, inputs?: any, syncTaskId?: string) => Promise<void> | void
+```
+
+- Take `db: SqliteDb` as the second parameter and pass it to every query call.
 - Read credentials via `getIntegrationCredentialByIntegration("<Name>", db)`.
 - Wrap every network/LLM call in `retry()` (`src/lib/utils.ts`).
 - Throttle **all** AI Gateway calls through `aiGatewayBottleneck.schedule(...)`.
 - Support an `incremental` flag (fetch only new/updated items).
-- Accept an optional `cursor` trailing arg on paginated sync steps so a failed
-  sync can resume where it left off; persist the cursor in each page's
-  `syncTask.inputs` (see `src/integrations/notion/sync-steps/sync-notion-pages.ts`).
-- Record a `syncTask` row (SUCCESS/FAILED) at each step.
+- Accept an optional `inputs` arg with resume state (cursor, offset, etc.) and an
+  optional `syncTaskId` so retries update the same `syncTask` row. Persist
+  resume state in each page's `syncTask.inputs` (see
+  `src/integrations/notion/sync-steps/sync-notion-pages.ts`). When `inputs` is
+  provided, paginated steps process **one batch** and stop (retry mode).
+- Record a `syncTask` row (SUCCESS/FAILED) at each step — pass `id: syncTaskId`
+  when retrying.
 - The parse step upserts `mdArtifact` rows — that is the contract the shared
   vector step consumes.
 
@@ -130,7 +139,9 @@ tables. Add `handleRedirect(req, db)` / `refreshAccessTokens(db)` only for OAuth
 ### 6. Register it
 
 Add the config to `src/integrations/config-registry.ts` and the integration to
-`src/integrations/sync-registry.ts`. Routes in `src/index.ts` dispatch by
+`src/integrations/sync-registry.ts`. Export an `IntegrationSteps` map from
+`<name>Steps.ts` and register it in `src/integrations/step-registry.ts` so
+failed steps can be retried. Routes in `src/index.ts` dispatch by
 matching the `:integration` path param against `config.integration`
 (case-insensitive) — no route changes needed.
 
@@ -151,6 +162,8 @@ UI. See `references/checklist.md`.
 - `@/*` is the alias for `src/*`.
 - The shared vector step is `index-vector-db-step.ts` — reuse it, don't fork it.
 - Thread `db: SqliteDb` through every method/step/query; never `import { db }`.
-- Keep the value passed to `indexVectorDbStep(...)` identical to
-  `config.integration` and to the integration string you write on every
-  `mdArtifact` / `syncTask` — they're matched as plain strings.
+- Every step function must match `IntegrationStepFn` and be registered in
+  `step-registry.ts` for automatic retry of FAILED tasks.
+- Keep the integration string passed to `indexVectorDbStep(..., { integration })`
+  identical to `config.integration` and to the integration string you write on
+  every `mdArtifact` / `syncTask` — they're matched as plain strings.

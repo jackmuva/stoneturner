@@ -29,7 +29,9 @@ Create `src/integrations/<name>/` with `config.ts`, `integration.ts`, `db/`, `mo
 - `sync()` — full sync, `syncUpdates()` — incremental sync (both usually call one pipeline fn with an `incremental` flag), `deleteSync()` — purge syncTasks + artifacts + embeddings + integration tables.
 - optional `handleRedirect(req)` — OAuth callback, `refreshAccessTokens()`.
 
-Then register in `src/integrations/sync-registry.ts` (sync dispatch), `src/integrations/config-registry.ts` (frontend UI), and add the integration's `db/schema.ts` to the `schema` array in `drizzle.config.ts` so migrations pick it up. Routes in `src/index.ts` dispatch by matching the `:integration` path param against `config.integration` (case-insensitive): `POST /api/sync/:integration` → `sync()`, `DELETE` → `deleteSync()`, `POST /api/sync/updates/:integration` → `syncUpdates()`, `GET /api/oauth/:integration` → `handleRedirect()`.
+Then register in `src/integrations/sync-registry.ts` (sync dispatch), `src/integrations/config-registry.ts` (frontend UI), `src/integrations/step-registry.ts` (retry lookup), and add the integration's `db/schema.ts` to the `schema` array in `drizzle.config.ts` so migrations pick it up. Routes in `src/index.ts` dispatch by matching the `:integration` path param against `config.integration` (case-insensitive): `POST /api/sync/:integration` → `sync()`, `DELETE` → `deleteSync()`, `POST /api/sync/updates/:integration` → `syncUpdates()`, `GET /api/oauth/:integration` → `handleRedirect()`.
+
+Each integration also exports an `IntegrationSteps` map (e.g. `gongSteps` in `gongSteps.ts`) keyed by the `step` string written to `syncTask`. Register it in `step-registry.ts` so failed steps can be retried.
 
 There is a `build-stoneturner-integration` skill (`skills/`) that scaffolds a new integration end-to-end; `integration-specs/` holds per-integration spec docs (e.g. `firecrawl-spec.md`, `github-spec.md`, `plaud-spec.md`) used as input when building one.
 
@@ -41,6 +43,21 @@ sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector
 
 e.g. Gong: `sync-calls + sync-transcripts (parallel) → parse → index-vector`. GitHub: `sync-issues + sync-pulls + sync-docs + sync-discussions + sync-code (parallel) → parse → index-vector`. Fire-and-forget from the HTTP handler (no `await`). Each step writes `syncTask` rows.
 
+### Step registry & retrying failed steps
+
+Each integration exports an `IntegrationSteps` map (e.g. `gongSteps` in `src/integrations/gong/gongSteps.ts`) — keys are the `step` strings written to `syncTask`, values are the step functions. These are collected in `src/integrations/step-registry.ts` (`stepRegistry` / `getStepFn`).
+
+Step functions share a uniform signature (`IntegrationStepFn` in `src/core/models/models.ts`):
+
+```ts
+(incremental: boolean, db: SqliteDb, inputs?: any, syncTaskId?: string) => Promise<void> | void
+```
+
+- `inputs` — resume state from a failed `syncTask` (cursor, offset, etc.). When provided, paginated steps process one batch and stop (retry mode).
+- `syncTaskId` — pass as `id` to `upsertSyncTask` so retries update the same row.
+
+`src/core/services/retry-cron.ts` (`retryFailedTasks`) scans FAILED `syncTask` rows and re-invokes the matching step via `getStepFn`, passing `task.inputs` and `task.id`. Tasks with `retries >= 3` or no registered step are skipped. Retries are triggered by a daily cron (`Bun.cron`, disable with `CRON_ENABLED=false`) and manually via `POST /api/syncTasks/retry`.
+
 ### Rate limiting & retries
 
 - Network/LLM calls are wrapped in `retry()` (quadratic backoff, `src/lib/utils.ts`).
@@ -51,6 +68,7 @@ e.g. Gong: `sync-calls + sync-transcripts (parallel) → parse → index-vector`
 - Embeddings: `openai/text-embedding-3-small` via the `ai` SDK (`embedMany`, `src/core/services/embedding.ts`).
 - Summarization/parsing: `SUMMARIZATION_MODEL` constant (`google/gemini-3-flash`) in `src/lib/constants.ts`.
 - Both route through Vercel AI Gateway, authenticated by `AI_GATEWAY_API_KEY`.
+- Step types (`src/core/models/models.ts`): `IntegrationStepFn`, `IntegrationSteps` (`{ [step: string]: IntegrationStepFn }`), `StepMapping` (`{ [integration: string]: IntegrationSteps }`).
 
 ## MCP server
 
@@ -61,7 +79,7 @@ e.g. Gong: `sync-calls + sync-transcripts (parallel) → parse → index-vector`
 
 - Turso/libSQL via `drizzle-orm/tursodatabase/database` (not `bun:sqlite`). Local file `stoneturner.db` (`test-stoneturner.db` in dev mode).
 - Vector tables use `vector32()` / `vector_distance_cos()`.
-- Relational schemas (`src/core/db/schema/schema.ts`): `integrationCredential`, `syncTask`, `mdArtifacts` (note table-name casing).
+- Relational schemas (`src/core/db/schema/schema.ts`): `integrationCredential`, `syncTask` (includes `retries` counter for step retry), `mdArtifacts` (note table-name casing).
 - Vector schemas (`src/core/db/schema/vector-schema.ts`): `contentEmbedding`, `keyPointsEmbedding`, `questionsAnsweredEmbedding`.
 - `lower()` helper in `src/lib/utils.ts` wraps raw `sql\`lower()\`` for case-insensitive text comparisons (drizzle has no native `lower`).
 
