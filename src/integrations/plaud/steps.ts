@@ -4,7 +4,7 @@ import { parsePlaudStep } from "./sync-steps/parse-step";
 import { syncPlaudFilesStep } from "./sync-steps/sync-files-step";
 import { syncPlaudTranscriptsStep } from "./sync-steps/sync-transcripts-step";
 
-export const plaudSteps: IntegrationSteps = {
+export const steps: IntegrationSteps = {
   "plaud-sync-files": syncPlaudFilesStep,
   "plaud-sync-transcripts": syncPlaudTranscriptsStep,
   "parse": parsePlaudStep,

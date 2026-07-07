@@ -79,7 +79,7 @@ A complete integration (modeled on `src/integrations/gong/`):
 src/integrations/<name>/
   config.ts             # exports the IntegrationConfig
   integration.ts        # exports the Integration (pipeline + lifecycle)
-  <name>Steps.ts        # exports IntegrationSteps map for retry lookup
+  steps.ts            # exports IntegrationSteps map for retry lookup
   db/
     schema.ts           # drizzle tables for raw source data + Insert/Select types
     queries.ts          # batch insert / select / delete helpers
@@ -236,11 +236,11 @@ export const configRegistry: IntegrationConfig[] = [gongConfig, /* ... */ myConf
 export const supportedIntegrations: Integration[] = [gongIntegration, /* ... */ myIntegration];
 
 // step-registry.ts  (drives retry of failed sync steps)
-import { gongSteps } from "./gong/gongSteps";
+import { steps as gongSteps } from "./gong/steps";
 export const stepRegistry: StepMapping = { gong: gongSteps, /* ... */ };
 ```
 
-Each integration exports an `IntegrationSteps` map (e.g. `gongSteps.ts`):
+Each integration exports an `IntegrationSteps` map from `steps.ts`:
 
 ```ts
 import type { IntegrationSteps } from "@/core/models/models";
@@ -249,7 +249,7 @@ import { syncGongTranscriptsStep } from "./sync-steps/sync-transcripts-step";
 import { parseGongStep } from "./sync-steps/parse-step";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
 
-export const gongSteps: IntegrationSteps = {
+export const steps: IntegrationSteps = {
   "gong-sync-call": syncGongCallsStep,
   "gong-sync-transcript": syncGongTranscriptsStep,
   "parse": parseGongStep,

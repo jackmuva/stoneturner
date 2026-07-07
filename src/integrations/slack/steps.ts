@@ -6,7 +6,7 @@ import { syncMessages } from "./sync-steps/sync-messages";
 import { syncThreadReplies } from "./sync-steps/sync-thread-replies";
 import { syncUsers } from "./sync-steps/sync-users";
 
-export const slackSteps: IntegrationSteps = {
+export const steps: IntegrationSteps = {
   "slack-sync-channels": syncChannels,
   "slack-sync-users": syncUsers,
   "slack-sync-channel-messages": syncMessages,

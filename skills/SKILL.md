@@ -78,7 +78,7 @@ Plaud) as references for depth and format.
 src/integrations/<name>/
   config.ts                 # exports IntegrationConfig
   integration.ts            # exports Integration (pipeline + hooks)
-  <name>Steps.ts            # exports IntegrationSteps map for retry lookup
+  steps.ts            # exports IntegrationSteps map for retry lookup
   db/
     schema.ts               # drizzle tables for the raw source data
     queries.ts              # typed insert/select/delete helpers
@@ -140,7 +140,7 @@ tables. Add `handleRedirect(req, db)` / `refreshAccessTokens(db)` only for OAuth
 
 Add the config to `src/integrations/config-registry.ts` and the integration to
 `src/integrations/sync-registry.ts`. Export an `IntegrationSteps` map from
-`<name>Steps.ts` and register it in `src/integrations/step-registry.ts` so
+`steps.ts` and register it in `src/integrations/step-registry.ts` so
 failed steps can be retried. Routes in `src/index.ts` dispatch by
 matching the `:integration` path param against `config.integration`
 (case-insensitive) — no route changes needed.

@@ -1,13 +1,13 @@
 import type { StepMapping } from "@/core/models/models";
-import { discordSteps } from "./discord/discordSteps";
-import { firecrawlSteps } from "./firecrawl/firecrawlSteps";
-import { githubSteps } from "./github/githubSteps";
-import { gongSteps } from "./gong/gongSteps";
-import { notionSteps } from "./notion/notionSteps";
-import { plaudSteps } from "./plaud/plaudSteps";
-import { slackSteps } from "./slack/slackSteps";
-import { spotifySteps } from "./spotify/spotifySteps";
-import { twitterSteps } from "./twitter/twitterSteps";
+import { steps as discordSteps } from "./discord/steps";
+import { steps as firecrawlSteps } from "./firecrawl/steps";
+import { steps as githubSteps } from "./github/steps";
+import { steps as gongSteps } from "./gong/steps";
+import { steps as notionSteps } from "./notion/steps";
+import { steps as plaudSteps } from "./plaud/steps";
+import { steps as slackSteps } from "./slack/steps";
+import { steps as spotifySteps } from "./spotify/steps";
+import { steps as twitterSteps } from "./twitter/steps";
 
 export const stepRegistry: StepMapping = {
   gong: gongSteps,

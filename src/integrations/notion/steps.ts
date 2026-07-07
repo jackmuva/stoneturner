@@ -4,7 +4,7 @@ import { notionMarkdownToArtifact } from "./sync-steps/notion-markdown-to-artifa
 import { syncNotionMarkdown } from "./sync-steps/sync-notion-markdown";
 import { syncNotionPages } from "./sync-steps/sync-notion-pages";
 
-export const notionSteps: IntegrationSteps = {
+export const steps: IntegrationSteps = {
   "notion-sync-pages": syncNotionPages,
   "notion-sync-markdown": syncNotionMarkdown,
   "notion-markdown-to-artifact": notionMarkdownToArtifact,

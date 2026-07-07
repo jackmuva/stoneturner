@@ -31,7 +31,7 @@ Create `src/integrations/<name>/` with `config.ts`, `integration.ts`, `db/`, `mo
 
 Then register in `src/integrations/sync-registry.ts` (sync dispatch), `src/integrations/config-registry.ts` (frontend UI), `src/integrations/step-registry.ts` (retry lookup), and add the integration's `db/schema.ts` to the `schema` array in `drizzle.config.ts` so migrations pick it up. Routes in `src/index.ts` dispatch by matching the `:integration` path param against `config.integration` (case-insensitive): `POST /api/sync/:integration` → `sync()`, `DELETE` → `deleteSync()`, `POST /api/sync/updates/:integration` → `syncUpdates()`, `GET /api/oauth/:integration` → `handleRedirect()`.
 
-Each integration also exports an `IntegrationSteps` map (e.g. `gongSteps` in `gongSteps.ts`) keyed by the `step` string written to `syncTask`. Register it in `step-registry.ts` so failed steps can be retried.
+Each integration also exports an `IntegrationSteps` map from `steps.ts` keyed by the `step` string written to `syncTask`. Register it in `step-registry.ts` so failed steps can be retried.
 
 There is a `build-stoneturner-integration` skill (`skills/`) that scaffolds a new integration end-to-end; `integration-specs/` holds per-integration spec docs (e.g. `firecrawl-spec.md`, `github-spec.md`, `plaud-spec.md`) used as input when building one.
 
@@ -45,7 +45,7 @@ e.g. Gong: `sync-calls + sync-transcripts (parallel) → parse → index-vector`
 
 ### Step registry & retrying failed steps
 
-Each integration exports an `IntegrationSteps` map (e.g. `gongSteps` in `src/integrations/gong/gongSteps.ts`) — keys are the `step` strings written to `syncTask`, values are the step functions. These are collected in `src/integrations/step-registry.ts` (`stepRegistry` / `getStepFn`).
+Each integration exports an `IntegrationSteps` map from `src/integrations/<name>/steps.ts` — keys are the `step` strings written to `syncTask`, values are the step functions. These are collected in `src/integrations/step-registry.ts` (`stepRegistry` / `getStepFn`).
 
 Step functions share a uniform signature (`IntegrationStepFn` in `src/core/models/models.ts`):
 

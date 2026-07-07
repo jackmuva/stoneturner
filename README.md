@@ -133,7 +133,7 @@ Stoneturner is designed to make adding integrations straightforward. Each integr
 src/integrations/my-integration/
   config.ts
   integration.ts
-  mySteps.ts
+  steps.ts
   db/
     schema.ts
     queries.ts
@@ -238,7 +238,7 @@ export const supportedIntegrations: Integration[] = [
 
 ### 7. Register steps for retry
 
-Export an `IntegrationSteps` map from `src/integrations/my-integration/mySteps.ts` — keys are the `step` strings your sync steps write to `syncTask`, values are the step functions:
+Export an `IntegrationSteps` map from `src/integrations/my-integration/steps.ts` — keys are the `step` strings your sync steps write to `syncTask`, values are the step functions:
 
 ```ts
 import type { IntegrationSteps } from "@/core/models/models";
@@ -246,7 +246,7 @@ import { syncMyDataStep } from "./sync-steps/sync-data-step";
 import { parseMyStep } from "./sync-steps/parse-step";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
 
-export const mySteps: IntegrationSteps = {
+export const steps: IntegrationSteps = {
   "my-sync-data": syncMyDataStep,
   "parse": parseMyStep,
   "index-vector": indexVectorDbStep,
@@ -256,11 +256,11 @@ export const mySteps: IntegrationSteps = {
 Add it to `src/integrations/step-registry.ts`:
 
 ```ts
-import { mySteps } from "./my-integration/mySteps";
+import { steps as myIntegrationSteps } from "./my-integration/steps";
 
 export const stepRegistry: StepMapping = {
   // ...
-  "my-integration": mySteps,
+  "my-integration": myIntegrationSteps,
 };
 ```
 

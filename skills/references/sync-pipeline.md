@@ -293,7 +293,7 @@ scheduled through `aiGatewayBottleneck` and wrapped in `retry`), and upserts
 `contentEmbedding` / `keyPointsEmbedding` / `questionsAnsweredEmbedding`. When
 `incremental` is `false` it skips artifacts that already have embeddings. It
 writes its own `index-vector` syncTask rows. Register it in your
-`<name>Steps.ts` as `"index-vector": indexVectorDbStep`.
+`steps.ts` as `"index-vector": indexVectorDbStep`.
 
 ## Rate limiting & retries — the rules
 
@@ -318,4 +318,4 @@ await stepFunc(false, db, task.inputs, task.id);
 Tasks are retried up to 3 times (`syncTask.retries`). Retries run on a daily
 cron (disable with `CRON_ENABLED=false`) and manually via
 `POST /api/syncTasks/retry`. Every step must be registered in
-`<name>Steps.ts` + `step-registry.ts` for this to work.
+`steps.ts` + `step-registry.ts` for this to work.

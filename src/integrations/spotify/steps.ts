@@ -8,7 +8,7 @@ import { syncSpotifySavedTracksStep } from "./sync-steps/sync-saved-tracks-step"
 import { syncSpotifyShowsStep } from "./sync-steps/sync-shows-step";
 import { syncSpotifyUserStep } from "./sync-steps/sync-user-step";
 
-export const spotifySteps: IntegrationSteps = {
+export const steps: IntegrationSteps = {
   "spotify-sync-user": syncSpotifyUserStep,
   "spotify-sync-playlists": syncSpotifyPlaylistsStep,
   "spotify-sync-playlist-tracks": syncSpotifyPlaylistTracksStep,

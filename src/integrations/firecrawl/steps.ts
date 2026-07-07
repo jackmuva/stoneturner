@@ -3,7 +3,7 @@ import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
 import { parseFirecrawlStep } from "./sync-steps/parse-step";
 import { syncFirecrawlCrawlStep } from "./sync-steps/sync-crawl-step";
 
-export const firecrawlSteps: IntegrationSteps = {
+export const steps: IntegrationSteps = {
   "firecrawl-sync-crawl": syncFirecrawlCrawlStep,
   "parse": parseFirecrawlStep,
   "index-vector": indexVectorDbStep,

@@ -17,7 +17,7 @@ everywhere".
 - [ ] `src/integrations/<name>/sync-steps/sync-*-step.ts` — fetch + insert; paginated; `retry()`-wrapped; logs `syncTask` with resume state in `inputs`. Signature `(incremental, db, inputs?, syncTaskId?)` — pass `id: syncTaskId` to `upsertSyncTask`.
 - [ ] `src/integrations/<name>/sync-steps/parse-step.ts` — raw rows → `upsertMdArtifact`; LLM via `aiGatewayBottleneck.schedule(...)`. Signature `(incremental, db, inputs?, syncTaskId?)`.
 - [ ] `src/integrations/<name>/integration.ts` — `syncPipeline(incremental, db)` + the `Integration` object (incl. `deleteSync(db)`).
-- [ ] `src/integrations/<name>/<name>Steps.ts` — export `IntegrationSteps` map (step name → step fn) for retry lookup.
+- [ ] `src/integrations/<name>/steps.ts` — export `steps: IntegrationSteps` map (step name → step fn) for retry lookup.
 - [ ] OAuth only: `handleRedirect(req, db)` + `refreshAccessTokens(db)` (see `auth.md`).
 
 ## Files to edit
@@ -25,7 +25,7 @@ everywhere".
 - [ ] `drizzle.config.ts` — add `'./src/integrations/<name>/db/schema.ts'` to `schema`.
 - [ ] `src/integrations/config-registry.ts` — add `<name>Config` to `configRegistry`.
 - [ ] `src/integrations/sync-registry.ts` — add `<name>Integration` to `supportedIntegrations`.
-- [ ] `src/integrations/step-registry.ts` — add `<name>Steps` to `stepRegistry`.
+- [ ] `src/integrations/step-registry.ts` — import `steps` from `./<name>/steps` and add to `stepRegistry`.
 - [ ] `.env` — add any OAuth/secret vars (e.g. `BUN_PUBLIC_<NAME>_CLIENT_ID`, `<NAME>_CLIENT_SECRET`).
 - [ ] Add the icon at `src/assets/<name>.png` to match `config.icon`.
 
@@ -74,7 +74,7 @@ of `stoneturner.db`.
 - Don't `await` the sync from a handler — it's fire-and-forget; all errors must
   be caught inside steps and logged as FAILED `syncTask`s.
 - Don't fork `index-vector-db-step.ts`; call the shared one.
-- Register every step in `<name>Steps.ts` + `step-registry.ts` so FAILED tasks can be retried (up to 3 times via `syncTask.retries`).
+- Register every step in `steps.ts` + `step-registry.ts` so FAILED tasks can be retried (up to 3 times via `syncTask.retries`).
 - When `inputs` is provided to a paginated step, process one batch and stop (retry mode).
 - Don't `import { db } from "@/core/db/db"` in integration code — accept
   `db: SqliteDb` as a parameter and thread it through.
