@@ -1,6 +1,6 @@
 import { serve } from "bun";
 import index from "./client/index.html";
-import { handleConfigureSyncSchedule, handleDeleteSyncSchedule, handleGetAllSyncTasks, handleGetArtifactById, handleGetArtifacts, handleGetIntegrations, handleGetRecentSyncTasks, handleGetSyncTasks, handleGetSyncTaskSteps, handleNewIntegrationCredential } from "./core/handlers/handler";
+import { handleConfigureSyncSchedule, handleDeleteSyncSchedule, handleGetAllSyncTasks, handleGetArtifactById, handleGetArtifacts, handleGetIntegrations, handleGetRecentSyncTasks, handleGetSyncScheduleByIntegration, handleGetSyncTasks, handleGetSyncTaskSteps, handleNewIntegrationCredential } from "./core/handlers/handler";
 import { withCors } from "./core/middleware/middleware";
 import { handleMcp } from "./core/handlers/mcp-handler";
 import { supportedIntegrations } from "./integrations/integration-registry";
@@ -116,7 +116,10 @@ const server = serve({
       }),
     },
     "/api/sync-schedule/:integration": {
-      POST: withCors(async (req) => {
+      GET: withCors(async (req) => {
+        return handleGetSyncScheduleByIntegration(req, db);
+      }),
+      DELETE: withCors(async (req) => {
         return handleDeleteSyncSchedule(req, db);
       }),
     },

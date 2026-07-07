@@ -1,4 +1,4 @@
-import type { MdArtifactSelect, SyncTaskSelect } from "@/core/db/schema/schema";
+import type { MdArtifactSelect, SyncScheduleSelect, SyncTaskSelect } from "@/core/db/schema/schema";
 import { useParams } from "react-router";
 import useSWR from 'swr'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
@@ -69,6 +69,17 @@ export const IntegrationDataPage = () => {
   }, {
     refreshInterval: 1000 * 60,
   });
+
+  const { data: syncSchedule, mutate: mutateSyncSchedule } = useSWR<SyncScheduleSelect | null>(
+    integration ? `syncSchedule/${integration}` : null,
+    async (): Promise<SyncScheduleSelect | null> => {
+      const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync-schedule/${integration}`, {
+        method: "GET",
+      });
+      const body = await res.json();
+      return body.syncSchedule ?? null;
+    },
+  );
 
   const handleSort = (field: ArtifactSortField) => {
     setPage(0);
@@ -201,7 +212,13 @@ export const IntegrationDataPage = () => {
         onOpenChange={(open) => { if (!open) setConfirmAction(null); }}
         text={confirmAction ? confirmConfig[confirmAction].text : ""}
         onConfirm={confirmAction ? confirmConfig[confirmAction].onConfirm : () => { }} />
-      <SyncScheduleDialog open={openSyncSchedule} onOpenChange={setOpenSyncSchedule} integration={integration ?? ""}/>
+      <SyncScheduleDialog
+        open={openSyncSchedule}
+        onOpenChange={setOpenSyncSchedule}
+        integration={integration ?? ""}
+        syncSchedule={syncSchedule ?? null}
+        onSyncScheduleChange={mutateSyncSchedule}
+      />
       {intConfig && (
         <IntegrationDialog
           intConfig={intConfig}

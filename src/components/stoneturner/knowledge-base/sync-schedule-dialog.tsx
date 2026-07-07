@@ -1,24 +1,36 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from "@/components/ui/select";
-import { useState } from "react";
+import type { SyncScheduleSelect } from "@/core/db/schema/schema";
+import { useEffect, useState } from "react";
 
 export const SyncScheduleDialog = ({
   open,
   onOpenChange,
   integration,
+  syncSchedule,
+  onSyncScheduleChange,
 }: {
   open: boolean,
   onOpenChange: (open: boolean) => void,
   integration: string,
+  syncSchedule: SyncScheduleSelect | null,
+  onSyncScheduleChange: () => void,
 }) => {
   const [frequency, setFrequency] = useState<"DAILY" | "WEEKLY" | "MONTHLY">("WEEKLY");
   const items = ["Daily", "Weekly", "Monthly"];
+
+  useEffect(() => {
+    if (syncSchedule?.frequency) {
+      setFrequency(syncSchedule.frequency);
+    }
+  }, [syncSchedule]);
 
   const deleteSyncSchedule = async () => {
     await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync-schedule/${integration}`, {
       method: "DELETE"
     });
+    onSyncScheduleChange();
   }
 
   const upsertSyncSchedule = async () => {
@@ -29,6 +41,7 @@ export const SyncScheduleDialog = ({
         frequency: frequency
       })
     });
+    onSyncScheduleChange();
   }
 
   return (
@@ -38,9 +51,8 @@ export const SyncScheduleDialog = ({
           <DialogTitle>Sync frequency</DialogTitle>
           <DialogDescription>CRON jobs to automatically sync new data</DialogDescription>
         </DialogHeader>
-        <Select onValueChange={(value: string) => {
-          //@ts-ignore
-          setFrequency(value.toUpperCase());
+        <Select value={frequency} onValueChange={(value: string) => {
+          setFrequency(value as "DAILY" | "WEEKLY" | "MONTHLY");
         }}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Weekly" />
