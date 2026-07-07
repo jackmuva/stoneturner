@@ -1,5 +1,5 @@
 import { supportedIntegrations } from "@/integrations/integration-registry";
-import { getAllSyncSchedules } from "../db/queries/queries"
+import { getAllSyncSchedules, upsertSyncSchedule } from "../db/queries/queries"
 import type { SqliteDb } from "../models/db-models"
 
 export const syncNewCron = async (db: SqliteDb) => {
@@ -13,13 +13,17 @@ export const syncNewCron = async (db: SqliteDb) => {
     } else if (sched.frequency === "WEEKLY") {
       nextDate.setDate(nextDate.getDate() + 7);
     } else if (sched.frequency === "MONTHLY") {
-      nextDate.setDate(nextDate.getDate() + 30);
+      nextDate.setMonth(nextDate.getMonth() + 1);
     }
 
     if (today > nextDate) {
       const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === sched.integration);
       if (index === -1) continue;
       supportedIntegrations[index]!.syncUpdates(db);
+      await upsertSyncSchedule({
+        integration: sched.integration,
+        frequency: sched.frequency,
+      }, db)
     }
   }
 }
