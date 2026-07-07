@@ -1,5 +1,5 @@
 import type { BunRequest } from "bun";
-import { getIntegrationCredentials, getMdArtifactById, getMdArtifactsByIntegration, getSyncTasks, getSyncTasksByIntegration, getSyncTasksByStatus, getSyncTasksByUpdateDateAfter, getSyncTasksFiltered, getDistinctSyncTaskSteps, upsertIntegrationCredential, deleteSyncTasksPriorToDate, type MdArtifactSortField, type SortOrder, upsertSyncSchedule, deleteSyncScheduleByIntegration } from "../db/queries/queries";
+import { getIntegrationCredentials, getMdArtifactById, getMdArtifactsByIntegration, getSyncTasks, getSyncTasksByIntegration, getSyncTasksByStatus, getSyncTasksByUpdateDateAfter, getSyncTasksFiltered, getDistinctSyncTaskSteps, upsertIntegrationCredential, deleteSyncTasksPriorToDate, type MdArtifactSortField, type SortOrder, upsertSyncSchedule, deleteSyncScheduleByIntegration, getSyncScheduleByIntegration } from "../db/queries/queries";
 import type { IntegrationCredential, MdArtifactSelect, SyncTaskSelect } from "../db/schema/schema";
 import type { SqliteDb } from "../models/db-models";
 
@@ -83,6 +83,13 @@ export async function handleGetArtifactById(req: BunRequest, db?: SqliteDb): Pro
   const [artifact] = await getMdArtifactById(id, db!);
   if (!artifact) return Response.json(null, { status: 404 });
   return Response.json({ artifact });
+}
+
+export async function handleGetSyncScheduleByIntegration(req: BunRequest, db?: SqliteDb): Promise<Response> {
+  const { integration } = req.params;
+  if (!integration) return Response.json(null, { status: 400 });
+  const syncSchedule = await getSyncScheduleByIntegration(integration, db!);
+  return Response.json({ syncSchedule: syncSchedule ?? null });
 }
 
 export async function handleConfigureSyncSchedule(req: BunRequest, db?: SqliteDb): Promise<Response> {

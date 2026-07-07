@@ -222,6 +222,11 @@ export const getAllSyncSchedules = async (db: SqliteDb): Promise<SyncScheduleSel
   return await db.select().from(syncSchedule);
 }
 
+export const getSyncScheduleByIntegration = async (integration: string, db: SqliteDb): Promise<SyncScheduleSelect | undefined> => {
+  const [schedule] = await db.select().from(syncSchedule).where(sql`LOWER("integration") = ${integration.toLowerCase()}`);
+  return schedule;
+}
+
 export const deleteSyncScheduleByIntegration = async (integration: string, db: SqliteDb): Promise<void> => {
   await db.delete(syncSchedule).where(sql`LOWER("integration") = ${integration.toLowerCase()}`);
 }
