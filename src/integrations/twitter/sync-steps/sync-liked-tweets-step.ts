@@ -1,5 +1,4 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import type { SqliteDb } from "@/core/models/db-models";
 import { batchInsertTwitterTweet } from "../db/queries";
@@ -42,6 +41,7 @@ const tweetToRow = (
 export const syncTwitterLikedTweetsStep = async (
   _incremental: boolean,
   db: SqliteDb,
+  _inputs?: unknown,
   syncTaskId?: string,
 ): Promise<void> => {
   let userId: string;
@@ -49,12 +49,13 @@ export const syncTwitterLikedTweetsStep = async (
     const user = await getAuthenticatedTwitterUser(db);
     userId = user.id;
   } catch (e) {
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "twitter",
       status: "FAILED",
       step: STEP,
       error: String(e),
-    }, syncTaskId), db);
+    }, db);
     return;
   }
 
@@ -73,18 +74,20 @@ export const syncTwitterLikedTweetsStep = async (
 
     await batchInsertTwitterTweet(rows, db);
 
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "twitter",
       status: "SUCCESS",
       step: STEP,
       inputs: { userId, limit: LIKED_TWEETS_LIMIT },
-    }, syncTaskId), db);
+    }, db);
   } catch (e) {
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "twitter",
       status: "FAILED",
       step: STEP,
       error: String(e),
-    }, syncTaskId), db);
+    }, db);
   }
 };

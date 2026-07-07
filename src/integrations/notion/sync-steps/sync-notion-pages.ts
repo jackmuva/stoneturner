@@ -1,15 +1,16 @@
 import type { NotionChildPageBlock, NotionPage, NotionSearchResponse } from "../models/models";
 import { NOTION_BASE_API, NOTION_VERSION, getNotionCredentials, handleNotionRefresh, notionApiBottleneck } from "./notion-utils";
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { SqliteDb } from "@/core/models/db-models";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertNotionPage } from "../db/queries";
 import type { NotionPageInsert } from "../db/schema";
 
-export const syncNotionPages = async (incremental: boolean = false, db: SqliteDb, cursor?: string, syncTaskId?: string) => {
-  let nextCursor: string | undefined = cursor;
+export type NotionSyncPagesInputs = { cursor?: string };
+
+export const syncNotionPages = async (incremental: boolean = false, db: SqliteDb, inputs?: NotionSyncPagesInputs, syncTaskId?: string) => {
+  let nextCursor: string | undefined = inputs?.cursor;
 
   while (true) {
     let response: NotionSearchResponse | null = null;
@@ -18,33 +19,36 @@ export const syncNotionPages = async (incremental: boolean = false, db: SqliteDb
         return await getPages(db, nextCursor);
       });
     } catch (e) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "notion",
         status: "FAILED",
         step: "notion-sync-pages",
         inputs: { cursor: nextCursor },
         error: String(e),
-      }, syncTaskId), db)
+      }, db)
       break;
     }
     try {
       await upsertPages(response.results, db);
       if (!response.has_more || !response.next_cursor) break;
       nextCursor = response.next_cursor;
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "notion",
         status: "SUCCESS",
         step: "notion-sync-pages",
         inputs: { cursor: nextCursor },
-      }, syncTaskId), db);
+      }, db);
     } catch (e) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "notion",
         status: "FAILED",
         step: "notion-sync-pages",
         inputs: { cursor: nextCursor },
         error: String(e),
-      }, syncTaskId), db)
+      }, db)
       if (!response.next_cursor) break;
     }
   }

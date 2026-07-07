@@ -1,5 +1,4 @@
 import { getLastArtifactDateByIntegration, getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import { getDiscordChannelById, getDiscordChannels, getDiscordThreadIds, getMessagesByThreadId, getMessageTimestampRangeByChannelId, getTopLevelMessagesByChannelId } from "../db/queries";
 import type { DiscordChannelSelect, DiscordMessageSelect } from "../db/schema";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
@@ -9,17 +8,25 @@ import * as z from "zod";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 import type { SqliteDb } from "@/core/models/db-models";
 
+export type DiscordParseInputs = {
+  thread: boolean;
+  channelId: string;
+  readableDate: string;
+  start: string;
+  end?: string;
+};
+
 export const parseDiscordMessages = async (
   incremental: boolean,
   db: SqliteDb,
-  cursor?: { thread: boolean, channelId: string, readableDate: string, start: string, end?: string },
+  inputs?: DiscordParseInputs,
   syncTaskId?: string,
 ): Promise<void> => {
   const lastArtifactDate = await getLastArtifactDateByIntegration("discord", db);
-  if (cursor?.thread) {
-    await parseThreadMessages(incremental, db, lastArtifactDate, cursor, syncTaskId);
-  } else if (cursor) {
-    await parseChannelMessages(incremental, db, lastArtifactDate, cursor, syncTaskId);
+  if (inputs?.thread) {
+    await parseThreadMessages(incremental, db, lastArtifactDate, inputs, syncTaskId);
+  } else if (inputs) {
+    await parseChannelMessages(incremental, db, lastArtifactDate, inputs, syncTaskId);
   } else {
     await parseChannelMessages(incremental, db, lastArtifactDate, undefined, syncTaskId);
     await parseThreadMessages(incremental, db, lastArtifactDate, undefined, syncTaskId);
@@ -149,20 +156,22 @@ ${markdown}`;
       entities: analysis.entities,
     }, db);
 
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "discord",
       status: "SUCCESS",
-      inputs: JSON.stringify({ thread, channelId, readableDate, start, end }),
+      inputs: { thread, channelId, readableDate, start, end },
       step: "discord-parse-messages",
-    }, syncTaskId), db);
+    }, db);
   } catch (e) {
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "discord",
       status: "FAILED",
-      inputs: JSON.stringify({ thread, channelId, readableDate, start, end }),
+      inputs: { thread, channelId, readableDate, start, end },
       error: String(e),
       step: "discord-parse-messages",
-    }, syncTaskId), db);
+    }, db);
   }
 }
 

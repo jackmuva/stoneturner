@@ -14,18 +14,17 @@ import {
   getSlackThreadParents,
 } from "../db/queries";
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { SlackConversationsRepliesResponse } from "../models/models";
 
 const MAX_REPLIES = 200;
 
-export type SlackThreadRepliesCursor = { channelId: string; threadTs: string; cursor?: string };
+export type SlackSyncThreadRepliesInputs = { channelId: string; threadTs: string; cursor?: string };
 
 export const syncThreadReplies = async (
   incremental: boolean = true,
   db: SqliteDb,
-  cursor?: SlackThreadRepliesCursor,
+  inputs?: SlackSyncThreadRepliesInputs,
   syncTaskId?: string,
 ) => {
   let offset = 0;
@@ -33,9 +32,9 @@ export const syncThreadReplies = async (
     const threads = await getSlackThreadParents(offset, db);
     if (threads.length === 0) break;
 
-    const workerQueue = cursor
+    const workerQueue = inputs
       ? threads.filter((thread) =>
-        thread.channelId === cursor.channelId && thread.threadTs === cursor.threadTs
+        thread.channelId === inputs.channelId && thread.threadTs === inputs.threadTs
       )
       : threads;
 
@@ -45,15 +44,15 @@ export const syncThreadReplies = async (
           thread,
           incremental,
           db,
-          cursor?.channelId === thread.channelId && cursor.threadTs === thread.threadTs
-            ? cursor
+          inputs?.channelId === thread.channelId && inputs.threadTs === thread.threadTs
+            ? inputs
             : undefined,
           syncTaskId,
         )
       )
     ));
 
-    if (cursor) break;
+    if (inputs) break;
     if (threads.length < PAGE_SIZE) break;
     offset += PAGE_SIZE;
   }
@@ -63,13 +62,13 @@ const upsertThreadReplies = async (
   thread: { channelId: string; threadTs: string; latestReply: string | null },
   incremental: boolean,
   db: SqliteDb,
-  cursor?: SlackThreadRepliesCursor,
+  inputs?: SlackSyncThreadRepliesInputs,
   syncTaskId?: string,
 ): Promise<void> => {
-  let apiCursor: string | undefined = cursor?.cursor;
+  let apiCursor: string | undefined = inputs?.cursor;
 
   try {
-    if (!cursor && incremental) {
+    if (!inputs && incremental) {
       const lastReplyTs = await getLastReplyTsByThread(thread.channelId, thread.threadTs, db);
       if (lastReplyTs && thread.latestReply && lastReplyTs >= thread.latestReply) {
         return;
@@ -93,18 +92,19 @@ const upsertThreadReplies = async (
     }
 
     if (nextCursor) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "slack",
         status: "SUCCESS",
         step: "slack-sync-thread-replies",
-        inputs: JSON.stringify({
+        inputs: {
           channelId: thread.channelId,
           threadTs: thread.threadTs,
           cursor: nextCursor,
-        }),
-      }, syncTaskId), db);
+        },
+      }, db);
 
-      if (cursor) return;
+      if (inputs) return;
 
       await upsertThreadReplies(thread, incremental, db, {
         channelId: thread.channelId,
@@ -114,27 +114,29 @@ const upsertThreadReplies = async (
       return;
     }
 
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "slack",
       status: "SUCCESS",
       step: "slack-sync-thread-replies",
-      inputs: JSON.stringify({
+      inputs: {
         channelId: thread.channelId,
         threadTs: thread.threadTs,
-      }),
-    }, syncTaskId), db);
+      },
+    }, db);
   } catch (e) {
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "slack",
       status: "FAILED",
       step: "slack-sync-thread-replies",
-      inputs: JSON.stringify({
+      inputs: {
         channelId: thread.channelId,
         threadTs: thread.threadTs,
         cursor: apiCursor,
-      }),
+      },
       error: String(e),
-    }, syncTaskId), db);
+    }, db);
   }
 };
 

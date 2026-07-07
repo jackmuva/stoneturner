@@ -1,5 +1,4 @@
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import { generateText, Output } from "ai";
@@ -9,7 +8,10 @@ import { getPlaudFileByFileId, getPlaudTranscripts } from "../db/queries";
 import type { PlaudTranscriptSelect } from "../db/schema";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const parsePlaudStep = async (db: SqliteDb, offset?: number, syncTaskId?: string): Promise<void> => {
+export type PlaudParseInputs = { offset?: number };
+
+export const parsePlaudStep = async (_incremental: boolean = false, db: SqliteDb, inputs?: PlaudParseInputs, syncTaskId?: string): Promise<void> => {
+  const offset = inputs?.offset;
   let curOffset: number = offset ?? 0;
   let transcripts: PlaudTranscriptSelect[] = [];
   let firstIteration = true;
@@ -25,21 +27,23 @@ export const parsePlaudStep = async (db: SqliteDb, offset?: number, syncTaskId?:
         .filter((r) => r.status === "rejected")
         .map((r) => String((r as PromiseRejectedResult).reason));
 
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "plaud",
         status: failures.length ? "FAILED" : "SUCCESS",
         inputs: { offset: curOffset },
         error: failures.length ? JSON.stringify(failures) : undefined,
         step: "parse",
-      }, syncTaskId), db);
+      }, db);
     } catch (e) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "plaud",
         status: "FAILED",
         inputs: { offset: curOffset },
         error: String(e),
         step: "parse",
-      }, syncTaskId), db);
+      }, db);
     }
 
     if (offset !== undefined) {

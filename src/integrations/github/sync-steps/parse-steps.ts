@@ -2,6 +2,7 @@ import type { SqliteDb } from "@/core/models/db-models";
 import { getGithubDiscussions, getGithubDocs, getGithubIssues, getGithubSourceFiles } from "../db/queries";
 import type { GithubDiscussionSelect, GithubDocSelect, GithubIssueSelect, GithubSourceFileSelect } from "../db/schema";
 import { parseTable, renderComments } from "./parse-utils";
+import type { GithubParseInputs, GithubParseTableInputs } from "./github-utils";
 import { getGithubPulls } from "../db/queries";
 import type { GithubPullSelect } from "../db/schema";
 import type { StoredPullFile, StoredReviewComment } from "../models/models";
@@ -24,9 +25,9 @@ const renderSourceFile = (row: GithubSourceFileSelect): string => {
   return `# File: ${path}\n\n\`\`\`${lang}\n${row.content ?? ""}\n\`\`\``;
 };
 
-export const parseGithubCodeStep = async (db: SqliteDb, offset?: number, syncTaskId?: string) => {
+export const parseGithubCodeStep = async (_incremental: boolean, db: SqliteDb, inputs?: GithubParseTableInputs, syncTaskId?: string) => {
   await parseTable("github-parse-code", (o) => getGithubSourceFiles(o, db),
-    renderSourceFile, () => null, db, offset, syncTaskId);
+    renderSourceFile, () => null, db, inputs, syncTaskId);
 };
 
 const renderDiscussion = (row: GithubDiscussionSelect): string => {
@@ -39,8 +40,8 @@ const renderDiscussion = (row: GithubDiscussionSelect): string => {
 ${row.body ?? ""}${renderComments(row.comments)}`;
 };
 
-export const parseGithubDiscussionsStep = async (db: SqliteDb, offset?: number, syncTaskId?: string) => {
-  await parseTable("github-parse-discussions", (o) => getGithubDiscussions(o, db), renderDiscussion, (r) => r.createdAt, db, offset, syncTaskId);
+export const parseGithubDiscussionsStep = async (_incremental: boolean, db: SqliteDb, inputs?: GithubParseTableInputs, syncTaskId?: string) => {
+  await parseTable("github-parse-discussions", (o) => getGithubDiscussions(o, db), renderDiscussion, (r) => r.createdAt, db, inputs, syncTaskId);
 };
 
 const renderDoc = (row: GithubDocSelect): string => {
@@ -49,9 +50,9 @@ const renderDoc = (row: GithubDocSelect): string => {
 ${row.content ?? ""}`;
 };
 
-export const parseGithubDocsStep = async (db: SqliteDb, offset?: number, syncTaskId?: string) => {
+export const parseGithubDocsStep = async (_incremental: boolean, db: SqliteDb, inputs?: GithubParseTableInputs, syncTaskId?: string) => {
   await parseTable("github-parse-docs", (o) => getGithubDocs(o, db),
-    renderDoc, () => null, db, offset, syncTaskId);
+    renderDoc, () => null, db, inputs, syncTaskId);
 };
 
 const renderIssue = (row: GithubIssueSelect): string => {
@@ -66,9 +67,9 @@ const renderIssue = (row: GithubIssueSelect): string => {
 ${row.body ?? ""}${renderComments(row.comments)}`;
 };
 
-export const parseGithubIssuesStep = async (db: SqliteDb, offset?: number, syncTaskId?: string) => {
+export const parseGithubIssuesStep = async (_incremental: boolean, db: SqliteDb, inputs?: GithubParseTableInputs, syncTaskId?: string) => {
   await parseTable("github-parse-issues", (o) => getGithubIssues(o, db), renderIssue,
-    (r) => r.updatedAt ?? r.createdAt, db, offset, syncTaskId);
+    (r) => r.updatedAt ?? r.createdAt, db, inputs, syncTaskId);
 };
 
 const renderPullFiles = (files: StoredPullFile[] | null): string => {
@@ -98,7 +99,23 @@ const renderPull = (row: GithubPullSelect): string => {
 ${row.body ?? ""}${renderPullFiles(row.files)}${renderReviewComments(row.reviewComments)}`;
 };
 
-export const parseGithubPullsStep = async (db: SqliteDb, offset?: number, syncTaskId?: string) => {
+export const parseGithubPullsStep = async (_incremental: boolean, db: SqliteDb, inputs?: GithubParseTableInputs, syncTaskId?: string) => {
   await parseTable("github-parse-pulls", (o) => getGithubPulls(o, db), renderPull,
-    (r) => r.updatedAt ?? r.createdAt, db, offset, syncTaskId);
+    (r) => r.updatedAt ?? r.createdAt, db, inputs, syncTaskId);
+};
+
+type GithubParseStepFn = (_incremental: boolean, db: SqliteDb, inputs?: GithubParseTableInputs, syncTaskId?: string) => Promise<void>;
+
+const GITHUB_PARSE_BY_LABEL: Record<string, GithubParseStepFn> = {
+  "github-parse-code": parseGithubCodeStep,
+  "github-parse-discussions": parseGithubDiscussionsStep,
+  "github-parse-docs": parseGithubDocsStep,
+  "github-parse-issues": parseGithubIssuesStep,
+  "github-parse-pulls": parseGithubPullsStep,
+};
+
+export const parseGithubStep = async (_incremental: boolean, db: SqliteDb, inputs?: GithubParseInputs, syncTaskId?: string) => {
+  const fn = GITHUB_PARSE_BY_LABEL[String(inputs?.stepLabel ?? "")];
+  if (!fn) throw new Error(`Unknown github parse stepLabel: ${inputs?.stepLabel}`);
+  await fn(_incremental, db, inputs, syncTaskId);
 };

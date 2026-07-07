@@ -1,5 +1,4 @@
 import { getMdArtifactsByIntegration, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { MdArtifactSelect } from "@/core/db/schema/schema";
 import {
   getEmbeddingsByIntegrationArtifactId,
@@ -13,8 +12,11 @@ import { retry } from "@/lib/utils";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const indexVectorDbStep = async (integration: string, incremental: boolean = true, db: SqliteDb, offset?: number, syncTaskId?: string) => {
-  let curOffset: number = offset ? offset : 0;
+export type IndexVectorInputs = { integration: string, offset?: number };
+
+export const indexVectorDbStep = async (incremental: boolean = true, db: SqliteDb, inputs: IndexVectorInputs, syncTaskId?: string) => {
+  const { integration, offset } = inputs;
+  let curOffset: number = offset ?? 0;
   let artifacts: MdArtifactSelect[] = [];
   let firstIteration = true;
 
@@ -25,22 +27,24 @@ export const indexVectorDbStep = async (integration: string, incremental: boolea
       await Promise.allSettled(
         artifacts.map((artifact) => aiGatewayBottleneck.schedule(() => chunkMd(artifact, incremental, db)))
       );
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: integration,
         status: "SUCCESS",
-        inputs: JSON.stringify({ offset: curOffset }),
+        inputs: { integration: integration, offset: curOffset },
         step: "index-vector",
-      }, syncTaskId), db);
+      }, db);
 
       if (offset !== undefined) break;
     } catch (e) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: integration,
         status: "FAILED",
-        inputs: JSON.stringify({ offset: curOffset }),
+        inputs: { integration: integration, offset: curOffset },
         error: String(e),
         step: "index-vector",
-      }, syncTaskId), db);
+      }, db);
     }
     curOffset += PAGE_SIZE;
   }

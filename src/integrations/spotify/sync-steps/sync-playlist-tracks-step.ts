@@ -1,5 +1,4 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import type { SqliteDb } from "@/core/models/db-models";
 import {
@@ -22,7 +21,9 @@ import {
   spotifyFetch,
   stringsFromCursor,
   type SpotifyPlaylistTracksCursor,
+  type SpotifyPlaylistTracksInputs,
 } from "./spotify-utils";
+import { fetchSpotifyUser } from "./sync-user-step";
 
 const STEP = "spotify-sync-playlist-tracks";
 
@@ -53,10 +54,11 @@ const getPlaylistsNeedingTrackSync = async (
 export const syncSpotifyPlaylistTracksStep = async (
   incremental: boolean,
   db: SqliteDb,
-  user: SpotifyUserProfile | undefined,
-  cursor?: SpotifyPlaylistTracksCursor,
+  inputs?: SpotifyPlaylistTracksInputs,
   syncTaskId?: string,
 ): Promise<void> => {
+  const user = await fetchSpotifyUser(db);
+  const cursor = inputs?.cursor ?? (inputs?.playlistId ? { playlistId: inputs.playlistId, offset: 0 } : undefined);
   const playlistIds = stringsFromCursor(
     await getPlaylistsNeedingTrackSync(incremental, db, user),
     cursor?.playlistId,
@@ -87,12 +89,13 @@ export const syncSpotifyPlaylistTracksStep = async (
         });
 
         if (!page) {
-          await upsertSyncTask(withSyncTaskId({
+          await upsertSyncTask({
+            id: syncTaskId,
             integration: "spotify",
             status: "SUCCESS",
             step: STEP,
             inputs: { playlistId },
-          }, syncTaskId), db);
+          }, db);
           break;
         }
 
@@ -138,30 +141,32 @@ export const syncSpotifyPlaylistTracksStep = async (
           ? { playlistId, offset: nextOffset }
           : null;
 
-        await upsertSyncTask(withSyncTaskId({
+        await upsertSyncTask({
+          id: syncTaskId,
           integration: "spotify",
           status: "SUCCESS",
           step: STEP,
           inputs: nextCursor
             ? { cursor: nextCursor }
             : { playlistId },
-        }, syncTaskId), db);
+        }, db);
 
         if (!hasMore) break;
         offset = nextOffset;
-        if (cursor !== undefined) break;
+        if (inputs !== undefined) break;
       } catch (e) {
-        await upsertSyncTask(withSyncTaskId({
+        await upsertSyncTask({
+          id: syncTaskId,
           integration: "spotify",
           status: "FAILED",
           step: STEP,
           inputs: { cursor: { playlistId, offset } },
           error: String(e),
-        }, syncTaskId), db);
+        }, db);
         break;
       }
     }
 
-    if (cursor !== undefined) break;
+    if (inputs !== undefined) break;
   }
 };

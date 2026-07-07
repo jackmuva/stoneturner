@@ -10,35 +10,34 @@ import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertSlackMessage, getLastMessageByChannelId, getSlackChannels } from "../db/queries";
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { SlackChannelSelect } from "../db/schema";
 import type { SqliteDb } from "@/core/models/db-models";
 import type { SlackConversationsHistoryResponse } from "../models/models";
 
 const MAX_MESSAGES = 200;
 
-export type SlackMessagesCursor = { channelId: string; cursor?: string; oldest?: string };
+export type SlackSyncMessagesInputs = { channelId: string; cursor?: string; oldest?: string };
 
-export const syncMessages = async (incremental: boolean = true, db: SqliteDb, cursor?: SlackMessagesCursor, syncTaskId?: string) => {
+export const syncMessages = async (incremental: boolean = true, db: SqliteDb, inputs?: SlackSyncMessagesInputs, syncTaskId?: string) => {
   let offset = 0;
   while (true) {
     const channels = await getSlackChannels(offset, db);
     if (channels.length === 0) break;
 
-    const workerQueue = cursor ? channels.filter((channel) => channel.id === cursor.channelId) : channels;
+    const workerQueue = inputs ? channels.filter((channel) => channel.id === inputs.channelId) : channels;
     await Promise.all(workerQueue.map((channel) =>
       slackApiBottleneck.schedule(() =>
         upsertMessages(
           channel,
           incremental,
           db,
-          cursor?.channelId === channel.id ? cursor : undefined,
+          inputs?.channelId === channel.id ? inputs : undefined,
           syncTaskId,
         )
       )
     ));
 
-    if (cursor) break;
+    if (inputs) break;
     if (channels.length < PAGE_SIZE) break;
     offset += PAGE_SIZE;
   }
@@ -48,14 +47,14 @@ const upsertMessages = async (
   channel: SlackChannelSelect,
   incremental: boolean,
   db: SqliteDb,
-  cursor?: SlackMessagesCursor,
+  inputs?: SlackSyncMessagesInputs,
   syncTaskId?: string,
 ): Promise<void> => {
-  let oldest: string | undefined = cursor?.oldest;
-  let apiCursor: string | undefined = cursor?.cursor;
+  let oldest: string | undefined = inputs?.oldest;
+  let apiCursor: string | undefined = inputs?.cursor;
 
   try {
-    if (!cursor && incremental) {
+    if (!inputs && incremental) {
       const lastMessage = await getLastMessageByChannelId(channel.id, db);
       if (lastMessage) oldest = lastMessage.ts;
     }
@@ -73,14 +72,15 @@ const upsertMessages = async (
     }
 
     if (nextCursor && !oldest) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "slack",
         status: "SUCCESS",
         step: "slack-sync-channel-messages",
-        inputs: JSON.stringify({ channelId: channel.id, oldest, cursor: nextCursor }),
-      }, syncTaskId), db);
+        inputs: { channelId: channel.id, oldest, cursor: nextCursor },
+      }, db);
 
-      if (cursor) return;
+      if (inputs) return;
 
       await upsertMessages(channel, incremental, db, {
         channelId: channel.id,
@@ -90,20 +90,22 @@ const upsertMessages = async (
       return;
     }
 
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "slack",
       status: "SUCCESS",
       step: "slack-sync-channel-messages",
-      inputs: JSON.stringify({ channelId: channel.id, oldest }),
-    }, syncTaskId), db);
+      inputs: { channelId: channel.id, oldest },
+    }, db);
   } catch (e) {
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "slack",
       status: "FAILED",
       step: "slack-sync-channel-messages",
-      inputs: JSON.stringify({ channelId: channel.id, oldest, cursor: apiCursor }),
+      inputs: { channelId: channel.id, oldest, cursor: apiCursor },
       error: String(e),
-    }, syncTaskId), db);
+    }, db);
   }
 };
 

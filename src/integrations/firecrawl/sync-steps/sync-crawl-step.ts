@@ -1,5 +1,4 @@
 import { getIntegrationCredentialByIntegration, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import { retry } from "@/lib/utils";
 import { batchInsertFirecrawlPage } from "../db/queries";
@@ -127,33 +126,39 @@ const crawlUrl = async (apiKey: string, seedUrl: string, db: SqliteDb, maxDepth?
       batch = await fetchCrawlStatus(apiKey, batch.next);
     }
 
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "Firecrawl",
       status: "SUCCESS",
-      inputs: JSON.stringify({ cursor: seedUrl }),
+      inputs: { cursor: seedUrl },
       step: "firecrawl-sync-crawl",
-    }, syncTaskId), db);
+    }, db);
   } catch (e) {
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "Firecrawl",
       status: "FAILED",
-      inputs: JSON.stringify({ cursor: seedUrl }),
+      inputs: { cursor: seedUrl },
       error: String(e),
       step: "firecrawl-sync-crawl",
-    }, syncTaskId), db);
+    }, db);
   }
 }
 
-export const syncFirecrawlCrawlStep = async (_incremental: boolean = false, db: SqliteDb, cursor?: string, syncTaskId?: string): Promise<void> => {
+export type FirecrawlSyncCrawlInputs = { cursor?: string };
+
+export const syncFirecrawlCrawlStep = async (_incremental: boolean = false, db: SqliteDb, inputs?: FirecrawlSyncCrawlInputs, syncTaskId?: string): Promise<void> => {
+  const cursor = inputs?.cursor;
   const { apiKey, urls, maxDepth, limit } = await getCredentials(db);
 
   if (!apiKey || urls.length === 0) {
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "Firecrawl",
       status: "FAILED",
       error: "missing API key or URLs in credential options",
       step: "firecrawl-sync-crawl",
-    }, syncTaskId), db);
+    }, db);
     return;
   }
 

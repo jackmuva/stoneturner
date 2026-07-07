@@ -1,21 +1,20 @@
 import type { Integration } from "@/core/models/models";
 import type { SqliteDb } from "@/core/models/db-models";
-import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
+import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { notionConfig } from "./config";
 import { handleNotionRefresh, handleOauthRedirect } from "./sync-steps/notion-utils";
 import { syncNotionPages } from "./sync-steps/sync-notion-pages";
-import { deleteNotionData, getMostRecentEditedTime } from "./db/queries";
+import { deleteNotionData } from "./db/queries";
 import { syncNotionMarkdown } from "./sync-steps/sync-notion-markdown";
 import { notionMarkdownToArtifact } from "./sync-steps/notion-markdown-to-artifact";
 
 export const syncNotionPipeline = async (incremental: boolean = true, db: SqliteDb) => {
-  const lastEditedDate: string | null = await getMostRecentEditedTime(db);
   await syncNotionPages(incremental, db);
-  await syncNotionMarkdown(db, incremental ? {lastEditedDate} : undefined);
-  await notionMarkdownToArtifact(db, incremental ? {lastEditedDate} : undefined);
-  await indexVectorDbStep("notion", incremental, db);
+  await syncNotionMarkdown(incremental, db);
+  await notionMarkdownToArtifact(incremental, db);
+  await indexVectorDbStep(incremental, db, { integration: "notion" });
 }
 
 export const notionIntegration: Integration = {

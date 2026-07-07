@@ -1,5 +1,4 @@
 import { getIntegrationCredentialByIntegration, upsertIntegrationCredential, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import type { SqliteDb } from "@/core/models/db-models";
 import Bottleneck from "bottleneck";
@@ -37,12 +36,13 @@ export const handleNotionRefresh = async (db: SqliteDb, syncTaskId?: string) => 
   });
 
   if (!res.ok) {
-    upsertSyncTask(withSyncTaskId({
+    upsertSyncTask({
+      id: syncTaskId,
       integration: "notion",
       status: "FAILED",
       step: "notion-token-revalidation",
       error: await res.text(),
-    }, syncTaskId), db)
+    }, db)
   }
 
   const token = await res.json() as {

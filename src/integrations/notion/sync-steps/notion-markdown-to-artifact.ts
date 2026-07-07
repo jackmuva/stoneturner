@@ -1,22 +1,25 @@
+import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import type { NotionPageSelect } from "../db/schema";
-import { getNotionPageMarkdownById, getNotionPages } from "../db/queries";
-import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
+import { getNotionPageMarkdownById, getNotionPages, getMostRecentEditedTime } from "../db/queries";
 import type { SqliteDb } from "@/core/models/db-models";
 import { retry } from "@/lib/utils";
 import { generateText, Output } from "ai";
 import * as z from "zod";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 
-export const notionMarkdownToArtifact = async (db: SqliteDb, incremental?: { lastEditedDate: string | null }, cursor?: number, syncTaskId?: string) => {
-  let curOffset: number = cursor ? cursor : 0;
+export type NotionMarkdownToArtifactInputs = { offset?: number };
+
+export const notionMarkdownToArtifact = async (incremental: boolean = false, db: SqliteDb, inputs?: NotionMarkdownToArtifactInputs, syncTaskId?: string) => {
+  const lastEditedDate = incremental ? await getMostRecentEditedTime(db) : null;
+  const offset = inputs?.offset;
+  let curOffset: number = offset ?? 0;
   let notionPages: NotionPageSelect[] = await getNotionPages(curOffset, db);
 
   while (notionPages.length > 0) {
     const workerQueue = notionPages.filter((page) =>
-      !incremental || !incremental.lastEditedDate ||
-      (page.lastEditedTime !== null && page.lastEditedTime >= incremental.lastEditedDate)
+      !incremental || !lastEditedDate ||
+      (page.lastEditedTime !== null && page.lastEditedTime >= lastEditedDate)
     );
     try {
       const results = await Promise.allSettled(
@@ -27,23 +30,25 @@ export const notionMarkdownToArtifact = async (db: SqliteDb, incremental?: { las
         .filter((r) => r.status === "rejected")
         .map((r) => String((r as PromiseRejectedResult).reason));
 
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "notion",
         status: failures.length ? "FAILED" : "SUCCESS",
         step: "notion-markdown-to-artifact",
-        inputs: { cursor: curOffset },
+        inputs: { offset: curOffset },
         error: failures.length ? JSON.stringify(failures) : undefined,
-      }, syncTaskId), db)
+      }, db)
     } catch (e) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "notion",
         status: "FAILED",
         step: "notion-markdown-to-artifact",
-        inputs: { cursor: curOffset },
+        inputs: { offset: curOffset },
         error: String(e),
-      }, syncTaskId), db)
+      }, db)
     }
-    if (cursor !== undefined) break;
+    if (offset !== undefined) break;
     curOffset += PAGE_SIZE;
     notionPages = await getNotionPages(curOffset, db);
   }

@@ -1,5 +1,4 @@
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
 import { generateText, Output } from "ai";
@@ -12,9 +11,17 @@ import {
   getSpotifyPlaylists,
 } from "../db/queries";
 import type { SpotifyEpisodeSelect, SpotifyPlaylistSelect } from "../db/schema";
-import { formatDuration, type SpotifyParseCursor } from "./spotify-utils";
+import { formatDuration, type SpotifyParseCursor, type SpotifyParseInputs } from "./spotify-utils";
 
-export const parseSpotifyStep = async (db: SqliteDb, cursor?: SpotifyParseCursor, syncTaskId?: string): Promise<void> => {
+const parseCursorFromInputs = (inputs?: SpotifyParseInputs): SpotifyParseCursor | undefined => {
+  if (!inputs) return undefined;
+  if ("cursor" in inputs && inputs.cursor) return inputs.cursor;
+  if ("type" in inputs) return inputs as SpotifyParseCursor;
+  return undefined;
+};
+
+export const parseSpotifyStep = async (_incremental: boolean, db: SqliteDb, inputs?: SpotifyParseInputs, syncTaskId?: string): Promise<void> => {
+  const cursor = parseCursorFromInputs(inputs);
   if (!cursor || cursor.type === "playlist") {
     await parsePlaylists(db, cursor?.type === "playlist" ? cursor.offset : undefined, syncTaskId);
   }
@@ -41,7 +48,8 @@ const parsePlaylists = async (db: SqliteDb, cursor?: number, syncTaskId?: string
 
       const nextCursor = curOffset + PAGE_SIZE;
       const hasMore = playlists.length >= PAGE_SIZE;
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "spotify",
         status: failures.length ? "FAILED" : "SUCCESS",
         inputs: failures.length
@@ -51,15 +59,16 @@ const parsePlaylists = async (db: SqliteDb, cursor?: number, syncTaskId?: string
             : { type: "playlist" },
         error: failures.length ? JSON.stringify(failures) : undefined,
         step: "parse",
-      }, syncTaskId), db);
+      }, db);
     } catch (e) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "spotify",
         status: "FAILED",
         inputs: { cursor: { type: "playlist", offset: curOffset } },
         error: String(e),
         step: "parse",
-      }, syncTaskId), db);
+      }, db);
     }
 
     if (cursor !== undefined) break;
@@ -85,7 +94,8 @@ const parseEpisodes = async (db: SqliteDb, cursor?: number, syncTaskId?: string)
 
       const nextCursor = curOffset + PAGE_SIZE;
       const hasMore = episodes.length >= PAGE_SIZE;
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "spotify",
         status: failures.length ? "FAILED" : "SUCCESS",
         inputs: failures.length
@@ -95,15 +105,16 @@ const parseEpisodes = async (db: SqliteDb, cursor?: number, syncTaskId?: string)
             : { type: "episode" },
         error: failures.length ? JSON.stringify(failures) : undefined,
         step: "parse",
-      }, syncTaskId), db);
+      }, db);
     } catch (e) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "spotify",
         status: "FAILED",
         inputs: { cursor: { type: "episode", offset: curOffset } },
         error: String(e),
         step: "parse",
-      }, syncTaskId), db);
+      }, db);
     }
 
     if (cursor !== undefined) break;

@@ -1,5 +1,4 @@
 import { getLastArtifactDateByIntegration, getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import {
   getMessagesByThreadTs,
   getMessageTimestampRangeByChannelId,
@@ -18,7 +17,7 @@ import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 import { slackTsToIso } from "./slack-utils";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export type SlackParseChannelCursor = {
+export type SlackParseChannelInputs = {
   thread: false;
   channelId: string;
   readableDate: string;
@@ -26,25 +25,25 @@ export type SlackParseChannelCursor = {
   end?: string;
 };
 
-export type SlackParseThreadCursor = {
+export type SlackParseThreadInputs = {
   thread: true;
   channelId: string;
   threadTs: string;
 };
 
-export type SlackParseCursor = SlackParseChannelCursor | SlackParseThreadCursor;
+export type SlackParseInputs = SlackParseChannelInputs | SlackParseThreadInputs;
 
 export const parseSlackMessages = async (
   incremental: boolean,
   db: SqliteDb,
-  cursor?: SlackParseCursor,
+  inputs?: SlackParseInputs,
   syncTaskId?: string,
 ): Promise<void> => {
   const lastArtifactDate = await getLastArtifactDateByIntegration("slack", db);
-  if (cursor?.thread) {
-    await parseThreadMessages(incremental, db, lastArtifactDate, cursor, syncTaskId);
-  } else if (cursor) {
-    await parseChannelMessages(incremental, db, lastArtifactDate, cursor, syncTaskId);
+  if (inputs?.thread) {
+    await parseThreadMessages(incremental, db, lastArtifactDate, inputs, syncTaskId);
+  } else if (inputs) {
+    await parseChannelMessages(incremental, db, lastArtifactDate, inputs, syncTaskId);
   } else {
     await parseChannelMessages(incremental, db, lastArtifactDate, undefined, syncTaskId);
     await parseThreadMessages(incremental, db, lastArtifactDate, undefined, syncTaskId);
@@ -55,7 +54,7 @@ const parseThreadMessages = async (
   incremental: boolean,
   db: SqliteDb,
   lastArtifactDate?: string,
-  cursor?: SlackParseThreadCursor,
+  inputs?: SlackParseThreadInputs,
   syncTaskId?: string,
 ) => {
   let offset = 0;
@@ -66,9 +65,9 @@ const parseThreadMessages = async (
     let workerQueue = threads.filter((thread) =>
       !incremental || (lastArtifactDate !== undefined && (thread.latestReply ?? thread.threadTs) >= lastArtifactDate)
     );
-    if (cursor) {
+    if (inputs) {
       workerQueue = workerQueue.filter(
-        (thread) => thread.channelId === cursor.channelId && thread.threadTs === cursor.threadTs,
+        (thread) => thread.channelId === inputs.channelId && thread.threadTs === inputs.threadTs,
       );
     }
 
@@ -86,7 +85,7 @@ const parseThreadMessages = async (
       })
     ));
 
-    if (cursor) break;
+    if (inputs) break;
     if (threads.length < PAGE_SIZE) break;
     offset += PAGE_SIZE;
   }
@@ -96,7 +95,7 @@ const parseChannelMessages = async (
   incremental: boolean,
   db: SqliteDb,
   lastArtifactDate: string | undefined,
-  cursor?: SlackParseChannelCursor,
+  inputs?: SlackParseChannelInputs,
   syncTaskId?: string,
 ) => {
   let offset = 0;
@@ -104,7 +103,7 @@ const parseChannelMessages = async (
 
   while (channels.length > 0) {
     for (const channel of channels) {
-      if (cursor && channel.id !== cursor.channelId) continue;
+      if (inputs && channel.id !== inputs.channelId) continue;
 
       const range = await getMessageTimestampRangeByChannelId(channel.id, db);
       if (!range?.minMessageTimestamp || !range.maxMessageTimestamp) continue;
@@ -114,8 +113,8 @@ const parseChannelMessages = async (
         new Date(Number.parseFloat(range.maxMessageTimestamp) * 1000),
       );
 
-      if (cursor && dayArray) {
-        dayArray = dayArray.filter((day) => day[Object.keys(day)[0]!]?.start === cursor.start);
+      if (inputs && dayArray) {
+        dayArray = dayArray.filter((day) => day[Object.keys(day)[0]!]?.start === inputs.start);
       }
 
       const workDays = dayArray.filter((dayObj) =>
@@ -145,7 +144,7 @@ const parseChannelMessages = async (
         })
       ));
 
-      if (cursor) return;
+      if (inputs) return;
     }
     offset += PAGE_SIZE;
     channels = await getSlackChannels(offset, db);
@@ -164,7 +163,7 @@ const processMessages = async (
   channelName: string,
   messages: SlackMessageSelect[],
   db: SqliteDb,
-  resumeInputs: SlackParseCursor,
+  resumeInputs: SlackParseInputs,
   syncTaskId?: string,
 ) => {
   try {
@@ -226,20 +225,22 @@ ${markdown}`;
       entities: analysis.entities,
     }, db);
 
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "slack",
       status: "SUCCESS",
       inputs: resumeInputs,
       step: "slack-parse-messages",
-    }, syncTaskId), db);
+    }, db);
   } catch (e) {
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "slack",
       status: "FAILED",
       inputs: resumeInputs,
       error: String(e),
       step: "slack-parse-messages",
-    }, syncTaskId), db);
+    }, db);
   }
 };
 

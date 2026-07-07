@@ -1,5 +1,4 @@
 import { getMdArtifactByIntegrationArtifactId, upsertMdArtifact, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { SqliteDb } from "@/core/models/db-models";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE, SUMMARIZATION_MODEL } from "@/lib/constants";
@@ -7,6 +6,7 @@ import { generateText, Output } from "ai";
 import * as z from "zod";
 import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 import type { StoredComment } from "../models/models";
+import type { GithubParseTableInputs } from "./github-utils";
 
 export const PARSE_STEP = "parse";
 
@@ -25,9 +25,10 @@ export const parseTable = async <T extends Artifactable>(
   render: (row: T) => string,
   getDate: (row: T) => string | null,
   db: SqliteDb,
-  offset?: number,
+  inputs?: GithubParseTableInputs,
   syncTaskId?: string,
 ) => {
+  const offset = inputs?.offset;
   let curOffset = offset ?? 0;
   let rows = await getRows(curOffset);
 
@@ -38,23 +39,25 @@ export const parseTable = async <T extends Artifactable>(
       );
       const failures = results.filter((r) => r.status === "rejected").map((r) => String((r as PromiseRejectedResult).reason));
       const nextCursor = { offset: curOffset + PAGE_SIZE };
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "github",
         status: failures.length ? "FAILED" : "SUCCESS",
         step: PARSE_STEP,
         inputs: failures.length
-          ? { stepLabel, cursor: { offset: curOffset } }
-          : { stepLabel, cursor: nextCursor },
+          ? { stepLabel, offset: curOffset }
+          : { stepLabel, offset: nextCursor.offset },
         error: failures.length ? JSON.stringify(failures) : undefined,
-      }, syncTaskId), db);
+      }, db);
     } catch (e) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "github",
         status: "FAILED",
         step: PARSE_STEP,
-        inputs: { stepLabel, cursor: { offset: curOffset } },
+        inputs: { stepLabel, offset: curOffset },
         error: String(e),
-      }, syncTaskId), db);
+      }, db);
     }
     if (offset !== undefined) break;
     curOffset += PAGE_SIZE;

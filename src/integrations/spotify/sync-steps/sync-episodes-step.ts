@@ -1,5 +1,4 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import type { SqliteDb } from "@/core/models/db-models";
 import { batchInsertSpotifyEpisode, getAllSpotifyShows, getSpotifyShowsWithoutEpisodes } from "../db/queries";
@@ -10,17 +9,20 @@ import {
   spotifyFetch,
   stringsFromCursor,
   type SpotifyEpisodesCursor,
+  type SpotifyEpisodesInputs,
 } from "./spotify-utils";
+import { fetchSpotifyUser } from "./sync-user-step";
 
 const STEP = "spotify-sync-episodes";
 
 export const syncSpotifyEpisodesStep = async (
   incremental: boolean,
   db: SqliteDb,
-  user: SpotifyUserProfile | undefined,
-  cursor?: SpotifyEpisodesCursor,
+  inputs?: SpotifyEpisodesInputs,
   syncTaskId?: string,
 ): Promise<void> => {
+  const user = await fetchSpotifyUser(db);
+  const cursor = inputs?.cursor;
   const showsToSync = incremental
     ? await getSpotifyShowsWithoutEpisodes(db)
     : await getAllSpotifyShows(db);
@@ -67,30 +69,32 @@ export const syncSpotifyEpisodesStep = async (
           ? { showId, offset: nextOffset }
           : null;
 
-        await upsertSyncTask(withSyncTaskId({
+        await upsertSyncTask({
+          id: syncTaskId,
           integration: "spotify",
           status: "SUCCESS",
           step: STEP,
           inputs: nextCursor
             ? { cursor: nextCursor }
             : { showId },
-        }, syncTaskId), db);
+        }, db);
 
         if (!hasMore) break;
         offset = nextOffset;
-        if (cursor !== undefined) break;
+        if (inputs !== undefined) break;
       } catch (e) {
-        await upsertSyncTask(withSyncTaskId({
+        await upsertSyncTask({
+          id: syncTaskId,
           integration: "spotify",
           status: "FAILED",
           step: STEP,
           inputs: { cursor: { showId, offset } },
           error: String(e),
-        }, syncTaskId), db);
+        }, db);
         break;
       }
     }
 
-    if (cursor !== undefined) break;
+    if (inputs !== undefined) break;
   }
 };

@@ -1,5 +1,4 @@
 import { getIntegrationCredentialByIntegration, upsertIntegrationCredential, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import type { PlaudTokenResponse } from "../models/models";
 import Bottleneck from "bottleneck";
@@ -31,12 +30,13 @@ export const handlePlaudRefresh = async (db: SqliteDb, syncTaskId?: string): Pro
   });
 
   if (!res.ok) {
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "Plaud",
       status: "FAILED",
       step: "plaud-token-revalidation",
       error: await res.text(),
-    }, syncTaskId), db);
+    }, db);
     return;
   }
 

@@ -3,7 +3,6 @@ import {
   upsertIntegrationCredential,
   upsertSyncTask,
 } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import type { SqliteDb } from "@/core/models/db-models";
 import { retry } from "@/lib/utils";
@@ -226,12 +225,13 @@ export const handleTwitterRefresh = async (db: SqliteDb, syncTaskId?: string): P
 
     await persistTwitterTokens(db, token, cred);
   } catch (e) {
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "twitter",
       status: "FAILED",
       step: "twitter-token-revalidation",
       error: String(e),
-    }, syncTaskId), db);
+    }, db);
   }
 };
 

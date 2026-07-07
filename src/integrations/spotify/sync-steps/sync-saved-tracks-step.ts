@@ -1,37 +1,38 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import type { SqliteDb } from "@/core/models/db-models";
 import { batchInsertSpotifySavedTrack, getLatestSpotifySavedTrackAddedAt } from "../db/queries";
 import type { SpotifySavedTrackInsert } from "../db/schema";
 import type { SpotifyPaginatedResponse, SpotifySavedTrackItem } from "../models/models";
-import { formatArtists, SPOTIFY_PAGE_SIZE, spotifyFetch, type SpotifyOffsetCursor } from "./spotify-utils";
+import { formatArtists, SPOTIFY_PAGE_SIZE, spotifyFetch, type SpotifyOffsetInputs } from "./spotify-utils";
 
 export const syncSpotifySavedTracksStep = async (
   incremental: boolean,
   db: SqliteDb,
-  cursor?: SpotifyOffsetCursor,
+  inputs?: SpotifyOffsetInputs,
   syncTaskId?: string,
 ): Promise<void> => {
   const latestAddedAt = incremental ? await getLatestSpotifySavedTrackAddedAt(db) : null;
-  let offset = cursor ?? 0;
+  const offset = inputs?.offset ?? 0;
+  let curOffset = offset;
 
   while (true) {
     let page: SpotifyPaginatedResponse<SpotifySavedTrackItem>;
     try {
       page = await retry(async () => {
-        const res = await spotifyFetch(`/me/tracks?limit=${SPOTIFY_PAGE_SIZE}&offset=${offset}`, db);
+        const res = await spotifyFetch(`/me/tracks?limit=${SPOTIFY_PAGE_SIZE}&offset=${curOffset}`, db);
         if (!res.ok) throw new Error(await res.text());
         return await res.json() as SpotifyPaginatedResponse<SpotifySavedTrackItem>;
       });
     } catch (e) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "spotify",
         status: "FAILED",
         step: "spotify-sync-saved-tracks",
-        inputs: { cursor: offset },
+        inputs: { offset: curOffset },
         error: String(e),
-      }, syncTaskId), db);
+      }, db);
       break;
     }
 
@@ -56,30 +57,32 @@ export const syncSpotifySavedTracksStep = async (
 
     try {
       await batchInsertSpotifySavedTrack(rows, db);
-      const nextOffset = offset + SPOTIFY_PAGE_SIZE;
+      const nextOffset = curOffset + SPOTIFY_PAGE_SIZE;
       const hasMore = items.length >= SPOTIFY_PAGE_SIZE && nextOffset < page.total
         && !(incremental && fresh.length < items.length);
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "spotify",
         status: "SUCCESS",
         step: "spotify-sync-saved-tracks",
-        inputs: hasMore ? { cursor: nextOffset } : {},
-      }, syncTaskId), db);
+        inputs: hasMore ? { offset: nextOffset } : {},
+      }, db);
     } catch (e) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "spotify",
         status: "FAILED",
         step: "spotify-sync-saved-tracks",
-        inputs: { cursor: offset },
+        inputs: { offset: curOffset },
         error: String(e),
-      }, syncTaskId), db);
+      }, db);
       break;
     }
 
     if (items.length < SPOTIFY_PAGE_SIZE) break;
     if (incremental && fresh.length < items.length) break;
-    offset += SPOTIFY_PAGE_SIZE;
-    if (offset >= page.total) break;
-    if (cursor !== undefined) break;
+    curOffset += SPOTIFY_PAGE_SIZE;
+    if (curOffset >= page.total) break;
+    if (inputs?.offset !== undefined) break;
   }
 };

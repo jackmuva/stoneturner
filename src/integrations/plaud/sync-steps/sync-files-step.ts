@@ -1,5 +1,4 @@
 import { upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import { retry } from "@/lib/utils";
 import { PAGE_SIZE } from "@/lib/constants";
 import { batchInsertPlaudFile, getLatestPlaudFile } from "../db/queries";
@@ -8,7 +7,7 @@ import type { PlaudFileListResponse } from "../models/models";
 import { PLAUD_BASE_API, getPlaudCredentials, handlePlaudRefresh } from "./plaud-utils";
 import type { SqliteDb } from "@/core/models/db-models";
 
-export const syncPlaudFilesStep = async (incremental: boolean = false, db: SqliteDb, syncTaskId?: string): Promise<void> => {
+export const syncPlaudFilesStep = async (incremental: boolean = false, db: SqliteDb, _inputs?: unknown, syncTaskId?: string): Promise<void> => {
   let latestStartAt: string | null = null;
   if (incremental) {
     const latest = await getLatestPlaudFile(db);
@@ -21,13 +20,14 @@ export const syncPlaudFilesStep = async (incremental: boolean = false, db: Sqlit
     try {
       response = await retry(async () => await getFilesPage(page, db));
     } catch (e) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "plaud",
         status: "FAILED",
         step: "plaud-sync-files",
         inputs: { page },
         error: String(e),
-      }, syncTaskId), db);
+      }, db);
       break;
     }
 
@@ -48,20 +48,22 @@ export const syncPlaudFilesStep = async (incremental: boolean = false, db: Sqlit
         duration: f.duration,
       }));
       await batchInsertPlaudFile(rows, db);
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "plaud",
         status: "SUCCESS",
         step: "plaud-sync-files",
         inputs: { page },
-      }, syncTaskId), db);
+      }, db);
     } catch (e) {
-      await upsertSyncTask(withSyncTaskId({
+      await upsertSyncTask({
+        id: syncTaskId,
         integration: "plaud",
         status: "FAILED",
         step: "plaud-sync-files",
         inputs: { page },
         error: String(e),
-      }, syncTaskId), db);
+      }, db);
     }
 
     // Stop on a short/empty page, or once incremental hit already-synced files.

@@ -1,5 +1,4 @@
 import { getIntegrationCredentialByIntegration, upsertIntegrationCredential, upsertSyncTask } from "@/core/db/queries/queries";
-import { withSyncTaskId } from "@/core/services/retry-cron";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import type { SqliteDb } from "@/core/models/db-models";
 import Bottleneck from "bottleneck";
@@ -76,12 +75,13 @@ export const handleSpotifyRefresh = async (db: SqliteDb, syncTaskId?: string): P
   }));
 
   if (!token) {
-    await upsertSyncTask(withSyncTaskId({
+    await upsertSyncTask({
+      id: syncTaskId,
       integration: "spotify",
       status: "FAILED",
       step: "spotify-token-revalidation",
       error: "refresh failed",
-    }, syncTaskId), db);
+    }, db);
     return;
   }
 
@@ -165,6 +165,11 @@ export type SpotifyParseCursor = {
   type: "playlist" | "saved-track" | "episode";
   offset: number;
 };
+
+export type SpotifyOffsetInputs = { offset?: number };
+export type SpotifyPlaylistTracksInputs = { cursor?: SpotifyPlaylistTracksCursor; playlistId?: string };
+export type SpotifyEpisodesInputs = { cursor?: SpotifyEpisodesCursor };
+export type SpotifyParseInputs = { cursor?: SpotifyParseCursor } | { type: "playlist" | "episode" };
 
 export const stringsFromCursor = (items: string[], cursorId?: string): string[] => {
   if (!cursorId) return items;

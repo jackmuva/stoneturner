@@ -1,5 +1,4 @@
 import type { Integration } from "@/core/models/models";
-import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { discordConfig } from "./config";
@@ -9,12 +8,13 @@ import { syncMessages } from "./sync-steps/sync-messages";
 import { parseDiscordMessages } from "./sync-steps/parse-message-threads";
 import { deleteAllDiscordData } from "./db/queries";
 import type { SqliteDb } from "@/core/models/db-models";
+import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
 
 export const syncDiscordPipeline = async (incremental: boolean = true, db: SqliteDb) => {
-  await syncChannels(db);
+  await syncChannels(incremental, db);
   await syncMessages(incremental, db);
   await parseDiscordMessages(incremental, db);
-  await indexVectorDbStep("discord", incremental, db);
+  await indexVectorDbStep(incremental, db, { integration: "discord" });
 }
 
 export const discordIntegration: Integration = {
