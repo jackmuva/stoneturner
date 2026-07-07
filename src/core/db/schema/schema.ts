@@ -12,7 +12,7 @@ export const integrationCredential = sqliteTable("integrationCredential", {
   secretKey: text("secretKey"),
   baseUrl: text("baseUrl"),
   tokenExpiration: text("tokenExpiration"),
-  options: text("options", { mode: "json" }).$type<Record<string, string>>()
+  options: text("options", { mode: "json" }).$type<Record<string, string>>(),
 });
 
 export type IntegrationCredential = InferSelectModel<typeof integrationCredential>;
@@ -49,3 +49,12 @@ export const mdArtifact = sqliteTable("mdArtifacts", {
 
 export type MdArtifactSelect = InferSelectModel<typeof mdArtifact>;
 export type MdArtifactInsert = InferInsertModel<typeof mdArtifact>;
+
+export const syncSchedule = sqliteTable("SyncSchedule", {
+  integration: text("integration").primaryKey(),
+  frequency: text("frequency").$type<"DAILY" | "WEEKLY" | "MONTHLY">().notNull(),
+  updateDate: text("updateDate").notNull().$defaultFn(() => (new Date()).toISOString()),
+});
+
+export type SyncScheduleSelect = InferSelectModel<typeof syncSchedule>;
+export type SyncScheduleInsert = InferInsertModel<typeof syncSchedule>;

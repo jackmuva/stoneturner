@@ -1,4 +1,4 @@
-import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact, type IntegrationCredentialInsert } from '@/core/db/schema/schema';
+import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact, type IntegrationCredentialInsert, syncSchedule, type SyncScheduleInsert, type SyncScheduleSelect } from '@/core/db/schema/schema';
 import { and, eq, like, gt, or, asc, desc, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import type { SqliteDb } from '@/core/models/db-models';
@@ -216,4 +216,25 @@ export const deleteIntegrationCredentialByIntegration = async (integration: stri
 export const getLastArtifactDateByIntegration = async (integration: string, db: SqliteDb): Promise<string | undefined> => {
   const [record] = await db.select({ artifactDate: mdArtifact.artifactDate }).from(mdArtifact).where(eq(lower(mdArtifact.integration), integration.toLowerCase())).orderBy(desc(mdArtifact.artifactDate)).limit(1);
   return record?.artifactDate ?? undefined;
+}
+
+export const getAllSyncSchedules = async (db: SqliteDb): Promise<SyncScheduleSelect[]> => {
+  return await db.select().from(syncSchedule);
+}
+
+export const deleteSyncScheduleByIntegration = async (integration: string, db: SqliteDb): Promise<void> => {
+  await db.delete(syncSchedule).where(sql`LOWER("integration") = ${integration.toLowerCase()}`);
+}
+
+export const upsertSyncSchedule = async (data: SyncScheduleInsert, db: SqliteDb): Promise<void> => {
+  const integration = data.integration.toLowerCase();
+  const [existing] = await db.select().from(syncSchedule).where(sql`LOWER("integration") = ${integration}`);
+  if (existing) {
+    await db.update(syncSchedule).set({
+      frequency: data.frequency,
+      updateDate: (new Date()).toISOString(),
+    }).where(sql`LOWER("integration") = ${integration}`);
+  } else {
+    await db.insert(syncSchedule).values({ ...data, integration });
+  }
 }

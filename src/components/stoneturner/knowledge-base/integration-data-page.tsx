@@ -14,6 +14,7 @@ import { PAGE_SIZE } from "@/lib/constants";
 import { ArtifactTable } from "./artifact-table";
 import { ArtifactDetailSheet } from "./artifact-detail-sheet";
 import { ConfirmationDialog } from "../confirmation-dialog";
+import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 
 type ConfirmAction = "fullSync" | "syncUpdates" | "delete";
 export type ArtifactSortField = "updateDate" | "artifactDate";
@@ -129,12 +130,16 @@ export const IntegrationDataPage = () => {
         <div className="flex-1 min-w-0 flex flex-col gap-4 min-h-0">
           <div className="flex flex-col gap-4 w-full">
             <ButtonGroup className="flex">
-              <Button variant={"outline"} size="sm" className="bg-brand-purple/20 dark:bg-brand-purple/70"
-                disabled={(syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)}
-                onClick={() => setConfirmAction("fullSync")}>
-                <ArrowBigDownDashIcon size={12} />
-                Full Sync
-              </Button>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button variant={"outline"} size="sm" className="bg-brand-purple/20 dark:bg-brand-purple/70"
+                    disabled={(syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)}
+                    onClick={() => setConfirmAction("fullSync")}>
+                    <ArrowBigDownDashIcon size={12} />
+                    Full Sync
+                  </Button>
+                </TooltipTrigger>
+              </Tooltip>
               <ButtonGroupSeparator />
               <Button variant={"outline"} size={"sm"} className="bg-brand-cream/20 dark:bg-brand-cream/70"
                 disabled={(syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)}
