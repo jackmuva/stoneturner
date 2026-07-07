@@ -1,11 +1,13 @@
 import { serve } from "bun";
 import index from "./client/index.html";
-import { handleGetAllSyncTasks, handleGetArtifactById, handleGetArtifacts, handleGetIntegrations, handleGetRecentSyncTasks, handleGetSyncTasks, handleGetSyncTaskSteps, handleNewIntegrationCredential, handleDeleteStaleSyncTasks } from "./core/handlers/handler";
+import { handleConfigureSyncSchedule, handleDeleteSyncSchedule, handleGetAllSyncTasks, handleGetArtifactById, handleGetArtifacts, handleGetIntegrations, handleGetRecentSyncTasks, handleGetSyncTasks, handleGetSyncTaskSteps, handleNewIntegrationCredential } from "./core/handlers/handler";
 import { withCors } from "./core/middleware/middleware";
 import { handleMcp } from "./core/handlers/mcp-handler";
 import { supportedIntegrations } from "./integrations/integration-registry";
 import { db } from "./core/db/db";
 import { retryFailedTasks } from "./core/services/retry-cron";
+import { deleteSyncTasksPriorToDate } from "./core/db/queries/queries";
+import { syncNewCron } from "./core/services/sync-new-cron";
 
 const server = serve({
   routes: {
@@ -67,9 +69,6 @@ const server = serve({
       GET: withCors(async (req) =>
         handleGetRecentSyncTasks(req, db)
       ),
-      DELETE: withCors(async (_req) =>
-        handleDeleteStaleSyncTasks(db)
-      ),
     },
     "/api/syncTasks/steps": {
       GET: withCors(async (_req) =>
@@ -111,6 +110,16 @@ const server = serve({
         return Response.json(null, { status: 200 });
       }),
     },
+    "/api/sync-schedule": {
+      POST: withCors(async (req) => {
+        return handleConfigureSyncSchedule(req, db);
+      }),
+    },
+    "/api/sync-schedule/:integration": {
+      POST: withCors(async (req) => {
+        return handleDeleteSyncSchedule(req, db);
+      }),
+    },
 
     "/mcp": {
       POST: async (req) => handleMcp(req, db),
@@ -128,9 +137,23 @@ const server = serve({
   },
 });
 
-const job = Bun.cron("0 0 * * *", async () => {
+const retryJob = Bun.cron("0 0 * * *", async () => {
   if (process.env.CRON_ENABLED !== 'false') {
     await retryFailedTasks(db);
+  }
+});
+
+const deleteStaleJob = Bun.cron("0 0 * * *", async () => {
+  if (process.env.CRON_ENABLED !== 'false') {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 14);
+    await deleteSyncTasksPriorToDate(cutoff.toISOString(), db!);
+  }
+});
+
+const syncScheduleJob = Bun.cron("0 0 * * *", async () => {
+  if (process.env.CRON_ENABLED !== 'false') {
+    await syncNewCron(db);
   }
 });
 

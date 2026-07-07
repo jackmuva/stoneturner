@@ -1,5 +1,5 @@
 import type { BunRequest } from "bun";
-import { getIntegrationCredentials, getMdArtifactById, getMdArtifactsByIntegration, getSyncTasks, getSyncTasksByIntegration, getSyncTasksByStatus, getSyncTasksByUpdateDateAfter, getSyncTasksFiltered, getDistinctSyncTaskSteps, upsertIntegrationCredential, deleteSyncTasksPriorToDate, type MdArtifactSortField, type SortOrder } from "../db/queries/queries";
+import { getIntegrationCredentials, getMdArtifactById, getMdArtifactsByIntegration, getSyncTasks, getSyncTasksByIntegration, getSyncTasksByStatus, getSyncTasksByUpdateDateAfter, getSyncTasksFiltered, getDistinctSyncTaskSteps, upsertIntegrationCredential, deleteSyncTasksPriorToDate, type MdArtifactSortField, type SortOrder, upsertSyncSchedule, deleteSyncScheduleByIntegration } from "../db/queries/queries";
 import type { IntegrationCredential, MdArtifactSelect, SyncTaskSelect } from "../db/schema/schema";
 import type { SqliteDb } from "../models/db-models";
 
@@ -85,10 +85,18 @@ export async function handleGetArtifactById(req: BunRequest, db?: SqliteDb): Pro
   return Response.json({ artifact });
 }
 
-export async function handleDeleteStaleSyncTasks(db?: SqliteDb): Promise<Response> {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 14);
-  await deleteSyncTasksPriorToDate(cutoff.toISOString(), db!);
-  return Response.json({ deleted: true, cutoff: cutoff.toISOString() });
+export async function handleConfigureSyncSchedule(req: BunRequest, db?: SqliteDb): Promise<Response> {
+  const body = (await req.json()) as { integration: string, frequency: "DAILY" | "WEEKLY" | "MONTHLY" };
+  await upsertSyncSchedule({
+    integration: body.integration,
+    frequency: body.frequency
+  }, db!)
+  return Response.json(null, { status: 200 });
 }
 
+export async function handleDeleteSyncSchedule(req: BunRequest, db?: SqliteDb): Promise<Response> {
+  const { integration } = req.params;
+  if(!integration) return Response.json(null, {status: 400});
+  await deleteSyncScheduleByIntegration(integration, db!);
+  return Response.json(null, { status: 200 });
+}

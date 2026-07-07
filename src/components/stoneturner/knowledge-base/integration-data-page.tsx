@@ -14,9 +14,10 @@ import { PAGE_SIZE } from "@/lib/constants";
 import { ArtifactTable } from "./artifact-table";
 import { ArtifactDetailSheet } from "./artifact-detail-sheet";
 import { ConfirmationDialog } from "../confirmation-dialog";
-import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { SyncScheduleDialog } from "./sync-schedule-dialog";
 
-type ConfirmAction = "fullSync" | "syncUpdates" | "delete";
+type ConfirmAction = "fullSync" | "delete";
 export type ArtifactSortField = "updateDate" | "artifactDate";
 export type SortOrder = "asc" | "desc";
 
@@ -32,6 +33,7 @@ export const IntegrationDataPage = () => {
   const [reauthOpen, setReauthOpen] = useState<boolean>(false);
   const [optimisticSync, setOptimisticSync] = useState<boolean>(false);
   const [optimisticDelete, setOptimisticDelete] = useState<boolean>(false);
+  const [openSyncSchedule, setOpenSyncSchedule] = useState<boolean>(false);
 
   const intConfig = configRegistry.find(
     (config) => config.integration.toLowerCase() === integration?.toLowerCase()
@@ -89,16 +91,6 @@ export const IntegrationDataPage = () => {
         setOptimisticSync(true);
       },
     },
-    syncUpdates: {
-      text: `This will sync recent updates from ${integration}. Continue?`,
-      onConfirm: async () => {
-        await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/updates/${integration}`, {
-          method: "POST",
-        });
-        setConfirmAction(null);
-        setOptimisticSync(true);
-      },
-    },
     delete: {
       text: `This will delete all synced data for ${integration}. This cannot be undone.`,
       onConfirm: async () => {
@@ -129,27 +121,36 @@ export const IntegrationDataPage = () => {
       <div className="flex-1 min-h-0 flex flex-row gap-4">
         <div className="flex-1 min-w-0 flex flex-col gap-4 min-h-0">
           <div className="flex flex-col gap-4 w-full">
-            <ButtonGroup className="flex">
+            <div className="flex gap-0">
               <Tooltip>
                 <TooltipTrigger>
-                  <Button variant={"outline"} size="sm" className="bg-brand-purple/20 dark:bg-brand-purple/70"
+                  <Button variant={"outline"} size="sm" className="bg-brand-purple/20 dark:bg-brand-purple/70 rounded-l-md rounded-r-none"
                     disabled={(syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)}
                     onClick={() => setConfirmAction("fullSync")}>
                     <ArrowBigDownDashIcon size={12} />
                     Full Sync
                   </Button>
                 </TooltipTrigger>
+                <TooltipContent className="max-w-96">
+                  {"Re-indexes all synced data. Use this if synced records are changed (i.e. a google doc is changed)"}
+                </TooltipContent>
               </Tooltip>
-              <ButtonGroupSeparator />
-              <Button variant={"outline"} size={"sm"} className="bg-brand-cream/20 dark:bg-brand-cream/70"
-                disabled={(syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)}
-                onClick={() => setConfirmAction("syncUpdates")}>
-                <RefreshCwIcon size={12} />
-                Sync Updates
-              </Button>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button variant={"outline"} size={"sm"} className="bg-brand-cream/70 dark:bg-brand-cream/50 rounded-none"
+                    disabled={(syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)}
+                    onClick={() => { setOpenSyncSchedule(true) }}>
+                    <RefreshCwIcon size={12} />
+                    Sync New Records
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-96">
+                  Syncs new records from previous sync (does not sync updates from existing records).
+                </TooltipContent>
+              </Tooltip>
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant={"outline"} size="sm">
+                  <Button variant={"outline"} size="sm" className="rounded-r-md rounded-l-none">
                     <MoreVerticalIcon size={12} />
                   </Button>
                 </DropdownMenuTrigger>
@@ -166,7 +167,7 @@ export const IntegrationDataPage = () => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </ButtonGroup>
+            </div>
             {(optimisticSync || (syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)) && <div className="w-52 flex gap-1 items-center border rounded-sm py-1 px-2">
               <span className="text-sm animate-pulse">Syncing...</span>
               <span className="animate-left-right">
@@ -199,8 +200,8 @@ export const IntegrationDataPage = () => {
         open={confirmAction !== null}
         onOpenChange={(open) => { if (!open) setConfirmAction(null); }}
         text={confirmAction ? confirmConfig[confirmAction].text : ""}
-        onConfirm={confirmAction ? confirmConfig[confirmAction].onConfirm : () => { }}
-      />
+        onConfirm={confirmAction ? confirmConfig[confirmAction].onConfirm : () => { }} />
+      <SyncScheduleDialog open={openSyncSchedule} onOpenChange={setOpenSyncSchedule} integration={integration ?? ""}/>
       {intConfig && (
         <IntegrationDialog
           intConfig={intConfig}
