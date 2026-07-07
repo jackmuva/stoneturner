@@ -4,7 +4,7 @@ import { syncGongCallsStep } from "./sync-steps/sync-calls-step";
 import { syncGongTranscriptsStep } from "./sync-steps/sync-transcripts-step";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
 
-export const gongSteps: IntegrationSteps = {
+export const steps: IntegrationSteps = {
   "gong-sync-call": syncGongCallsStep,
   "sync-transcript": syncGongTranscriptsStep,
   "gong-sync-transcript": syncGongTranscriptsStep,

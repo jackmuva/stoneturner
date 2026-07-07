@@ -20,6 +20,8 @@ sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector
 
 All network and LLM calls are wrapped in retry logic with quadratic backoff. Syncs are fire-and-forget from the HTTP handler.
 
+Failed sync steps are retried automatically: a daily cron job (and `POST /api/syncTasks/retry`) looks up FAILED `syncTask` rows and re-invokes the step via the **step registry** (`src/integrations/step-registry.ts`), resuming from the cursor/offset stored in `syncTask.inputs`. Each task tracks a `retries` count (max 3).
+
 ## MCP tools
 
 The MCP server (Streamable HTTP at `/mcp`) exposes six tools:
@@ -102,6 +104,7 @@ src/
   integrations/
     config-registry.ts   # Frontend UI config for all integrations
     sync-registry.ts     # Sync dispatch for all integrations
+    step-registry.ts     # Step lookup for retrying failed sync tasks
     gong/                 # Gong integration
       config.ts           # IntegrationConfig definition
       integration.ts      # Integration object (sync pipeline, delete)
@@ -130,6 +133,7 @@ Stoneturner is designed to make adding integrations straightforward. Each integr
 src/integrations/my-integration/
   config.ts
   integration.ts
+  steps.ts
   db/
     schema.ts
     queries.ts
@@ -231,6 +235,43 @@ export const supportedIntegrations: Integration[] = [
   myIntegration,    // add yours
 ];
 ```
+
+### 7. Register steps for retry
+
+Export an `IntegrationSteps` map from `src/integrations/my-integration/steps.ts` — keys are the `step` strings your sync steps write to `syncTask`, values are the step functions:
+
+```ts
+import type { IntegrationSteps } from "@/core/models/models";
+import { syncMyDataStep } from "./sync-steps/sync-data-step";
+import { parseMyStep } from "./sync-steps/parse-step";
+import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
+
+export const steps: IntegrationSteps = {
+  "my-sync-data": syncMyDataStep,
+  "parse": parseMyStep,
+  "index-vector": indexVectorDbStep,
+};
+```
+
+Add it to `src/integrations/step-registry.ts`:
+
+```ts
+import { steps as myIntegrationSteps } from "./my-integration/steps";
+
+export const stepRegistry: StepMapping = {
+  // ...
+  "my-integration": myIntegrationSteps,
+};
+```
+
+Each step function must match `IntegrationStepFn`:
+
+```ts
+(incremental: boolean, db: SqliteDb, inputs?: any, syncTaskId?: string) => Promise<void> | void
+```
+
+- `inputs` — resume state from the failed `syncTask` (cursor, offset, etc.). When present, paginated steps process **one batch** and stop (retry mode).
+- `syncTaskId` — pass as `id` to `upsertSyncTask` so retries update the same row instead of creating a new one.
 
 ## License
 

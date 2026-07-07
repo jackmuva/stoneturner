@@ -4,7 +4,7 @@ import { parseDiscordMessages } from "./sync-steps/parse-message-threads";
 import { syncChannels } from "./sync-steps/sync-channels";
 import { syncMessages } from "./sync-steps/sync-messages";
 
-export const discordSteps: IntegrationSteps = {
+export const steps: IntegrationSteps = {
   "discord-sync-channel-by-guild": syncChannels,
   "discord-sync-channel": syncMessages,
   "discord-parse-messages": parseDiscordMessages,

@@ -7,7 +7,7 @@ import { syncGithubDocsStep } from "./sync-steps/sync-docs-step";
 import { syncGithubIssuesStep } from "./sync-steps/sync-issues-step";
 import { syncGithubPullsStep } from "./sync-steps/sync-pulls-step";
 
-export const githubSteps: IntegrationSteps = {
+export const steps: IntegrationSteps = {
   "github-sync-issues": syncGithubIssuesStep,
   "github-sync-pulls": syncGithubPullsStep,
   "github-sync-docs": syncGithubDocsStep,
