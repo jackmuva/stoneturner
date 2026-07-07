@@ -123,7 +123,7 @@ export const IntegrationDataPage = () => {
               Knowledge Base
             </BreadcrumbLink>
             <BreadcrumbSeparator />
-            <BreadcrumbPage className='text-base'>
+            <BreadcrumbPage className='text-base capitalize'>
               {integration}
             </BreadcrumbPage>
           </BreadcrumbItem>
