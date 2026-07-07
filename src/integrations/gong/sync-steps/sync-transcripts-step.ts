@@ -52,7 +52,7 @@ const fetchGongTranscripts = async (db: SqliteDb, basicToken: string, baseUrl: s
     if (!gongReq.ok) {
       await upsertSyncTask({
         id: syncTaskId,
-        integration: "Gong",
+        integration: "gong",
         status: "FAILED",
         inputs: { cursor: curCursor },
         error: `HTTP ${gongReq.status}`,
@@ -72,7 +72,7 @@ const fetchGongTranscripts = async (db: SqliteDb, basicToken: string, baseUrl: s
 
     await upsertSyncTask({
       id: syncTaskId,
-      integration: "Gong",
+      integration: "gong",
       status: "SUCCESS",
       error: null,
       inputs: { cursor: curCursor },
@@ -83,7 +83,7 @@ const fetchGongTranscripts = async (db: SqliteDb, basicToken: string, baseUrl: s
   } catch (e) {
     await upsertSyncTask({
       id: syncTaskId,
-      integration: "Gong",
+      integration: "gong",
       status: "FAILED",
       inputs: { cursor: curCursor },
       error: String(e),

@@ -128,7 +128,7 @@ const crawlUrl = async (apiKey: string, seedUrl: string, db: SqliteDb, maxDepth?
 
     await upsertSyncTask({
       id: syncTaskId,
-      integration: "Firecrawl",
+      integration: "firecrawl",
       status: "SUCCESS",
       error: null,
       inputs: { cursor: seedUrl },
@@ -137,7 +137,7 @@ const crawlUrl = async (apiKey: string, seedUrl: string, db: SqliteDb, maxDepth?
   } catch (e) {
     await upsertSyncTask({
       id: syncTaskId,
-      integration: "Firecrawl",
+      integration: "firecrawl",
       status: "FAILED",
       inputs: { cursor: seedUrl },
       error: String(e),

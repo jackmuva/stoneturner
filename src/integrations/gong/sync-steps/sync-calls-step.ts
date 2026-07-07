@@ -79,7 +79,7 @@ const fetchGongCalls = async (db: SqliteDb, basicToken: string, baseUrl: string,
 
     await upsertSyncTask({
       id: syncTaskId,
-      integration: "Gong",
+      integration: "gong",
       status: "SUCCESS",
       error: null,
       inputs: { cursor: curCursor },
@@ -90,7 +90,7 @@ const fetchGongCalls = async (db: SqliteDb, basicToken: string, baseUrl: string,
   } catch (e) {
     await upsertSyncTask({
       id: syncTaskId,
-      integration: "Gong",
+      integration: "gong",
       status: "FAILED",
       inputs: { cursor: curCursor },
       error: String(e),

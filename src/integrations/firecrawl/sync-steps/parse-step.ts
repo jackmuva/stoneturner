@@ -29,7 +29,7 @@ export const parseFirecrawlStep = async (_incremental: boolean = false, db: Sqli
 
       await upsertSyncTask({
         id: syncTaskId,
-        integration: "Firecrawl",
+        integration: "firecrawl",
         status: failures.length ? "FAILED" : "SUCCESS",
         inputs: { offset: curOffset },
         error: failures.length ? JSON.stringify(failures) : null,
@@ -38,7 +38,7 @@ export const parseFirecrawlStep = async (_incremental: boolean = false, db: Sqli
     } catch (e) {
       await upsertSyncTask({
         id: syncTaskId,
-        integration: "Firecrawl",
+        integration: "firecrawl",
         status: "FAILED",
         inputs: { offset: curOffset },
         error: String(e),

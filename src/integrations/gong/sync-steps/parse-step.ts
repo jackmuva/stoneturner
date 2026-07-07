@@ -29,7 +29,7 @@ export const parseGongStep = async (_incremental: boolean = false, db: SqliteDb,
 
       await upsertSyncTask({
         id: syncTaskId,
-        integration: "Gong",
+        integration: "gong",
         status: failures.length ? "FAILED" : "SUCCESS",
         inputs: { offset: curOffset },
         error: failures.length ? JSON.stringify(failures) : null,
@@ -38,7 +38,7 @@ export const parseGongStep = async (_incremental: boolean = false, db: SqliteDb,
     } catch (e) {
       await upsertSyncTask({
         id: syncTaskId,
-        integration: "Gong",
+        integration: "gong",
         status: "FAILED",
         inputs: { offset: curOffset },
         error: String(e),
