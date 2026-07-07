@@ -60,6 +60,7 @@ export const syncSpotifyShowsStep = async (
         id: syncTaskId,
         integration: "spotify",
         status: "SUCCESS",
+        error: null,
         step: "spotify-sync-shows",
         inputs: hasMore ? { offset: nextOffset } : {},
       }, db);

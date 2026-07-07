@@ -32,7 +32,7 @@ export const parseGongStep = async (_incremental: boolean = false, db: SqliteDb,
         integration: "Gong",
         status: failures.length ? "FAILED" : "SUCCESS",
         inputs: { offset: curOffset },
-        error: failures.length ? JSON.stringify(failures) : undefined,
+        error: failures.length ? JSON.stringify(failures) : null,
         step: "parse",
       }, db);
     } catch (e) {

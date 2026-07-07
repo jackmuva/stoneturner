@@ -160,6 +160,7 @@ ${markdown}`;
       id: syncTaskId,
       integration: "discord",
       status: "SUCCESS",
+      error: null,
       inputs: { thread, channelId, readableDate, start, end },
       step: "discord-parse-messages",
     }, db);

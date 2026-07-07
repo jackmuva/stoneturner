@@ -76,6 +76,7 @@ const upsertMessages = async (
         id: syncTaskId,
         integration: "slack",
         status: "SUCCESS",
+        error: null,
         step: "slack-sync-channel-messages",
         inputs: { channelId: channel.id, oldest, cursor: nextCursor },
       }, db);
@@ -94,6 +95,7 @@ const upsertMessages = async (
       id: syncTaskId,
       integration: "slack",
       status: "SUCCESS",
+      error: null,
       step: "slack-sync-channel-messages",
       inputs: { channelId: channel.id, oldest },
     }, db);

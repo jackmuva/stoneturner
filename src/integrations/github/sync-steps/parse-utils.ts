@@ -47,7 +47,7 @@ export const parseTable = async <T extends Artifactable>(
         inputs: failures.length
           ? { stepLabel, offset: curOffset }
           : { stepLabel, offset: nextCursor.offset },
-        error: failures.length ? JSON.stringify(failures) : undefined,
+        error: failures.length ? JSON.stringify(failures) : null,
       }, db);
     } catch (e) {
       await upsertSyncTask({

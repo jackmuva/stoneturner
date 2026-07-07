@@ -37,6 +37,7 @@ export const syncNotionPages = async (incremental: boolean = false, db: SqliteDb
         id: syncTaskId,
         integration: "notion",
         status: "SUCCESS",
+        error: null,
         step: "notion-sync-pages",
         inputs: { cursor: nextCursor },
       }, db);

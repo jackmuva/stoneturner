@@ -88,6 +88,7 @@ const upsertMessages = async (channel: DiscordChannelSelect, incremental: boolea
       id: syncTaskId,
       integration: "discord",
       status: "SUCCESS",
+      error: null,
       step: "discord-sync-channel",
       inputs: { channelId: channel.id, cursor: lastMessageId },
     }, db);

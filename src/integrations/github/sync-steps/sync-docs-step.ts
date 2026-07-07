@@ -43,6 +43,7 @@ export const syncGithubDocsStep = async (_incremental: boolean = false, db: Sqli
             id: syncTaskId,
             integration: "github",
             status: "SUCCESS",
+            error: null,
             step: STEP,
             inputs: nextCursor ? { repo: key, path, cursor: nextCursor } : { repo: key, path },
           }, db);

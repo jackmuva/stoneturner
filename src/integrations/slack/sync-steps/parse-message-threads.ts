@@ -229,6 +229,7 @@ ${markdown}`;
       id: syncTaskId,
       integration: "slack",
       status: "SUCCESS",
+      error: null,
       inputs: resumeInputs,
       step: "slack-parse-messages",
     }, db);

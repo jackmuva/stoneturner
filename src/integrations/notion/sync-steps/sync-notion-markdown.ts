@@ -45,7 +45,7 @@ export const syncNotionMarkdown = async (incremental: boolean = false, db: Sqlit
         status: failures.length ? "FAILED" : "SUCCESS",
         step: "notion-sync-markdown",
         inputs: { offset: curOffset },
-        error: failures.length ? JSON.stringify(failures) : undefined,
+        error: failures.length ? JSON.stringify(failures) : null,
       }, db)
     } catch (e) {
       await upsertSyncTask({

@@ -32,7 +32,7 @@ export const parseFirecrawlStep = async (_incremental: boolean = false, db: Sqli
         integration: "Firecrawl",
         status: failures.length ? "FAILED" : "SUCCESS",
         inputs: { offset: curOffset },
-        error: failures.length ? JSON.stringify(failures) : undefined,
+        error: failures.length ? JSON.stringify(failures) : null,
         step: "parse",
       }, db);
     } catch (e) {

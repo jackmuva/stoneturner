@@ -85,6 +85,7 @@ export const syncGithubDiscussionsStep = async (_incremental: boolean = false, d
           id: syncTaskId,
           integration: "github",
           status: "SUCCESS",
+          error: null,
           step: STEP,
           inputs: nextCursor ? { repo: key, cursor: nextCursor } : { repo: key },
         }, db);

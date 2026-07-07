@@ -130,6 +130,7 @@ const crawlUrl = async (apiKey: string, seedUrl: string, db: SqliteDb, maxDepth?
       id: syncTaskId,
       integration: "Firecrawl",
       status: "SUCCESS",
+      error: null,
       inputs: { cursor: seedUrl },
       step: "firecrawl-sync-crawl",
     }, db);

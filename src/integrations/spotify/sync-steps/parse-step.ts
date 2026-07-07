@@ -57,7 +57,7 @@ const parsePlaylists = async (db: SqliteDb, cursor?: number, syncTaskId?: string
           : hasMore
             ? { cursor: { type: "playlist", offset: nextCursor } }
             : { type: "playlist" },
-        error: failures.length ? JSON.stringify(failures) : undefined,
+        error: failures.length ? JSON.stringify(failures) : null,
         step: "parse",
       }, db);
     } catch (e) {
@@ -103,7 +103,7 @@ const parseEpisodes = async (db: SqliteDb, cursor?: number, syncTaskId?: string)
           : hasMore
             ? { cursor: { type: "episode", offset: nextCursor } }
             : { type: "episode" },
-        error: failures.length ? JSON.stringify(failures) : undefined,
+        error: failures.length ? JSON.stringify(failures) : null,
         step: "parse",
       }, db);
     } catch (e) {

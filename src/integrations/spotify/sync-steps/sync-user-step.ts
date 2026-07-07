@@ -24,6 +24,7 @@ export const syncSpotifyUserStep = async (
       id: syncTaskId,
       integration: "spotify",
       status: "SUCCESS",
+      error: null,
       step: STEP,
     }, db);
   } catch (e) {

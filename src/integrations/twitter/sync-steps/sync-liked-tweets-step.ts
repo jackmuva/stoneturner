@@ -78,6 +78,7 @@ export const syncTwitterLikedTweetsStep = async (
       id: syncTaskId,
       integration: "twitter",
       status: "SUCCESS",
+      error: null,
       step: STEP,
       inputs: { userId, limit: LIKED_TWEETS_LIMIT },
     }, db);

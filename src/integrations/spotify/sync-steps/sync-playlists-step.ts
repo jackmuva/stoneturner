@@ -52,6 +52,7 @@ export const syncSpotifyPlaylistsStep = async (_incremental: boolean, db: Sqlite
         id: syncTaskId,
         integration: "spotify",
         status: "SUCCESS",
+        error: null,
         step: "spotify-sync-playlists",
         inputs: hasMore ? { offset: nextOffset } : {},
       }, db);

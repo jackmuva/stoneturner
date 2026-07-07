@@ -93,6 +93,7 @@ export const syncSpotifyPlaylistTracksStep = async (
             id: syncTaskId,
             integration: "spotify",
             status: "SUCCESS",
+            error: null,
             step: STEP,
             inputs: { playlistId },
           }, db);
@@ -145,6 +146,7 @@ export const syncSpotifyPlaylistTracksStep = async (
           id: syncTaskId,
           integration: "spotify",
           status: "SUCCESS",
+          error: null,
           step: STEP,
           inputs: nextCursor
             ? { cursor: nextCursor }

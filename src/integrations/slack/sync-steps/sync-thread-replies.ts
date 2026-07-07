@@ -96,6 +96,7 @@ const upsertThreadReplies = async (
         id: syncTaskId,
         integration: "slack",
         status: "SUCCESS",
+        error: null,
         step: "slack-sync-thread-replies",
         inputs: {
           channelId: thread.channelId,
@@ -118,6 +119,7 @@ const upsertThreadReplies = async (
       id: syncTaskId,
       integration: "slack",
       status: "SUCCESS",
+      error: null,
       step: "slack-sync-thread-replies",
       inputs: {
         channelId: thread.channelId,

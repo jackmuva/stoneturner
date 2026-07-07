@@ -78,6 +78,7 @@ const upsertChannels = async (guild: DiscordGuildSelect, db: SqliteDb, syncTaskI
       id: syncTaskId,
       integration: "discord",
       status: "SUCCESS",
+      error: null,
       step: "discord-sync-channel-by-guild",
       inputs: { guildId: guild.id },
     }, db);

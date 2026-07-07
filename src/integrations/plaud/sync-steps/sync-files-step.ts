@@ -52,6 +52,7 @@ export const syncPlaudFilesStep = async (incremental: boolean = false, db: Sqlit
         id: syncTaskId,
         integration: "plaud",
         status: "SUCCESS",
+        error: null,
         step: "plaud-sync-files",
         inputs: { page },
       }, db);

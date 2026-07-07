@@ -78,6 +78,7 @@ const upsertUsersForTeam = async (
           id: syncTaskId,
           integration: "slack",
           status: "SUCCESS",
+          error: null,
           step: "slack-sync-users",
           inputs: { teamId: team.id },
         }, db);
@@ -89,6 +90,7 @@ const upsertUsersForTeam = async (
         id: syncTaskId,
         integration: "slack",
         status: "SUCCESS",
+        error: null,
         step: "slack-sync-users",
         inputs: { teamId: team.id, cursor: nextCursor },
       }, db);

@@ -64,6 +64,7 @@ export const syncSpotifySavedTracksStep = async (
         id: syncTaskId,
         integration: "spotify",
         status: "SUCCESS",
+        error: null,
         step: "spotify-sync-saved-tracks",
         inputs: hasMore ? { offset: nextOffset } : {},
       }, db);

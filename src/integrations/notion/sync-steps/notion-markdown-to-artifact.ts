@@ -36,7 +36,7 @@ export const notionMarkdownToArtifact = async (incremental: boolean = false, db:
         status: failures.length ? "FAILED" : "SUCCESS",
         step: "notion-markdown-to-artifact",
         inputs: { offset: curOffset },
-        error: failures.length ? JSON.stringify(failures) : undefined,
+        error: failures.length ? JSON.stringify(failures) : null,
       }, db)
     } catch (e) {
       await upsertSyncTask({

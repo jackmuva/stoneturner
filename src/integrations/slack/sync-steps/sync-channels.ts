@@ -83,6 +83,7 @@ const upsertChannelsForTeam = async (
           id: syncTaskId,
           integration: "slack",
           status: "SUCCESS",
+          error: null,
           step: "slack-sync-channels",
           inputs: { teamId: team.id },
         }, db);
@@ -94,6 +95,7 @@ const upsertChannelsForTeam = async (
         id: syncTaskId,
         integration: "slack",
         status: "SUCCESS",
+        error: null,
         step: "slack-sync-channels",
         inputs: { teamId: team.id, cursor: nextCursor },
       }, db);

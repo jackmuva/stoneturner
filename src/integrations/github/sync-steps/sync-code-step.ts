@@ -113,7 +113,7 @@ export const syncGithubCodeStep = async (_incremental: boolean = false, db: Sqli
               : nextCursor
                 ? { repo: key, cursor: nextCursor }
                 : { repo: key },
-            error: failures.length ? JSON.stringify(failures) : undefined,
+            error: failures.length ? JSON.stringify(failures) : null,
           }, db);
           if (inputs) break;
         } catch (e) {
@@ -130,7 +130,7 @@ export const syncGithubCodeStep = async (_incremental: boolean = false, db: Sqli
       }
 
       if (!cursor) {
-        await upsertSyncTask({ id: syncTaskId, integration: "github", status: "SUCCESS", step: STEP, inputs: { repo: key } }, db);
+        await upsertSyncTask({ id: syncTaskId, integration: "github", status: "SUCCESS", error: null, step: STEP, inputs: { repo: key } }, db);
       }
     } catch (e) {
       await upsertSyncTask({ id: syncTaskId, integration: "github", status: "FAILED", step: STEP, inputs: { repo: key }, error: String(e) }, db);

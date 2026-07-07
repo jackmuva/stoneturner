@@ -31,6 +31,7 @@ export const indexVectorDbStep = async (incremental: boolean = true, db: SqliteD
         id: syncTaskId,
         integration: integration,
         status: "SUCCESS",
+        error: null,
         inputs: { integration: integration, offset: curOffset },
         step: "index-vector",
       }, db);

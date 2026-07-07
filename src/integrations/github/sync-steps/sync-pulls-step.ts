@@ -71,6 +71,7 @@ export const syncGithubPullsStep = async (incremental: boolean = false, db: Sqli
           id: syncTaskId,
           integration: "github",
           status: "SUCCESS",
+          error: null,
           step: STEP,
           inputs: nextCursor ? { repo: key, cursor: nextCursor } : { repo: key },
         }, db);

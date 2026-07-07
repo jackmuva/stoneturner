@@ -81,6 +81,7 @@ const fetchGongCalls = async (db: SqliteDb, basicToken: string, baseUrl: string,
       id: syncTaskId,
       integration: "Gong",
       status: "SUCCESS",
+      error: null,
       inputs: { cursor: curCursor },
       step: "gong-sync-call"
     }, db);

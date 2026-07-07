@@ -30,7 +30,7 @@ export const syncPlaudTranscriptsStep = async (_incremental: boolean = false, db
         integration: "plaud",
         status: failures.length ? "FAILED" : "SUCCESS",
         step: "plaud-sync-transcripts",
-        error: failures.length ? JSON.stringify(failures) : undefined,
+        error: failures.length ? JSON.stringify(failures) : null,
       }, db);
 
       // Guard against an infinite loop if every file in the batch failed.

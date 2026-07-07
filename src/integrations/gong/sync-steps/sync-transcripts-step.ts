@@ -74,6 +74,7 @@ const fetchGongTranscripts = async (db: SqliteDb, basicToken: string, baseUrl: s
       id: syncTaskId,
       integration: "Gong",
       status: "SUCCESS",
+      error: null,
       inputs: { cursor: curCursor },
       step: "sync-transcript"
     }, db);
