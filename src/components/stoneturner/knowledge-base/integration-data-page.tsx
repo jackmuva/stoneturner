@@ -4,7 +4,7 @@ import useSWR from 'swr'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { ButtonGroup, ButtonGroupSeparator } from "@/components/ui/button-group";
 import { Button } from "@/components/ui/button";
-import { ArrowBigDownDashIcon, KeyRoundIcon, MoreVerticalIcon, RefreshCwIcon, SearchIcon, Trash2Icon } from "lucide-react";
+import { ArrowBigDownDashIcon, CalendarSyncIcon, KeyRoundIcon, MoreVerticalIcon, RefreshCwIcon, SearchIcon, Trash2Icon } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { IntegrationDialog } from "./integration-dialog";
 import { configRegistry } from "@/integrations/config-registry";
@@ -17,7 +17,7 @@ import { ConfirmationDialog } from "../confirmation-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SyncScheduleDialog } from "./sync-schedule-dialog";
 
-type ConfirmAction = "fullSync" | "delete";
+type ConfirmAction = "fullSync" | "syncNew" | "delete";
 export type ArtifactSortField = "updateDate" | "artifactDate";
 export type SortOrder = "asc" | "desc";
 
@@ -102,6 +102,17 @@ export const IntegrationDataPage = () => {
         setOptimisticSync(true);
       },
     },
+    syncNew: {
+      text: `This will sync only new ${integration} data. If you'd like to re-sync all records for any updates, use a full sync. If you'd like to schedule incremental syncs, use the schedule sync!`,
+      onConfirm: async () => {
+        await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync/updates/${integration}`, {
+          method: "POST",
+        });
+        setConfirmAction(null);
+        setOptimisticSync(true);
+      },
+    },
+
     delete: {
       text: `This will delete all synced data for ${integration}. This cannot be undone.`,
       onConfirm: async () => {
@@ -150,7 +161,7 @@ export const IntegrationDataPage = () => {
                 <TooltipTrigger>
                   <Button variant={"outline"} size={"sm"} className="bg-brand-cream/70 dark:bg-brand-cream/50 rounded-none"
                     disabled={(syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)}
-                    onClick={() => { setOpenSyncSchedule(true) }}>
+                    onClick={() => { setConfirmAction("syncNew") }}>
                     <RefreshCwIcon size={12} />
                     Sync New Records
                   </Button>
@@ -159,6 +170,20 @@ export const IntegrationDataPage = () => {
                   Syncs new records from previous sync (does not sync updates from existing records).
                 </TooltipContent>
               </Tooltip>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button variant={"outline"} size={"sm"} className="bg-orange-800/30 dark:bg-orange-800 rounded-none"
+                    disabled={(syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)}
+                    onClick={() => { setOpenSyncSchedule(true) }}>
+                    <CalendarSyncIcon size={12} />
+                    Schedule Syncs
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-96">
+                  Sync new records every month, week, or day.
+                </TooltipContent>
+              </Tooltip>
+
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button variant={"outline"} size="sm" className="rounded-r-md rounded-l-none">
