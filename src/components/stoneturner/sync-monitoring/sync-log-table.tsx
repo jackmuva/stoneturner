@@ -90,7 +90,7 @@ export const SyncLogTable = ({
               </TableCell>
             </TableRow>
           ))
-        ) : (
+        ) : tasks.length > 0 ? (
           tasks.map((task) => {
             const intConfig = configRegistry.find((c) => c.integration === task.integration);
             return (
@@ -125,6 +125,14 @@ export const SyncLogTable = ({
               </TableRow>
             );
           })
+        ) : (
+          <TableRow>
+            <TableCell colSpan={6}>
+              <div className="h-[700px] text-center pt-4">
+                No sync tasks yet
+              </div>
+            </TableCell>
+          </TableRow>
         )}
       </TableBody>
       <TableFooter className="sticky bottom-0 z-20 w-full bg-background bg-[linear-gradient(rgba(137,142,211,0.15),rgba(137,142,211,0.15))] border-t-2 border-brand-purple/40">

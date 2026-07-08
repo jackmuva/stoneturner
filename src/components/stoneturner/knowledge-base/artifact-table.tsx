@@ -43,7 +43,7 @@ export const ArtifactTable = ({
 
   return (
     <Table className="w-full"
-      containerClassName="flex-1 min-w-0 h-full max-h-full overflow-auto no-scrollbar border rounded-md">
+      containerClassName="relative flex-1 min-w-0 h-full overflow-auto no-scrollbar border rounded-md">
       <TableHeader className="sticky top-0 z-10 bg-background bg-[linear-gradient(rgba(137,142,211,0.15),rgba(137,142,211,0.15))] shadow-sm">
         <TableRow className="hover:bg-transparent border-b-2 border-brand-purple/40">
           <TableHead>
@@ -63,7 +63,7 @@ export const ArtifactTable = ({
           </TableHead>
         </TableRow>
       </TableHeader>
-      <TableBody className="h-full overflow-y-auto no-scrollbar">
+      <TableBody className="h-full">
         {isLoading ? (
           Array.from({ length: PAGE_SIZE }).map((_, i) => (
             <TableRow key={i}>
@@ -87,7 +87,7 @@ export const ArtifactTable = ({
               </TableCell>
             </TableRow>
           ))
-        ) : (
+        ) : artifacts.length > 0 ? (
           artifacts.map((artifact) =>
             <TableRow key={artifact.id} onClick={() => onRowClick(artifact)} className="cursor-pointer odd:bg-transparent even:bg-brand-grey/5 hover:bg-brand-purple/10">
               <TableCell>
@@ -115,6 +115,14 @@ export const ArtifactTable = ({
               </TableCell>
             </TableRow>
           )
+        ) : (
+          <TableRow>
+            <TableCell colSpan={6}>
+              <div className="h-[700px] text-center pt-4">
+                No artifacts yet
+              </div>
+            </TableCell>
+          </TableRow>
         )}
       </TableBody>
       <TableFooter className="sticky bottom-0 z-20 w-full bg-background bg-[linear-gradient(rgba(137,142,211,0.15),rgba(137,142,211,0.15))] border-t-2 border-brand-purple/40">

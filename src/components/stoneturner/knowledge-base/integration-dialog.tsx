@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import ReactMarkdown, { type Components } from "react-markdown";
+import ReactMarkdown from "react-markdown";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DatabaseZapIcon, HardDriveDownloadIcon } from "lucide-react";
 import type { IntegrationConfig } from "@/core/models/models";
@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import type { IntegrationCredential } from "@/core/db/schema/schema";
 import { markdownComponents } from "./artifact-detail-sheet";
 import useSWR from "swr";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export const IntegrationDialog = ({
   intConfig,
@@ -23,6 +24,8 @@ export const IntegrationDialog = ({
   open?: boolean,
   onOpenChange?: (open: boolean) => void,
 }) => {
+  const { pathname } = useLocation();
+  let navigate = useNavigate();
   const [internalOpen, setInternalOpen] = useState(defaultOpen ?? false);
   const open = controlledOpen ?? internalOpen;
   const setOpen = (value: boolean) => {
@@ -65,9 +68,6 @@ export const IntegrationDialog = ({
   );
   const allFieldsFilled = inputsFilled && optionsFilled;
 
-  // OAuth integrations that also collect option inputs (e.g. GitHub repos) need
-  // those options persisted before we redirect, so the OAuth callback can attach
-  // the access token to the same credential row without losing them.
   const persistOauthOptions = async () => {
     if (!intConfig.optionInputs?.length) return;
     const integrationConfig: IntegrationCredential = {
@@ -114,7 +114,11 @@ export const IntegrationDialog = ({
       });
       if (integrationsMutate) integrationsMutate();
       toast("Credential Saved", { position: "top-center" })
-      setOpen(false);
+      if (pathname.includes("config")) {
+        navigate("/knowledge");
+      } else {
+        setOpen(false);
+      }
     }
   }
 
