@@ -55,9 +55,9 @@ export const SyncMonitoringPage = () => {
     const body = await res.json();
     return body.steps ?? [];
   }, {
-      keepPreviousData: true,
+    keepPreviousData: true,
     refreshInterval: (syncPipelines ?? []).filter((sync) => sync.status === "SYNCING").length > 0 ? (5 * 1000) : 0
-    });
+  });
 
   const handleSort = () => {
     setPage(0);
@@ -133,6 +133,12 @@ export const SyncMonitoringPage = () => {
               </Button>
             </div>
           </div>
+          {((syncPipelines ?? []).filter((sync) => sync.status === "SYNCING").length > 0) && <div className="w-52 flex gap-1 items-center border rounded-sm py-1 px-2">
+            <span className="text-sm animate-pulse">Syncing...</span>
+            <span className="animate-left-right">
+              <img src={"/assets/stoneturner.png"} alt="stoneturner-logo" className="animate-roll" width={25} height={25} />
+            </span>
+          </div>}
           <SyncLogTable
             setPage={setPage}
             tasks={syncTasks ?? []}
