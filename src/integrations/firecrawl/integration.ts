@@ -4,7 +4,7 @@ import { parseFirecrawlStep } from "./sync-steps/parse-step";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
 import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
 import { firecrawlConfig } from "./config";
-import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
+import { deleteMdArtifactsByIntegration, deleteSourceContextByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { deleteAllFirecrawlData } from "./db/queries";
 import type { SqliteDb } from "@/core/models/db-models";
@@ -24,6 +24,7 @@ export const firecrawlIntegration: Integration = {
     await deleteSyncTasksByIntegration("firecrawl", db);
     await deleteMdArtifactsByIntegration("firecrawl", db);
     await deleteEmbeddingByIntegration("firecrawl", db);
+    await deleteSourceContextByIntegration("firecrawl", db);
     await deleteAllFirecrawlData(db);
   }
 }

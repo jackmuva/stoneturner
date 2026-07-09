@@ -2,7 +2,7 @@ import type { Integration } from "@/core/models/models";
 import type { SqliteDb } from "@/core/models/db-models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
 import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
-import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
+import { deleteMdArtifactsByIntegration, deleteSourceContextByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { twitterConfig } from "./config";
 import { deleteTwitterData } from "./db/queries";
@@ -29,6 +29,7 @@ export const twitterIntegration: Integration = {
     await deleteSyncTasksByIntegration("twitter", db);
     await deleteMdArtifactsByIntegration("twitter", db);
     await deleteEmbeddingByIntegration("twitter", db);
+    await deleteSourceContextByIntegration("twitter", db);
   },
   handleRedirect: handleTwitterOauthRedirect,
   refreshAccessTokens: handleTwitterRefresh,

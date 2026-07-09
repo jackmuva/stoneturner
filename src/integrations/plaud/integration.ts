@@ -1,5 +1,5 @@
 import type { Integration } from "@/core/models/models";
-import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
+import { deleteMdArtifactsByIntegration, deleteSourceContextByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { plaudConfig } from "./config";
 import { deletePlaudData } from "./db/queries";
@@ -28,6 +28,7 @@ export const plaudIntegration: Integration = {
     await deleteSyncTasksByIntegration("plaud", db);
     await deleteMdArtifactsByIntegration("plaud", db);
     await deleteEmbeddingByIntegration("plaud", db);
+    await deleteSourceContextByIntegration("plaud", db);
   },
   handleRedirect: handleOauthRedirect,
   refreshAccessTokens: handlePlaudRefresh,

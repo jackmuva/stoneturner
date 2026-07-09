@@ -1,8 +1,10 @@
 import { z } from "zod";
 import {
+  getAllSourceContext,
   getMdArtifactsByIntegration,
   getIntegrationCredentials,
   getIntegrationCredentialByIntegration,
+  getSourceContextByIntegration,
 } from "@/core/db/queries/queries";
 import type { McpToolResult } from "@/core/models/mcp-models";
 import type { SqliteDb } from "@/core/models/db-models";
@@ -16,16 +18,54 @@ export async function runGetIntegrationSources(_args: unknown, db: SqliteDb): Pr
 
   const credentials = await getIntegrationCredentials(db);
   const connected = new Set(credentials.map((c) => c.integration));
+  const contexts = await getAllSourceContext(db);
+  const contextByIntegration = new Map(contexts.map((c) => [c.integration.toLowerCase(), c]));
 
   const blocks = supportedIntegrations.map((cfg, i) => {
-    const hasCredentials = connected.has(cfg.config.integration);
+    const integration = cfg.config.integration;
+    const hasCredentials = connected.has(integration);
+    const context = contextByIntegration.get(integration.toLowerCase());
+    const contextLine = context?.context
+      ? `- has context: yes (updated ${context.updateDate})\n`
+      : "- has context: no (generated automatically after a sync completes)\n";
+
     return [
-      `## ${i + 1}. ${cfg.config.integration}`,
-      `- can sync: ${hasCredentials ? "yes\n" : "not yet, use the syncSource tool to input credentials\n"}`,
-    ].join("\n");
+      `## ${i + 1}. ${integration}`,
+      `- can sync: ${hasCredentials ? "yes\n" : "not yet, use sync_source to input credentials\n"}`,
+      contextLine,
+    ].join("");
   });
 
-  return textResult(`Supported integration sources (${supportedIntegrations.length}):\n\n${blocks.join("\n\n")}`,);
+  return textResult(
+    `Supported integration sources (${supportedIntegrations.length}). When a user first asks about a data source, start here or with get_data_source_context before searching.\n\n${blocks.join("\n\n")}`,
+  );
+}
+
+export const getDataSourceContextSchema = z.object({
+  integration: z.string().min(1).describe(
+    "The integration to fetch context for (e.g. \"gong\"). Omit to return context for all sources that have one. Use get_integrated_data_sources to see valid names.",
+  ),
+});
+
+export async function runGetDataSourceContext(args: unknown, db: SqliteDb): Promise<McpToolResult> {
+  const parsed = getDataSourceContextSchema.safeParse(args);
+  if (!parsed.success) return textResult(`Invalid arguments: ${parsed.error.message}`, true);
+
+  const { integration } = parsed.data;
+
+  const record = await getSourceContextByIntegration(integration, db);
+  if (!record?.context) {
+    return textResult(
+      `No context document exists yet for "${integration}". Context is generated automatically after a sync completes. ` +
+      "Call get_integrated_data_sources to check connection status, then sync_source to trigger a sync if needed.",
+    );
+  }
+
+  return textResult(
+    `# ${integration} — data source context\n` +
+    `Updated: ${record.updateDate}\n\n` +
+    record.context,
+  );
 }
 
 export const syncSourceSchema = z.object({

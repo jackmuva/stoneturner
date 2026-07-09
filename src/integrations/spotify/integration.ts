@@ -1,5 +1,5 @@
 import type { Integration } from "@/core/models/models";
-import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
+import { deleteMdArtifactsByIntegration, deleteSourceContextByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { spotifyConfig } from "./config";
 import { deleteSpotifyData } from "./db/queries";
@@ -36,6 +36,7 @@ export const spotifyIntegration: Integration = {
     await deleteSyncTasksByIntegration("spotify", db);
     await deleteMdArtifactsByIntegration("spotify", db);
     await deleteEmbeddingByIntegration("spotify", db);
+    await deleteSourceContextByIntegration("spotify", db);
   },
   handleRedirect: handleOauthRedirect,
   refreshAccessTokens: handleSpotifyRefresh,

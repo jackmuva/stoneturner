@@ -3,7 +3,7 @@ import { syncGongCallsStep } from "./sync-steps/sync-calls-step";
 import { syncGongTranscriptsStep } from "./sync-steps/sync-transcripts-step";
 import { parseGongStep } from "./sync-steps/parse-step";
 import { gongConfig } from "./config";
-import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
+import { deleteMdArtifactsByIntegration, deleteSourceContextByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { deleteAllGongData } from "./db/queries";
 import type { SqliteDb } from "@/core/models/db-models";
@@ -28,6 +28,7 @@ export const gongIntegration: Integration = {
     await deleteSyncTasksByIntegration("gong", db);
     await deleteMdArtifactsByIntegration("gong", db);
     await deleteEmbeddingByIntegration("gong", db);
+    await deleteSourceContextByIntegration("gong", db);
     await deleteAllGongData(db);
   }
 }

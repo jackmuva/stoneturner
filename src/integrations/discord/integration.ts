@@ -1,5 +1,5 @@
 import type { Integration } from "@/core/models/models";
-import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
+import { deleteMdArtifactsByIntegration, deleteSourceContextByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { discordConfig } from "./config";
 import { handleOauthRedirect, refreshDiscordTokens } from "./sync-steps/discord-utils";
@@ -28,6 +28,7 @@ export const discordIntegration: Integration = {
     await deleteSyncTasksByIntegration("discord", db);
     await deleteMdArtifactsByIntegration("discord", db);
     await deleteEmbeddingByIntegration("discord", db);
+    await deleteSourceContextByIntegration("discord", db);
   },
   handleRedirect: handleOauthRedirect,
   refreshAccessTokens: refreshDiscordTokens,

@@ -2,7 +2,7 @@ import type { Integration } from "@/core/models/models";
 import type { SqliteDb } from "@/core/models/db-models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
 import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
-import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
+import { deleteMdArtifactsByIntegration, deleteSourceContextByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { notionConfig } from "./config";
 import { handleNotionRefresh, handleOauthRedirect } from "./sync-steps/notion-utils";
@@ -28,6 +28,7 @@ export const notionIntegration: Integration = {
     await deleteSyncTasksByIntegration("notion", db);
     await deleteMdArtifactsByIntegration("notion", db);
     await deleteEmbeddingByIntegration("notion", db);
+    await deleteSourceContextByIntegration("notion", db);
   },
   handleRedirect: handleOauthRedirect,
   refreshAccessTokens: handleNotionRefresh,
