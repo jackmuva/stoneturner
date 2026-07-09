@@ -29,7 +29,7 @@ export async function runGetIntegrationSources(_args: unknown, db: SqliteDb): Pr
 }
 
 export const syncSourceSchema = z.object({
-  integration: z.string().min(1).describe("The integration source to sync (e.g. \"gong\"). Use get_integration_sources to see valid names."),
+  integration: z.string().min(1).describe("The integration source to sync (e.g. \"gong\"). Use get_integrated_data_sources to see valid names."),
 });
 
 export async function runSyncSource(args: unknown, db: SqliteDb): Promise<McpToolResult> {
@@ -38,7 +38,7 @@ export async function runSyncSource(args: unknown, db: SqliteDb): Promise<McpToo
 
   const { integration } = parsed.data;
   const cfg = supportedIntegrations.find((integ) => integ.config.integration.toLowerCase() === integration.toLowerCase());
-  if (!cfg) return textResult(`Unknown integration "${integration}". Use get_integration_sources to see valid names.`, true);
+  if (!cfg) return textResult(`Unknown integration "${integration}". Use get_integrated_data_sources to see valid names.`, true);
 
   const credential = await getIntegrationCredentialByIntegration(integration, db);
   if (!credential) return textResult(`Open [${integration} config](${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/knowledge/config/${integration}) to connect.`, false);

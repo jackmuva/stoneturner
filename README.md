@@ -32,7 +32,7 @@ The MCP server (Streamable HTTP at `/mcp`) exposes six tools:
 | `get_md_artifact_by_id` | Retrieve a single markdown artifact by ID — full content, key points, questions, entities, and metadata. |
 | `showUserArtifact` | Get a shareable URL to open a single artifact in the Stoneturner web UI (`/knowledge/artifact/:id`). Use when the user wants to view an artifact; use `get_md_artifact_by_id` when you need its content. |
 | `run_sql_query` | Run a single read-only `SELECT` statement against the underlying SQLite (libSQL/Turso) database. Returns rows as JSON. Only `SELECT` (and `WITH ... SELECT`) statements are permitted — any mutating or schema-modifying statement is rejected. |
-| `get_integration_sources` | List all registered integrations and their credential status. |
+| `get_integrated_data_sources` | List all registered integrations and their credential status. |
 | `sync_source` | Trigger a full or incremental sync for an integration. Returns a credential URL if not yet configured. |
 
 ## Getting started

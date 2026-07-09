@@ -73,7 +73,7 @@ Step functions share a uniform signature (`IntegrationStepFn` in `src/core/model
 ## MCP server
 
 - Streamable HTTP MCP at `/mcp` (`src/core/handlers/mcp-handler.ts`). NOT wrapped in CORS middleware (MCP clients call server-side). Stateless JSON-RPC, no batching, no SSE streams.
-- Tools (`src/core/services/mcp-tools.ts`): `semantic_search`, `get_md_artifact_by_id`, `showUserArtifact` (returns a shareable `/knowledge/artifact/:id` URL for the web UI — use when the user wants to view an artifact, not when you need its content), `run_sql_query` (read-only `SELECT`/`WITH...SELECT` only — mutating statements rejected), `get_integration_sources`, `sync_source`.
+- Tools (`src/core/services/mcp-tools.ts`): `semantic_search`, `get_md_artifact_by_id`, `showUserArtifact` (returns a shareable `/knowledge/artifact/:id` URL for the web UI — use when the user wants to view an artifact, not when you need its content), `run_sql_query` (read-only `SELECT`/`WITH...SELECT` only — mutating statements rejected), `get_integrated_data_sources`, `sync_source`.
 
 ## Database
 

@@ -31,7 +31,7 @@ export const tools: McpTool[] = [
     name: "showUserArtifact",
     description:
       "Get a shareable URL to show the user a single artifact rendered in the Stoneturner web app, and a prompt to open it for them. Returns a link to the /knowledge/artifact/:artifactId page.\n\n" +
-      "When to use: whenever the user wants to *see* / open / view an artifact (as opposed to you reading its content to answer a question). Accepts either the mdArtifacts primary id or the integrationArtifactId returned by semantic_search. After calling it, open the returned URL for the user with your available tools if you can; otherwise share the URL directly.\n\n" +
+      "When to use: whenever the user wants to *see* / open / view an artifact (as opposed to you reading its content to answer a question). Accepts the integrationArtifactId returned by semantic_search. After calling it, open the returned URL for the user with your available tools if you can; otherwise share the URL directly.\n\n" +
       "Examples:\n" +
       "- Show an artifact the user asked to see: { \"id\": \"a1b2c3d4-...\" }",
     annotations: { title: "Show user artifact", ...READ_ONLY },
@@ -54,23 +54,23 @@ export const tools: McpTool[] = [
     handler: runSqlQuery,
   },
   {
-    name: "get_integration_sources",
+    name: "get_integrated_data_sources",
     description:
-      "List the integration sources supported by this server, and for each whether credentials are configured so a sync can begin. Takes no arguments.\n\n" +
-      "When to use: to discover valid integration names before filtering a semantic_search by `integration` or before calling sync_source, and to check whether a source is ready to sync (credentials registered) or still needs setup. Useful as a first step when you don't yet know which sources exist.\n\n" +
-      "If a source shows it cannot sync yet, its credentials are not registered. To register them, call sync_source for that integration — it will return a URL where the user can input their credentials. Direct the user to that URL, and once they confirm they've connected, call get_integration_sources again to verify the source is ready before syncing.\n\n" +
+      "List the data sources supported by this server, and for each whether credentials are configured so a sync can begin. Takes no arguments.\n\n" +
+      "When to use: to discover valid integrated data sources before filtering a semantic_search by `integration` or before calling sync_source, and to check whether a source is ready to sync (credentials registered) or still needs setup. Useful as a first step when you don't yet know which sources exist.\n\n" +
+      "If a source shows it cannot sync yet, its credentials are not registered. To register them, call sync_source for that integration — it will return a URL where the user can input their credentials. Direct the user to that URL, and once they confirm they've connected, call get_integrated_data_sources again to verify the source is ready before syncing.\n\n" +
       "Example:\n" +
       "- List everything available: {}",
-    annotations: { title: "Get integration sources", ...READ_ONLY },
+    annotations: { title: "Get integrated data sources", ...READ_ONLY },
     inputSchema: getIntegrationSourcesSchema,
     handler: runGetIntegrationSources,
   },
   {
     name: "sync_source",
     description:
-      "Trigger a sync for an integration source, and the tool to use to register a user's credentials for a source. Automatically runs a full sync if no artifacts have been ingested yet, otherwise an incremental sync that picks up new and updated artifacts since the last sync. The sync runs in the background and returns immediately — newly ingested content will not be searchable until it finishes.\n\n" +
-      "Registering credentials: if the source's credentials are not yet registered, this tool does NOT sync — instead it returns a URL where the user can input their credentials. When that happens, open the URL using bash tools (if unable, share the URL directly). Once they confirm they've connected, you can verify with get_integration_sources and then call sync_source again to begin the sync. This is the path to use whenever a user needs to connect or register a new source.\n\n" +
-      "When to use: to register a user's credentials for a source (it returns the connection URL when they aren't set up yet), or when the indexed data may be stale or incomplete and you want to pull in the latest artifacts before searching — e.g. the user asks about a recent call that semantic_search can't find, or explicitly asks to refresh/import a source. You can check connection status first with get_integration_sources. This is the only non-read-only tool here; don't call it just to browse.\n\n" +
+      "Trigger a sync for an integrated data source, and the tool to use to register a user's credentials for a source. Automatically runs a full sync if no artifacts have been ingested yet, otherwise an incremental sync that picks up new and updated artifacts since the last sync. The sync runs in the background and returns immediately — newly ingested content will not be searchable until it finishes.\n\n" +
+      "Registering credentials: if the source's credentials are not yet registered, this tool does NOT sync — instead it returns a URL where the user can input their credentials. When that happens, open the URL using bash tools (if unable, share the URL directly). Once they confirm they've connected, you can verify with get_integrated_data_sources and then call sync_source again to begin the sync. This is the path to use whenever a user needs to connect or register a new source.\n\n" +
+      "When to use: to register a user's credentials for a source (it returns the connection URL when they aren't set up yet), or when the indexed data may be stale or incomplete and you want to pull in the latest artifacts before searching — e.g. the user asks about a recent call that semantic_search can't find, or explicitly asks to refresh/import a source. You can check connection status first with get_integrated_data_sources. This is the only non-read-only tool here; don't call it just to browse.\n\n" +
       "Examples:\n" +
       "- Register credentials or refresh a source (returns a connection URL if not yet connected, otherwise syncs): { \"integration\": \"gong\" }",
     annotations: {
