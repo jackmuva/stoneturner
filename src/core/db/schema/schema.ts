@@ -52,7 +52,7 @@ export type MdArtifactInsert = InferInsertModel<typeof mdArtifact>;
 
 export const syncPipeline = sqliteTable("syncPipeline", {
   integration: text("integration").primaryKey(),
-  frequency: text("frequency").$type<"DAILY" | "WEEKLY" | "MONTHLY" | "NO_SCHEDULE">().default("NO_SCHEDULE").notNull(),
+  frequency: text("frequency").$type<"DAILY" | "WEEKLY" | "MONTHLY" | "NO SCHEDULE">().default("NO SCHEDULE").notNull(),
   updateDate: text("updateDate").notNull().$defaultFn(() => (new Date()).toISOString()),
   status: text("status").$type<"IDLE" | "SYNCING">().default("IDLE").notNull(),
 });
