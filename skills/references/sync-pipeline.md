@@ -1,7 +1,7 @@
 # The sync pipeline
 
 ```
-sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector (embed + upsert)
+sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector (embed + upsert) → agent-explore (lay-of-the-land context)
 ```
 
 Each step writes `syncTask` rows so the web UI can show progress. Syncs are
@@ -295,6 +295,25 @@ scheduled through `aiGatewayBottleneck` and wrapped in `retry`), and upserts
 writes its own `index-vector` syncTask rows. Register it in your
 `steps.ts` as `"index-vector": indexVectorDbStep`.
 
+## Step 4 — agent-explore (shared, do not rewrite)
+
+Call the shared step at the end of your pipeline:
+
+```ts
+import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
+await agentExploreContextStep(incremental, db, { integration: "gong" });
+```
+
+`agentExploreContextStep` (`src/core/services/agent-explore-context-step.ts`) runs
+a `ToolLoopAgent` (`EXPLORE_MODEL` — `deepseek/deepseek-v4-flash`) with tools
+from `src/core/services/tools/explore-tools.ts` (`search_semantically`,
+`get_artifact_by_id`, `execute_sqlite_query`, `get_tables`,
+`get_most_recent_records`). The agent explores the integration's data and writes
+a concise markdown overview to the `sourceContext` table. MCP clients load this
+via `get_data_source_context`. It writes `agent-explore` syncTask rows. Register
+it in your `steps.ts` as `"agent-explore": agentExploreContextStep`. Purge with
+`deleteSourceContextByIntegration` in `deleteSync`.
+
 ## Rate limiting & retries — the rules
 
 - **Never** fire AI Gateway calls (embeddings or LLM parsing) concurrently
@@ -316,6 +335,15 @@ await stepFunc(false, db, task.inputs, task.id);
 ```
 
 Tasks are retried up to 3 times (`syncTask.retries`). Retries run on a daily
-cron (disable with `CRON_ENABLED=false`) and manually via
+cron in `src/index.ts` (disable with `CRON_ENABLED=false`) and manually via
 `POST /api/syncTasks/retry`. Every step must be registered in
 `steps.ts` + `step-registry.ts` for this to work.
+
+## Scheduled syncs
+
+Per-integration sync frequency lives in the `syncPipeline` table
+(`DAILY` / `WEEKLY` / `MONTHLY` / `NO SCHEDULE`). Users configure it via
+`POST /api/sync-pipeline` (body: `{ integration, frequency }`). The daily cron in
+`src/core/services/sync-new-cron.ts` (`syncNewCron`) checks each pipeline's
+`updateDate` + `frequency` and fire-and-forgets `syncUpdates(db)` for
+integrations that are due.

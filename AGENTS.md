@@ -19,6 +19,15 @@ Standard commands and architecture are documented in `CLAUDE.md` and `README.md`
 - Retries run on a daily cron (midnight UTC) unless `CRON_ENABLED=false`. Trigger manually with `POST /api/syncTasks/retry`.
 - Each task retries up to 3 times (`syncTask.retries`). Steps resume from `syncTask.inputs` (cursor/offset) and update the same row via `syncTaskId`.
 
+### Scheduled syncs
+- Per-integration sync frequency is stored in the `syncPipeline` table (`DAILY` / `WEEKLY` / `MONTHLY` / `NO SCHEDULE`).
+- Configure via `POST /api/sync-pipeline` (body: `{ integration, frequency }`); list with `GET /api/sync-pipeline`.
+- `src/core/services/sync-new-cron.ts` runs due incremental syncs daily at midnight UTC (same `CRON_ENABLED` gate).
+
+### Explore agent
+- After each sync pipeline completes, `agentExploreContextStep` (`src/core/services/agent-explore-context-step.ts`) runs an LLM agent that explores the integration's data and writes a lay-of-the-land markdown overview to `sourceContext`.
+- MCP clients load this via `get_data_source_context`. New integrations must call `agentExploreContextStep` at the end of their pipeline, register `"agent-explore"` in `steps.ts`, and purge with `deleteSourceContextByIntegration` in `deleteSync`.
+
 ## Runtime & commands (general)
 - **Bun** is the runtime (not Node/npm). All commands use `bun`.
 - `bun run lint` = `bun tsc --noEmit` — there is no ESLint, this is the only lint step.
@@ -31,7 +40,7 @@ Standard commands and architecture are documented in `CLAUDE.md` and `README.md`
 - `AI_GATEWAY_API_KEY` is only needed for sync→parse→embed. The server starts and serves UI/MCP without it.
 
 ## Stale reference in CLAUDE.md
-CLAUDE.md references `src/integrations/sync-registry.ts`. The actual file is `src/integrations/integration-registry.ts`. When adding an integration, register in `integration-registry.ts` (not `sync-registry.ts`).
+CLAUDE.md may reference `src/integrations/sync-registry.ts`. The actual file is `src/integrations/integration-registry.ts`. When adding an integration, register in `integration-registry.ts` (not `sync-registry.ts`).
 
 ## Adding an integration
 Register an integration in **four** places:
@@ -49,7 +58,7 @@ There is an integration scaffold skill at `skills/SKILL.md`.
 - `BUN_PUBLIC_DEV_MODE=true` switches DB to `test-stoneturner.db` (see `src/core/db/db.ts`).
 - MCP server at `/mcp` — Streamable HTTP, no batching, no SSE, **NOT** wrapped in CORS.
 - AI Gateway calls (embeddings + LLM) throttle through `aiGatewayBottleneck` (5 concurrent, 200ms minTime). Use `.schedule()` for gateway work.
-- Three daily CRON jobs at midnight UTC (all disabled when `CRON_ENABLED=false`): retry failed tasks, delete stale sync tasks (>14 days), run scheduled syncs.
+- Three daily CRON jobs at midnight UTC in `src/index.ts` (all disabled when `CRON_ENABLED=false`): retry failed tasks (`retry-cron.ts`), delete stale sync tasks >14 days, run scheduled syncs (`sync-new-cron.ts`).
 
 ## Scripts
 `scripts/` contains one-off importers (`import-gong-calls.ts`, `import-gong-transcripts.ts`, `import-md-artifacts.ts`, `import-sync-tasks.ts`, `csv-stream.ts`). Run with `bun scripts/<file>.ts`.

@@ -18,14 +18,14 @@ Discord integrations.
 
 - `references/integration-specs.md` — how to write an integration spec (the input document for this skill). Includes a template, section guide, and example specs in `references/integration-spec-examples/`.
 - `references/anatomy.md` — the two core types, the folder layout, and the registries (config, sync, step).
-- `references/sync-pipeline.md` — how to write sync / parse / index steps, including rate limiting, retries, sync-task logging, step-registry registration, and the markdown-artifact contract.
+- `references/sync-pipeline.md` — how to write sync / parse / index steps, including rate limiting, retries, sync-task logging, step-registry registration, the explore agent, and the markdown-artifact contract.
 - `references/auth.md` — `BASIC_TOKEN`, `API_KEY`, and `OAUTH` credential patterns (including `handleRedirect` and `refreshAccessTokens`).
 - `references/checklist.md` — a copy-pasteable end-to-end checklist plus the commands to run.
 
 ## The mental model
 
 ```
-sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector (embed + upsert)
+sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector (embed + upsert) → agent-explore (lay-of-the-land context)
 ```
 
 1. **sync-data** — fetch from the external API, write rows into your
@@ -37,6 +37,11 @@ sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector
    `src/core/services/index-vector-db-step.ts`. **This step is shared — you do
    not write it.** It chunks each artifact's markdown, embeds content / key
    points / questions, and upserts the vector rows.
+4. **agent-explore** — `agentExploreContextStep(incremental, db, { integration })`
+   from `src/core/services/agent-explore-context-step.ts`. **This step is shared
+   — you do not write it.** An LLM agent explores the integration's data (via
+   tools in `explore-tools.ts`) and writes a lay-of-the-land overview to
+   `sourceContext`. MCP clients load it with `get_data_source_context`.
 
 Syncs are **fire-and-forget** from the HTTP handler (no `await` — see
 `src/index.ts`), so all error handling must live inside your steps and be
@@ -133,15 +138,18 @@ See `references/sync-pipeline.md`.
 
 Compose your steps into one `syncPipeline(incremental, db)` function, then export
 an `Integration` whose `sync(db)` calls it with `false`, `syncUpdates(db)` with
-`true`, and `deleteSync(db)` purges syncTasks + artifacts + embeddings + your own
-tables. Add `handleRedirect(req, db)` / `refreshAccessTokens(db)` only for OAuth.
+`true`, and `deleteSync(db)` purges syncTasks + artifacts + embeddings +
+sourceContext + your own tables. Add `handleRedirect(req, db)` /
+`refreshAccessTokens(db)` only for OAuth. End the pipeline with
+`agentExploreContextStep` (see `references/sync-pipeline.md`).
 
 ### 6. Register it
 
 Add the config to `src/integrations/config-registry.ts` and the integration to
-`src/integrations/sync-registry.ts`. Export an `IntegrationSteps` map from
+`src/integrations/integration-registry.ts`. Export an `IntegrationSteps` map from
 `steps.ts` and register it in `src/integrations/step-registry.ts` so
-failed steps can be retried. Routes in `src/index.ts` dispatch by
+failed steps can be retried. Include `"agent-explore": agentExploreContextStep`
+in your steps map. Routes in `src/index.ts` dispatch by
 matching the `:integration` path param against `config.integration`
 (case-insensitive) — no route changes needed.
 
@@ -163,7 +171,8 @@ UI. See `references/checklist.md`.
 - The shared vector step is `index-vector-db-step.ts` — reuse it, don't fork it.
 - Thread `db: SqliteDb` through every method/step/query; never `import { db }`.
 - Every step function must match `IntegrationStepFn` and be registered in
-  `step-registry.ts` for automatic retry of FAILED tasks.
+  `step-registry.ts` for automatic retry of FAILED tasks (including shared steps
+  like `index-vector` and `agent-explore`).
 - Keep the integration string passed to `indexVectorDbStep(..., { integration })`
   identical to `config.integration` and to the integration string you write on
   every `mdArtifact` / `syncTask` — they're matched as plain strings.
