@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "../confirmation-dialog";
 
 export type SyncSortOrder = "asc" | "desc";
-export type SyncStatusFilter = "all" | "SUCCESS" | "FAILED" | "PENDING";
+export type SyncStatusFilter = "all" | "SUCCESS" | "FAILED";
 type ConfirmAction = "retry";
 
 export const SyncMonitoringPage = () => {
@@ -118,7 +118,6 @@ export const SyncMonitoringPage = () => {
                   <SelectItem value="all">All statuses</SelectItem>
                   <SelectItem value="SUCCESS">Success</SelectItem>
                   <SelectItem value="FAILED">Failed</SelectItem>
-                  <SelectItem value="PENDING">Pending</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={step} onValueChange={(value) => { setStep(value); setPage(0); }}>
