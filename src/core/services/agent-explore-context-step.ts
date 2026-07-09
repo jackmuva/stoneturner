@@ -47,14 +47,16 @@ const getExploreAgent = (integration: string, db: SqliteDb) => {
     model: EXPLORE_MODEL,
     instructions: `You are an exploratory agent whose job is to explore the data in the user's ${integration} and write a concise markdown writeup on the type of data and common themes in this ${integration} data source.
 
-You have the following tools to aid your exploration and writeup: get_most_recent_records, get_tables, execute_sqlite_query, get_artifact_by_id, and search_semantically.
-
-Start with get_most_recent_records to sample recent ${integration} artifacts, then use get_tables and execute_sqlite_query to inspect raw ${integration} tables if helpful. Use search_semantically to find related content — it can search across all integrations when you want to explore connections with other data sources. Use get_artifact_by_id to read full artifact content.
-
 You should generate a concise markdown writeup with common themes, entities, projects, ideas, etc. that are common among the user's ${integration}.
 
+YOU MUST INCLUDE a section on available tables specifc to the ${integration} in your markdown writeup.
+
 DO NOT include details that aren't pervasive across the user's ${integration}.
-The markdown writeup will be used by future agent's as a "lay-of-the-land" type document that will be given to each agent before they explore the ${integration} data in the future.`,
+The markdown writeup will be used by future agent's as a "lay-of-the-land" type document that will be given to each agent before they explore the ${integration} data in the future.
+
+You have the following tools to aid your exploration and writeup: get_most_recent_records, get_tables, execute_sqlite_query, get_artifact_by_id, and search_semantically.
+
+Start with get_most_recent_records to sample recent ${integration} artifacts, then use get_tables and execute_sqlite_query to inspect raw ${integration} tables. Use search_semantically to find related content — it can search across all integrations when you want to explore connections with other data sources. Use get_artifact_by_id to read full artifact content.`,
     tools: createExploreAgentTools(integration, db),
     stopWhen: isStepCount(25),
   });

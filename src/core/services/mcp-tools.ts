@@ -19,10 +19,10 @@ export const tools: McpTool[] = [
   {
     name: "get_data_source_context",
     description:
-      "Fetch the auto-generated lay-of-the-land overview for one or all integrated data sources. Each overview summarizes common themes, entities, and patterns in that source's data — written to help agents orient before searching.\n\n" +
+      "Fetch the auto-generated lay-of-the-land overview for a specific integrated data sources. Each overview summarizes the relevant tables, common themes, entities, and patterns in that source's data — written to help agents orient before searching.\n\n" +
       "When to use: when a user first asks about a specific data source (e.g. \"what's in my Gong calls?\", \"search my GitHub issues\"), call this for that integration before semantic_search, get_md_artifact_by_id, or run_sql_query. If you don't yet know which sources exist, call get_integrated_data_sources first. Context is generated automatically after a sync completes; if none exists yet, sync_source may be needed.\n\n" +
       "Examples:\n" +
-      "- Overview for one source: { \"integration\": \"gong\" }",
+      "- Overview for one source: { \"integration\": \"slack\" }",
     annotations: { title: "Get data source context", ...READ_ONLY },
     inputSchema: getDataSourceContextSchema,
     handler: runGetDataSourceContext,

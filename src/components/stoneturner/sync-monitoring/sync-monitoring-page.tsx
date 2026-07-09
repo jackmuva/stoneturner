@@ -8,10 +8,11 @@ import { configRegistry } from "@/integrations/config-registry";
 import { SyncLogTable } from "./sync-log-table";
 import { SyncLogSheet } from "./sync-log-sheet";
 import { Button } from "@/components/ui/button";
-import { RefreshCwIcon } from "lucide-react";
+import { ConfirmationDialog } from "../confirmation-dialog";
 
 export type SyncSortOrder = "asc" | "desc";
 export type SyncStatusFilter = "all" | "SUCCESS" | "FAILED" | "PENDING";
+type ConfirmAction = "retry";
 
 export const SyncMonitoringPage = () => {
   const [page, setPage] = useState<number>(0);
@@ -20,6 +21,7 @@ export const SyncMonitoringPage = () => {
   const [step, setStep] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState<SyncSortOrder>("desc");
   const [selectedTask, setSelectedTask] = useState<SyncTaskSelect | null>(null);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [retrySucceeded, setRetrySucceeded] = useState(false);
 
   const { data: syncPipelines } = useSWR<SyncPipelineSelect[]>(`sync-pipelines`, async () => {
@@ -64,13 +66,19 @@ export const SyncMonitoringPage = () => {
     setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
   };
 
-  const handleRetryFailed = async () => {
-    await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/syncTasks/retry`, {
-      method: "POST",
-    });
-    setRetrySucceeded(true);
-    syncMutate();
-    setTimeout(() => setRetrySucceeded(false), 3000);
+  const confirmConfig: Record<ConfirmAction, { text: string; onConfirm: () => void | Promise<void> }> = {
+    retry: {
+      text: "This will retry all failed sync tasks that haven't exceeded the retry limit. Continue?",
+      onConfirm: async () => {
+        await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/syncTasks/retry`, {
+          method: "POST",
+        });
+        setConfirmAction(null);
+        setRetrySucceeded(true);
+        syncMutate();
+        setTimeout(() => setRetrySucceeded(false), 3000);
+      },
+    },
   };
 
   return (
@@ -128,7 +136,8 @@ export const SyncMonitoringPage = () => {
               </Select>
             </div>
             <div className="flex gap-2 items-end flex-col sm:flex-row">
-              <Button variant="outline" size="sm" onClick={handleRetryFailed} disabled={retrySucceeded}>
+              <Button variant="outline" size="sm" onClick={() => setConfirmAction("retry")} disabled={retrySucceeded}
+              className="bg-brand-purple/20 dark:bg-brand-purple/70 rounded-md">
                 {retrySucceeded ? "retry initiated" : "Retry failed tasks"}
               </Button>
             </div>
@@ -150,6 +159,12 @@ export const SyncMonitoringPage = () => {
         </div>
         <SyncLogSheet task={selectedTask} onClose={() => setSelectedTask(null)} />
       </div>
+      <ConfirmationDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => { if (!open) setConfirmAction(null); }}
+        text={confirmAction ? confirmConfig[confirmAction].text : ""}
+        onConfirm={confirmAction ? confirmConfig[confirmAction].onConfirm : () => { }}
+      />
     </div >
   );
 }
