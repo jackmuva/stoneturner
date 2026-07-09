@@ -24,18 +24,19 @@ everywhere".
 
 - [ ] `drizzle.config.ts` — add `'./src/integrations/<name>/db/schema.ts'` to `schema`.
 - [ ] `src/integrations/config-registry.ts` — add `<name>Config` to `configRegistry`.
-- [ ] `src/integrations/sync-registry.ts` — add `<name>Integration` to `supportedIntegrations`.
+- [ ] `src/integrations/integration-registry.ts` — add `<name>Integration` to `supportedIntegrations`.
 - [ ] `src/integrations/step-registry.ts` — import `steps` from `./<name>/steps` and add to `stepRegistry`.
 - [ ] `.env` — add any OAuth/secret vars (e.g. `BUN_PUBLIC_<NAME>_CLIENT_ID`, `<NAME>_CLIENT_SECRET`).
 - [ ] Add the icon at `src/assets/<name>.png` to match `config.icon`.
 
-## `deleteSync` must purge all four
+## `deleteSync` must purge all five
 
 ```ts
-await deleteSyncTasksByIntegration("<name>", db);   // @/core/db/queries/queries
-await deleteMdArtifactsByIntegration("<name>", db); // @/core/db/queries/queries
-await deleteEmbeddingByIntegration("<name>", db);   // @/core/db/queries/vector-queries
-await delete<Name>Data(db);                          // your own db/queries.ts
+await deleteSyncTasksByIntegration("<name>", db);        // @/core/db/queries/queries
+await deleteMdArtifactsByIntegration("<name>", db);      // @/core/db/queries/queries
+await deleteEmbeddingByIntegration("<name>", db);        // @/core/db/queries/vector-queries
+await deleteSourceContextByIntegration("<name>", db);    // @/core/db/queries/queries
+await delete<Name>Data(db);                               // your own db/queries.ts
 ```
 
 ## Commands
@@ -58,13 +59,13 @@ of `stoneturner.db`.
 3. Trigger a full sync: `curl -X POST http://localhost:9000/api/sync/<name>`.
    (Incremental: `POST /api/sync/updates/<name>`.)
 4. Watch progress — `syncTask` rows in the UI, or query the DB. You should see
-   `<your sync step>` → `parse` → `index-vector` rows transition to SUCCESS.
-5. Confirm `mdArtifacts` rows exist and `contentEmbedding` /
-   `keyPointsEmbedding` / `questionsAnsweredEmbedding` got populated.
-6. From an MCP client, run `semantic_search` and confirm your content is
-   retrievable (optionally filter by `integration: "<name>"`).
+   `<your sync step>` → `parse` → `index-vector` → `agent-explore` rows transition to SUCCESS.
+5. Confirm `mdArtifacts` rows exist, embeddings got populated, and a `sourceContext`
+   row was written for the integration.
+6. From an MCP client, run `get_data_source_context` and `semantic_search` to
+   confirm context and content are retrievable.
 7. Test teardown: `curl -X DELETE http://localhost:9000/api/sync/<name>` and
-   confirm all four data classes are gone.
+   confirm all five data classes are gone.
 
 ## Common gotchas
 
