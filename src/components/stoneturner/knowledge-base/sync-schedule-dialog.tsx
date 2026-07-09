@@ -1,47 +1,46 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from "@/components/ui/select";
-import type { SyncScheduleSelect } from "@/core/db/schema/schema";
+import type { SyncPipelineSelect } from "@/core/db/schema/schema";
 import { useEffect, useState } from "react";
 
 export const SyncScheduleDialog = ({
   open,
   onOpenChange,
   integration,
-  syncSchedule,
-  onSyncScheduleChange,
+  syncPipeline,
+  onSyncPipelineChange,
 }: {
   open: boolean,
   onOpenChange: (open: boolean) => void,
   integration: string,
-  syncSchedule: SyncScheduleSelect | null,
-  onSyncScheduleChange: () => void,
+  syncPipeline: SyncPipelineSelect | null,
+  onSyncPipelineChange: () => void,
 }) => {
-  const [frequency, setFrequency] = useState<"DAILY" | "WEEKLY" | "MONTHLY">("WEEKLY");
-  const items = ["Daily", "Weekly", "Monthly"];
+  const [frequency, setFrequency] = useState<"NO SCHEDULE" | "DAILY" | "WEEKLY" | "MONTHLY">("NO SCHEDULE");
+  const items = ["Daily", "Weekly", "Monthly", "No Schedule"];
 
   useEffect(() => {
-    if (syncSchedule?.frequency) {
-      setFrequency(syncSchedule.frequency);
+    if (syncPipeline?.frequency) {
+      setFrequency(syncPipeline.frequency);
     }
-  }, [syncSchedule]);
+  }, [syncPipeline]);
 
-  const deleteSyncSchedule = async () => {
-    await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync-schedule/${integration}`, {
-      method: "DELETE"
-    });
-    onSyncScheduleChange();
-  }
-
-  const upsertSyncSchedule = async () => {
-    await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync-schedule`, {
-      method: "POST",
-      body: JSON.stringify({
-        integration: integration,
-        frequency: frequency
-      })
-    });
-    onSyncScheduleChange();
+    const upsertSyncPipeline = async () => {
+    if (frequency === "NO SCHEDULE") {
+      await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync-pipeline/${integration}`, {
+        method: "DELETE"
+      });
+    } else {
+      await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync-pipeline`, {
+        method: "POST",
+        body: JSON.stringify({
+          integration: integration,
+          frequency: frequency
+        })
+      });
+    }
+    onSyncPipelineChange();
   }
 
   return (
@@ -52,10 +51,10 @@ export const SyncScheduleDialog = ({
           <DialogDescription>CRON jobs to automatically sync new data</DialogDescription>
         </DialogHeader>
         <Select value={frequency} onValueChange={(value: string) => {
-          setFrequency(value as "DAILY" | "WEEKLY" | "MONTHLY");
+          setFrequency(value as "DAILY" | "WEEKLY" | "MONTHLY" | "NO SCHEDULE");
         }}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Weekly" />
+            <SelectValue placeholder="No Schedule" />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
@@ -69,16 +68,15 @@ export const SyncScheduleDialog = ({
         </Select>
         <DialogFooter className="justify-start gap-2">
           <Button onClick={async () => {
-            await upsertSyncSchedule();
+            await upsertSyncPipeline();
             onOpenChange(false);
           }} >
             Confirm Sync Schedule
           </Button>
           <Button variant="outline" onClick={async () => {
-            await deleteSyncSchedule();
             onOpenChange(false);
           }}>
-            Cancel Sync Schedule
+            Cancel
           </Button>
         </DialogFooter>
       </DialogContent>

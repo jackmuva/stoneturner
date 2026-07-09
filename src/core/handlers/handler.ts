@@ -1,5 +1,5 @@
 import type { BunRequest } from "bun";
-import { getIntegrationCredentials, getMdArtifactById, getMdArtifactsByIntegration, getSyncTasks, getSyncTasksByIntegration, getSyncTasksByStatus, getSyncTasksByUpdateDateAfter, getSyncTasksFiltered, getDistinctSyncTaskSteps, upsertIntegrationCredential, deleteSyncTasksPriorToDate, type MdArtifactSortField, type SortOrder, upsertSyncSchedule, deleteSyncScheduleByIntegration, getSyncScheduleByIntegration } from "../db/queries/queries";
+import { getIntegrationCredentials, getMdArtifactById, getMdArtifactsByIntegration, getSyncTasks, getSyncTasksByIntegration, getSyncTasksByStatus, getSyncTasksFiltered, getDistinctSyncTaskSteps, upsertIntegrationCredential, deleteSyncTasksPriorToDate, type MdArtifactSortField, type SortOrder, upsertSyncPipeline, deleteSyncPipelineByIntegration, getSyncPipelineByIntegration, getAllSyncPipelines } from "../db/queries/queries";
 import type { IntegrationCredential, MdArtifactSelect, SyncTaskSelect } from "../db/schema/schema";
 import type { SqliteDb } from "../models/db-models";
 
@@ -13,13 +13,6 @@ export async function handleNewIntegrationCredential(req: BunRequest, db?: Sqlit
 
   const integrations = await upsertIntegrationCredential(body, db!);
   return Response.json({ integrations: integrations });
-}
-
-export async function handleGetRecentSyncTasks(req: BunRequest, db?: SqliteDb): Promise<Response> {
-  const now: Date = new Date();
-  now.setMinutes(now.getMinutes() - 1);
-  const syncTasks = await getSyncTasksByUpdateDateAfter(now.toISOString(), db!);
-  return Response.json({ syncTasks: syncTasks });
 }
 
 export async function handleGetAllSyncTasks(req: BunRequest, db?: SqliteDb): Promise<Response> {
@@ -85,25 +78,30 @@ export async function handleGetArtifactById(req: BunRequest, db?: SqliteDb): Pro
   return Response.json({ artifact });
 }
 
-export async function handleGetSyncScheduleByIntegration(req: BunRequest, db?: SqliteDb): Promise<Response> {
-  const { integration } = req.params;
-  if (!integration) return Response.json(null, { status: 400 });
-  const syncSchedule = await getSyncScheduleByIntegration(integration, db!);
-  return Response.json({ syncSchedule: syncSchedule ?? null });
+export async function handleGetAllSyncPipelines(_req: BunRequest, db?: SqliteDb): Promise<Response> {
+  const syncPipelines = await getAllSyncPipelines(db!);
+  return Response.json({ syncPipelines });
 }
 
-export async function handleConfigureSyncSchedule(req: BunRequest, db?: SqliteDb): Promise<Response> {
+export async function handleGetSyncPipelineByIntegration(req: BunRequest, db?: SqliteDb): Promise<Response> {
+  const { integration } = req.params;
+  if (!integration) return Response.json(null, { status: 400 });
+  const syncPipeline = await getSyncPipelineByIntegration(integration, db!);
+  return Response.json({ syncPipeline: syncPipeline ?? null });
+}
+
+export async function handleConfigureSyncPipeline(req: BunRequest, db?: SqliteDb): Promise<Response> {
   const body = (await req.json()) as { integration: string, frequency: "DAILY" | "WEEKLY" | "MONTHLY" };
-  await upsertSyncSchedule({
+  await upsertSyncPipeline({
     integration: body.integration,
     frequency: body.frequency
   }, db!)
   return Response.json(null, { status: 200 });
 }
 
-export async function handleDeleteSyncSchedule(req: BunRequest, db?: SqliteDb): Promise<Response> {
+export async function handleDeleteSyncPipeline(req: BunRequest, db?: SqliteDb): Promise<Response> {
   const { integration } = req.params;
   if(!integration) return Response.json(null, {status: 400});
-  await deleteSyncScheduleByIntegration(integration, db!);
+  await deleteSyncPipelineByIntegration(integration, db!);
   return Response.json(null, { status: 200 });
 }

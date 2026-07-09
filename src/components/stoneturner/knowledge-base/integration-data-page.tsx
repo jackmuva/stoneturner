@@ -1,4 +1,4 @@
-import type { MdArtifactSelect, SyncScheduleSelect, SyncTaskSelect } from "@/core/db/schema/schema";
+import type { MdArtifactSelect, SyncPipelineSelect } from "@/core/db/schema/schema";
 import { useParams } from "react-router";
 import useSWR from 'swr'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
@@ -33,7 +33,7 @@ export const IntegrationDataPage = () => {
   const [reauthOpen, setReauthOpen] = useState<boolean>(false);
   const [optimisticSync, setOptimisticSync] = useState<boolean>(false);
   const [optimisticDelete, setOptimisticDelete] = useState<boolean>(false);
-  const [openSyncSchedule, setOpenSyncSchedule] = useState<boolean>(false);
+  const [openSyncPipeline, setOpenSyncPipeline] = useState<boolean>(false);
 
   const intConfig = configRegistry.find(
     (config) => config.integration.toLowerCase() === integration?.toLowerCase()
@@ -47,6 +47,17 @@ export const IntegrationDataPage = () => {
     return () => clearTimeout(timeout);
   }, [searchInput]);
 
+  const { data: syncPipeline, mutate: mutateSyncPipeline } = useSWR<SyncPipelineSelect | null>(
+    integration ? `sync-pipeline/${integration}` : null,
+    async (): Promise<SyncPipelineSelect | null> => {
+      const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync-pipeline/${integration}`, {
+        method: "GET",
+      });
+      const body = await res.json();
+      return body.syncPipeline ?? null;
+    },
+  );
+
   const { data: artifacts, isLoading: artifactsIsLoading } = useSWR<MdArtifactSelect[]>(`artifacts/${integration}/${page}/${sortBy}/${sortOrder}/${search}`, async (): Promise<MdArtifactSelect[]> => {
     const params = new URLSearchParams({ offset: String(page * PAGE_SIZE), sortBy, sortOrder });
     if (search) params.set("search", search);
@@ -56,30 +67,9 @@ export const IntegrationDataPage = () => {
     const body = await res.json();
     return body.artifacts ?? [];
   }, {
+    refreshInterval: syncPipeline?.status === "SYNCING" ? (5 * 1000) : 0,
     keepPreviousData: true,
   });
-
-  const { data: syncTasks } = useSWR<SyncTaskSelect[]>(`syncTasks`, async () => {
-    setOptimisticSync(false);
-    const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/syncTasks/recent`, {
-      method: "GET",
-    });
-    const body = await res.json();
-    return body.syncTasks;
-  }, {
-    refreshInterval: 1000 * 60,
-  });
-
-  const { data: syncSchedule, mutate: mutateSyncSchedule } = useSWR<SyncScheduleSelect | null>(
-    integration ? `syncSchedule/${integration}` : null,
-    async (): Promise<SyncScheduleSelect | null> => {
-      const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync-schedule/${integration}`, {
-        method: "GET",
-      });
-      const body = await res.json();
-      return body.syncSchedule ?? null;
-    },
-  );
 
   const handleSort = (field: ArtifactSortField) => {
     setPage(0);
@@ -147,7 +137,7 @@ export const IntegrationDataPage = () => {
               <Tooltip>
                 <TooltipTrigger>
                   <Button variant={"outline"} size="sm" className="bg-brand-purple/20 dark:bg-brand-purple/70 rounded-l-md rounded-r-none"
-                    disabled={(syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)}
+                    disabled={optimisticSync || syncPipeline?.status === "SYNCING"}
                     onClick={() => setConfirmAction("fullSync")}>
                     <ArrowBigDownDashIcon size={12} />
                     Full Sync
@@ -160,7 +150,7 @@ export const IntegrationDataPage = () => {
               <Tooltip>
                 <TooltipTrigger>
                   <Button variant={"outline"} size={"sm"} className="bg-brand-cream/70 dark:bg-brand-cream/50 rounded-none"
-                    disabled={(syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)}
+                    disabled={optimisticSync || syncPipeline?.status === "SYNCING"}
                     onClick={() => { setConfirmAction("syncNew") }}>
                     <RefreshCwIcon size={12} />
                     Sync New Records
@@ -173,8 +163,8 @@ export const IntegrationDataPage = () => {
               <Tooltip>
                 <TooltipTrigger>
                   <Button variant={"outline"} size={"sm"} className="bg-orange-800/30 dark:bg-orange-800 rounded-none"
-                    disabled={(syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)}
-                    onClick={() => { setOpenSyncSchedule(true) }}>
+                    disabled={syncPipeline?.status === "SYNCING"}
+                    onClick={() => { setOpenSyncPipeline(true) }}>
                     <CalendarSyncIcon size={12} />
                     Schedule Syncs
                   </Button>
@@ -204,7 +194,7 @@ export const IntegrationDataPage = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            {(optimisticSync || (syncTasks && syncTasks.filter((task) => task.integration === integration).length > 0)) && <div className="w-52 flex gap-1 items-center border rounded-sm py-1 px-2">
+            {(optimisticSync || (syncPipeline && syncPipeline.status === "SYNCING")) && <div className="w-52 flex gap-1 items-center border rounded-sm py-1 px-2">
               <span className="text-sm animate-pulse">Syncing...</span>
               <span className="animate-left-right">
                 <img src={"/assets/stoneturner.png"} alt="stoneturner-logo" className="animate-roll" width={25} height={25} />
@@ -238,11 +228,11 @@ export const IntegrationDataPage = () => {
         text={confirmAction ? confirmConfig[confirmAction].text : ""}
         onConfirm={confirmAction ? confirmConfig[confirmAction].onConfirm : () => { }} />
       <SyncScheduleDialog
-        open={openSyncSchedule}
-        onOpenChange={setOpenSyncSchedule}
+        open={openSyncPipeline}
+        onOpenChange={setOpenSyncPipeline}
         integration={integration ?? ""}
-        syncSchedule={syncSchedule ?? null}
-        onSyncScheduleChange={mutateSyncSchedule}
+        syncPipeline={syncPipeline ?? null}
+        onSyncPipelineChange={mutateSyncPipeline}
       />
       {intConfig && (
         <IntegrationDialog

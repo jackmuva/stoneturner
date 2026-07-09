@@ -103,7 +103,7 @@ ${md.join("")}`,
 
     await upsertMdArtifact({
       integrationArtifactId: transcript.callId,
-      integration: "Gong",
+      integration: "gong",
       artifactDate: call?.started,
       markdown: md.join(""),
       keyPoints: analysis.keyPoints,

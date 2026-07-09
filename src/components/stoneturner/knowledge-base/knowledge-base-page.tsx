@@ -4,7 +4,7 @@ import { IntegrationCard } from "./integration-card";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from '@/components/ui/breadcrumb';
 import { Input } from '@/components/ui/input';
 import { configRegistry } from '@/integrations/config-registry';
-import type { IntegrationCredential, SyncTaskSelect } from '@/core/db/schema/schema';
+import type { IntegrationCredential, SyncPipelineSelect } from '@/core/db/schema/schema';
 import type { IntegrationConfig } from '@/core/models/models';
 import { useParams } from 'react-router-dom';
 import { ConnectInstructionsCard } from './connect-instructions-card';
@@ -12,6 +12,7 @@ import { ConnectInstructionsCard } from './connect-instructions-card';
 export const KnowledgeBasePage = () => {
   let { integration } = useParams();
   const [search, setSearch] = useState("");
+
   const { data: integrations, mutate: integrationsMutate } = useSWR<IntegrationCredential[]>(`integrations`, async (): Promise<IntegrationCredential[]> => {
     const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/integrations`, {
       method: "GET",
@@ -20,12 +21,12 @@ export const KnowledgeBasePage = () => {
     return body.integrations ?? [];
   });
 
-  const { data: syncTasks } = useSWR<SyncTaskSelect[]>(`syncTasks`, async () => {
-    const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/syncTasks/recent`, {
+  const { data: syncPipelines } = useSWR<SyncPipelineSelect[]>(`sync-pipelines`, async () => {
+    const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync-pipeline`, {
       method: "GET",
     });
     const body = await res.json();
-    return body.syncTasks;
+    return body.syncPipelines;
   }, {
     refreshInterval: 1000 * 60,
   });
@@ -57,9 +58,7 @@ export const KnowledgeBasePage = () => {
               intConfig={intConfig}
               integrations={integrations ?? []}
               integrationsMutate={integrationsMutate}
-              syncing={syncTasks ? syncTasks.filter((task) => {
-                return task.integration === intConfig.integration
-              }).length > 0 : false}
+              syncing={syncPipelines?.some((p) => p.integration === intConfig.integration && p.status === "SYNCING") ?? false}
               openDialog={intConfig.integration.toLowerCase() === integration?.toLowerCase()}
             />
           })}

@@ -98,7 +98,7 @@ ${markdown}`,
 
   await upsertMdArtifact({
     integrationArtifactId: transcript.fileId,
-    integration: "Plaud",
+    integration: "plaud",
     artifactDate: file?.startAt ?? undefined,
     markdown,
     keyPoints: analysis.keyPoints,

@@ -50,11 +50,12 @@ export const mdArtifact = sqliteTable("mdArtifacts", {
 export type MdArtifactSelect = InferSelectModel<typeof mdArtifact>;
 export type MdArtifactInsert = InferInsertModel<typeof mdArtifact>;
 
-export const syncSchedule = sqliteTable("SyncSchedule", {
+export const syncPipeline = sqliteTable("syncPipeline", {
   integration: text("integration").primaryKey(),
-  frequency: text("frequency").$type<"DAILY" | "WEEKLY" | "MONTHLY">().notNull(),
+  frequency: text("frequency").$type<"DAILY" | "WEEKLY" | "MONTHLY" | "NO_SCHEDULE">().default("NO_SCHEDULE").notNull(),
   updateDate: text("updateDate").notNull().$defaultFn(() => (new Date()).toISOString()),
+  status: text("status").$type<"IDLE" | "SYNCING">().default("IDLE").notNull(),
 });
 
-export type SyncScheduleSelect = InferSelectModel<typeof syncSchedule>;
-export type SyncScheduleInsert = InferInsertModel<typeof syncSchedule>;
+export type SyncPipelineSelect = InferSelectModel<typeof syncPipeline>;
+export type SyncPipelineInsert = InferInsertModel<typeof syncPipeline>;

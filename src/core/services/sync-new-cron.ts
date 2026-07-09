@@ -1,12 +1,12 @@
 import { supportedIntegrations } from "@/integrations/integration-registry";
-import { getAllSyncSchedules, upsertSyncSchedule } from "../db/queries/queries"
+import { getAllSyncPipelines, updateSyncPipelineStatus, upsertSyncPipeline } from "../db/queries/queries"
 import type { SqliteDb } from "../models/db-models"
 
 export const syncNewCron = async (db: SqliteDb) => {
-  const schedules = await getAllSyncSchedules(db);
+  const pipelines = await getAllSyncPipelines(db);
   const today = new Date();
   today.setHours(23, 59, 59, 999);
-  for (const sched of schedules) {
+  for (const sched of pipelines) {
     const nextDate = new Date(sched.updateDate);
     if (sched.frequency === "DAILY") {
       nextDate.setDate(nextDate.getDate() + 1);
@@ -19,8 +19,10 @@ export const syncNewCron = async (db: SqliteDb) => {
     if (today > nextDate) {
       const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === sched.integration);
       if (index === -1) continue;
-      supportedIntegrations[index]!.syncUpdates(db);
-      await upsertSyncSchedule({
+      await updateSyncPipelineStatus(sched.integration, "SYNCING", db);
+      Promise.resolve(supportedIntegrations[index]!.syncUpdates(db))
+        .finally(() => updateSyncPipelineStatus(sched.integration, "IDLE", db));
+      await upsertSyncPipeline({
         integration: sched.integration,
         frequency: sched.frequency,
       }, db)

@@ -1,12 +1,12 @@
 import { serve } from "bun";
 import index from "./client/index.html";
-import { handleConfigureSyncSchedule, handleDeleteSyncSchedule, handleGetAllSyncTasks, handleGetArtifactById, handleGetArtifacts, handleGetIntegrations, handleGetRecentSyncTasks, handleGetSyncScheduleByIntegration, handleGetSyncTasks, handleGetSyncTaskSteps, handleNewIntegrationCredential } from "./core/handlers/handler";
+import { handleConfigureSyncPipeline, handleDeleteSyncPipeline, handleGetAllSyncPipelines, handleGetAllSyncTasks, handleGetArtifactById, handleGetArtifacts, handleGetIntegrations, handleGetSyncPipelineByIntegration, handleGetSyncTasks, handleGetSyncTaskSteps, handleNewIntegrationCredential } from "./core/handlers/handler";
 import { withCors } from "./core/middleware/middleware";
 import { handleMcp } from "./core/handlers/mcp-handler";
 import { supportedIntegrations } from "./integrations/integration-registry";
 import { db } from "./core/db/db";
 import { retryFailedTasks } from "./core/services/retry-cron";
-import { deleteSyncTasksPriorToDate } from "./core/db/queries/queries";
+import { deleteSyncTasksPriorToDate, updateSyncPipelineStatus } from "./core/db/queries/queries";
 import { syncNewCron } from "./core/services/sync-new-cron";
 
 const server = serve({
@@ -32,7 +32,9 @@ const server = serve({
           const target = req.params.integration.toLowerCase();
           const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
           if (index === -1) return Response.json(null, { status: 400 });
-          supportedIntegrations[index]!.syncUpdates(db);
+          await updateSyncPipelineStatus(target, "SYNCING", db);
+          Promise.resolve(supportedIntegrations[index]!.syncUpdates(db))
+            .finally(() => updateSyncPipelineStatus(target, "IDLE", db));
           return Response.json(null, { status: 200 });
         }
         return Response.json(null, { status: 400 });
@@ -44,7 +46,9 @@ const server = serve({
           const target = req.params.integration.toLowerCase();
           const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
           if (index === -1) return Response.json(null, { status: 400 });
-          supportedIntegrations[index]!.sync(db);
+          await updateSyncPipelineStatus(target, "SYNCING", db);
+          Promise.resolve(supportedIntegrations[index]!.sync(db))
+            .finally(() => updateSyncPipelineStatus(target, "IDLE", db));
           return Response.json(null, { status: 200 });
         }
         return Response.json(null, { status: 400 });
@@ -63,11 +67,6 @@ const server = serve({
     "/api/syncTasks": {
       GET: withCors(async (req) =>
         handleGetAllSyncTasks(req, db)
-      ),
-    },
-    "/api/syncTasks/recent": {
-      GET: withCors(async (req) =>
-        handleGetRecentSyncTasks(req, db)
       ),
     },
     "/api/syncTasks/steps": {
@@ -110,17 +109,20 @@ const server = serve({
         return Response.json(null, { status: 200 });
       }),
     },
-    "/api/sync-schedule": {
+    "/api/sync-pipeline": {
+      GET: withCors(async (req) => {
+        return handleGetAllSyncPipelines(req, db);
+      }),
       POST: withCors(async (req) => {
-        return handleConfigureSyncSchedule(req, db);
+        return handleConfigureSyncPipeline(req, db);
       }),
     },
-    "/api/sync-schedule/:integration": {
+    "/api/sync-pipeline/:integration": {
       GET: withCors(async (req) => {
-        return handleGetSyncScheduleByIntegration(req, db);
+        return handleGetSyncPipelineByIntegration(req, db);
       }),
       DELETE: withCors(async (req) => {
-        return handleDeleteSyncSchedule(req, db);
+        return handleDeleteSyncPipeline(req, db);
       }),
     },
 
@@ -154,7 +156,7 @@ const deleteStaleJob = Bun.cron("0 0 * * *", async () => {
   }
 });
 
-const syncScheduleJob = Bun.cron("0 0 * * *", async () => {
+const syncPipelineJob = Bun.cron("0 0 * * *", async () => {
   if (process.env.CRON_ENABLED !== 'false') {
     await syncNewCron(db);
   }

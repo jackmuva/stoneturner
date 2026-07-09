@@ -87,7 +87,7 @@ ${markdown}`,
 
   await upsertMdArtifact({
     integrationArtifactId: page.url,
-    integration: "Firecrawl",
+    integration: "firecrawl",
     artifactDate: page.crawledAt ?? undefined,
     markdown,
     keyPoints: analysis.keyPoints,

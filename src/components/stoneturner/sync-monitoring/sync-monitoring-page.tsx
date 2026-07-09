@@ -1,4 +1,4 @@
-import type { SyncTaskSelect } from "@/core/db/schema/schema";
+import type { SyncPipelineSelect, SyncTaskSelect } from "@/core/db/schema/schema";
 import useSWR from 'swr'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from '@/components/ui/breadcrumb';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,6 +22,16 @@ export const SyncMonitoringPage = () => {
   const [selectedTask, setSelectedTask] = useState<SyncTaskSelect | null>(null);
   const [retrySucceeded, setRetrySucceeded] = useState(false);
 
+  const { data: syncPipelines } = useSWR<SyncPipelineSelect[]>(`sync-pipelines`, async () => {
+    const res = await fetch(`${process.env.BUN_PUBLIC_BACKEND_BASE_URL}/api/sync-pipeline`, {
+      method: "GET",
+    });
+    const body = await res.json();
+    return body.syncPipelines;
+  }, {
+    refreshInterval: 1000 * 60,
+  });
+
   const { data: syncTasks, mutate: syncMutate, isLoading } = useSWR<SyncTaskSelect[]>(`syncTasks/all/${integration}/${status}/${step}/${sortOrder}/${page}`, async (): Promise<SyncTaskSelect[]> => {
     const params = new URLSearchParams({ offset: String(page * PAGE_SIZE), sortOrder });
     if (integration !== "all") params.set("integration", integration);
@@ -34,6 +44,7 @@ export const SyncMonitoringPage = () => {
     const body = await res.json();
     return body.syncTasks ?? [];
   }, {
+    refreshInterval: (syncPipelines ?? []).filter((sync) => sync.status === "SYNCING").length > 0 ? (5 * 1000) : 0,
     keepPreviousData: true,
   });
 
@@ -43,7 +54,10 @@ export const SyncMonitoringPage = () => {
     });
     const body = await res.json();
     return body.steps ?? [];
-  });
+  }, {
+      keepPreviousData: true,
+    refreshInterval: (syncPipelines ?? []).filter((sync) => sync.status === "SYNCING").length > 0 ? (5 * 1000) : 0
+    });
 
   const handleSort = () => {
     setPage(0);
@@ -116,9 +130,6 @@ export const SyncMonitoringPage = () => {
             <div className="flex gap-2 items-end flex-col sm:flex-row">
               <Button variant="outline" size="sm" onClick={handleRetryFailed} disabled={retrySucceeded}>
                 {retrySucceeded ? "retry initiated" : "Retry failed tasks"}
-              </Button>
-              <Button variant={"outline"} size={"icon-sm"} onClick={() => syncMutate()}>
-                <RefreshCwIcon size={12} />
               </Button>
             </div>
           </div>
