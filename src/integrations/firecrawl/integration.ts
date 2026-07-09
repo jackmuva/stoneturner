@@ -2,6 +2,7 @@ import type { Integration } from "@/core/models/models";
 import { syncFirecrawlCrawlStep } from "./sync-steps/sync-crawl-step";
 import { parseFirecrawlStep } from "./sync-steps/parse-step";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
+import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
 import { firecrawlConfig } from "./config";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
@@ -12,6 +13,7 @@ export const syncFirecrawlPipeline = async (incremental: boolean = false, db: Sq
   await syncFirecrawlCrawlStep(incremental, db);
   await parseFirecrawlStep(incremental, db);
   await indexVectorDbStep(incremental, db, { integration: "firecrawl" });
+  await agentExploreContextStep(incremental, db, { integration: "firecrawl" });
 }
 
 export const firecrawlIntegration: Integration = {

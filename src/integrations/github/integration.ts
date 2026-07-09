@@ -1,6 +1,7 @@
 import type { Integration } from "@/core/models/models";
 import type { SqliteDb } from "@/core/models/db-models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
+import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { githubConfig } from "./config";
@@ -29,6 +30,7 @@ export const syncGithubPipeline = async (incremental: boolean = false, db: Sqlit
     parseGithubCodeStep(incremental, db),
   ]);
   await indexVectorDbStep(incremental, db, { integration: "github" });
+  await agentExploreContextStep(incremental, db, { integration: "github" });
 };
 
 export const githubIntegration: Integration = {

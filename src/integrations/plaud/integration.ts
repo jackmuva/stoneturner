@@ -9,12 +9,14 @@ import { parsePlaudStep } from "./sync-steps/parse-step";
 import { handleOauthRedirect, handlePlaudRefresh } from "./sync-steps/plaud-utils";
 import type { SqliteDb } from "@/core/models/db-models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
+import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
 
 export const syncPlaudPipeline = async (incremental: boolean = false, db: SqliteDb) => {
   await syncPlaudFilesStep(incremental, db);   // must run first — detail fetch needs file ids
   await syncPlaudTranscriptsStep(incremental, db);
   await parsePlaudStep(incremental, db);
   await indexVectorDbStep(incremental, db, { integration: "plaud" });
+  await agentExploreContextStep(incremental, db, { integration: "plaud" });
 }
 
 export const plaudIntegration: Integration = {

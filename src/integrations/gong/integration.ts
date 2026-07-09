@@ -8,6 +8,7 @@ import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { deleteAllGongData } from "./db/queries";
 import type { SqliteDb } from "@/core/models/db-models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
+import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
 
 export const syncGongPipeline = async (incremental: boolean = false, db: SqliteDb) => {
   await Promise.all([
@@ -16,6 +17,7 @@ export const syncGongPipeline = async (incremental: boolean = false, db: SqliteD
   ]);
   await parseGongStep(incremental, db);
   await indexVectorDbStep(incremental, db, {integration: "gong"});
+  await agentExploreContextStep(incremental, db, {integration: "gong"});
 }
 
 export const gongIntegration: Integration = {

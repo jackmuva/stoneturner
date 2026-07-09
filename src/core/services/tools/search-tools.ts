@@ -78,8 +78,10 @@ export const getArtifactSchema = z.object({
 });
 
 export async function getArtifact(id: string, db: SqliteDb): Promise<MdArtifactSelect | undefined> {
-  const artifact = await getMdArtifactByIntegrationArtifactId(id, db);
-  return artifact;
+  const [byPrimaryId] = await getMdArtifactById(id, db);
+  if (byPrimaryId) return byPrimaryId;
+  const byIntegrationId = await getMdArtifactByIntegrationArtifactId(id, db);
+  return byIntegrationId ?? undefined;
 }
 
 export async function runGetArtifact(args: unknown, db: SqliteDb): Promise<McpToolResult> {

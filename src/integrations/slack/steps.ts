@@ -1,5 +1,6 @@
 import type { IntegrationSteps } from "@/core/models/models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
+import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
 import { parseSlackMessages } from "./sync-steps/parse-message-threads";
 import { syncChannels } from "./sync-steps/sync-channels";
 import { syncMessages } from "./sync-steps/sync-messages";
@@ -13,4 +14,5 @@ export const steps: IntegrationSteps = {
   "slack-sync-thread-replies": syncThreadReplies,
   "slack-parse-messages": parseSlackMessages,
   "index-vector": indexVectorDbStep,
+  "agent-explore": agentExploreContextStep,
 };

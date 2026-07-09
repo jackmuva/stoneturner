@@ -11,6 +11,7 @@ import { parseSlackMessages } from "./sync-steps/parse-message-threads";
 import { deleteAllSlackData } from "./db/queries";
 import type { SqliteDb } from "@/core/models/db-models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
+import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
 
 export const syncSlackPipeline = async (incremental: boolean = true, db: SqliteDb) => {
   await syncChannels(incremental, db);
@@ -19,6 +20,7 @@ export const syncSlackPipeline = async (incremental: boolean = true, db: SqliteD
   await syncThreadReplies(incremental, db);
   await parseSlackMessages(incremental, db);
   await indexVectorDbStep(incremental, db, { integration: "slack" });
+  await agentExploreContextStep(incremental, db, { integration: "slack" });
 };
 
 export const slackIntegration: Integration = {

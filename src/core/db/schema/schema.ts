@@ -59,3 +59,12 @@ export const syncPipeline = sqliteTable("syncPipeline", {
 
 export type SyncPipelineSelect = InferSelectModel<typeof syncPipeline>;
 export type SyncPipelineInsert = InferInsertModel<typeof syncPipeline>;
+
+export const sourceContext = sqliteTable("sourceContext", {
+  integration: text("integration").primaryKey(),
+  context: text("context"),
+  updateDate: text("updateDate").notNull().$defaultFn(() => (new Date()).toISOString()),
+});
+
+export type SourceContextSelect = InferSelectModel<typeof sourceContext>;
+export type SourceContextInsert = InferInsertModel<typeof sourceContext>;

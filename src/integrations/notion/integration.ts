@@ -1,6 +1,7 @@
 import type { Integration } from "@/core/models/models";
 import type { SqliteDb } from "@/core/models/db-models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
+import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
 import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { notionConfig } from "./config";
@@ -15,6 +16,7 @@ export const syncNotionPipeline = async (incremental: boolean = true, db: Sqlite
   await syncNotionMarkdown(incremental, db);
   await notionMarkdownToArtifact(incremental, db);
   await indexVectorDbStep(incremental, db, { integration: "notion" });
+  await agentExploreContextStep(incremental, db, { integration: "notion" });
 }
 
 export const notionIntegration: Integration = {

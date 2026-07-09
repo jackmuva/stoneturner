@@ -1,5 +1,5 @@
-import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact, type IntegrationCredentialInsert, syncPipeline, type SyncPipelineInsert, type SyncPipelineSelect } from '@/core/db/schema/schema';
-import { and, eq, like, gt, or, asc, desc, sql } from 'drizzle-orm';
+import { type IntegrationCredential, integrationCredential, type SyncTaskInsert, type SyncTaskSelect, syncTask, type MdArtifactSelect, type MdArtifactInsert, mdArtifact, type IntegrationCredentialInsert, syncPipeline, type SyncPipelineInsert, type SyncPipelineSelect, sourceContext, type SourceContextInsert, type SourceContextSelect } from '@/core/db/schema/schema';
+import { and, eq, like, or, asc, desc, sql } from 'drizzle-orm';
 import { PAGE_SIZE } from '@/lib/constants';
 import type { SqliteDb } from '@/core/models/db-models';
 import { lower } from '@/lib/utils';
@@ -167,6 +167,17 @@ export const getMdArtifactsByIntegration = async (
   return await query.limit(PAGE_SIZE);
 }
 
+export const getMostRecentMdArtifactsByIntegration = async (
+  db: SqliteDb,
+  integration: string,
+  limit: number = 5,
+): Promise<MdArtifactSelect[]> => {
+  return await db.select().from(mdArtifact)
+    .where(eq(mdArtifact.integration, integration.toLowerCase()))
+    .orderBy(desc(mdArtifact.artifactDate))
+    .limit(limit);
+}
+
 export const getMdArtifactByIntegrationArtifactId = async (integrationArtifactId: string, db: SqliteDb): Promise<MdArtifactSelect> => {
   const [record] = await db.select().from(mdArtifact).where(eq(mdArtifact.integrationArtifactId, integrationArtifactId));
   return record!;
@@ -250,4 +261,30 @@ export const upsertSyncPipeline = async (data: SyncPipelineInsert, db: SqliteDb)
   } else {
     await db.insert(syncPipeline).values({ ...data, integration });
   }
+}
+
+export const getAllSourceContext = async (db: SqliteDb): Promise<SourceContextSelect[]> => {
+  return await db.select().from(sourceContext);
+}
+
+export const getSourceContextByIntegration = async (integration: string, db: SqliteDb): Promise<SourceContextSelect | undefined> => {
+  const [record] = await db.select().from(sourceContext).where(sql`LOWER("integration") = ${integration.toLowerCase()}`);
+  return record;
+}
+
+export const upsertSourceContext = async (data: SourceContextInsert, db: SqliteDb): Promise<void> => {
+  const integration = data.integration.toLowerCase();
+  const [existing] = await db.select().from(sourceContext).where(sql`LOWER("integration") = ${integration}`);
+  if (existing) {
+    await db.update(sourceContext).set({
+      context: data.context,
+      updateDate: (new Date()).toISOString(),
+    }).where(sql`LOWER("integration") = ${integration}`);
+  } else {
+    await db.insert(sourceContext).values({ ...data, integration });
+  }
+}
+
+export const deleteSourceContextByIntegration = async (integration: string, db: SqliteDb): Promise<void> => {
+  await db.delete(sourceContext).where(sql`LOWER("integration") = ${integration.toLowerCase()}`);
 }

@@ -1,5 +1,6 @@
 import type { IntegrationSteps } from "@/core/models/models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
+import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
 import { parseSpotifyStep } from "./sync-steps/parse-step";
 import { syncSpotifyEpisodesStep } from "./sync-steps/sync-episodes-step";
 import { syncSpotifyPlaylistTracksStep } from "./sync-steps/sync-playlist-tracks-step";
@@ -17,4 +18,5 @@ export const steps: IntegrationSteps = {
   "spotify-sync-episodes": syncSpotifyEpisodesStep,
   "parse": parseSpotifyStep,
   "index-vector": indexVectorDbStep,
+  "agent-explore": agentExploreContextStep,
 };

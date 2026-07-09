@@ -1,5 +1,6 @@
 import type { IntegrationSteps } from "@/core/models/models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
+import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
 import { parseFirecrawlStep } from "./sync-steps/parse-step";
 import { syncFirecrawlCrawlStep } from "./sync-steps/sync-crawl-step";
 
@@ -7,4 +8,5 @@ export const steps: IntegrationSteps = {
   "firecrawl-sync-crawl": syncFirecrawlCrawlStep,
   "parse": parseFirecrawlStep,
   "index-vector": indexVectorDbStep,
+  "agent-explore": agentExploreContextStep,
 };

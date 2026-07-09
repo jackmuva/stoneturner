@@ -13,6 +13,7 @@ import { parseSpotifyStep } from "./sync-steps/parse-step";
 import { handleOauthRedirect, handleSpotifyRefresh } from "./sync-steps/spotify-utils";
 import type { SqliteDb } from "@/core/models/db-models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
+import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
 
 export const syncSpotifyPipeline = async (incremental: boolean = false, db: SqliteDb) => {
   await syncSpotifyUserStep(incremental, db);
@@ -23,6 +24,7 @@ export const syncSpotifyPipeline = async (incremental: boolean = false, db: Sqli
   await syncSpotifyEpisodesStep(incremental, db);
   await parseSpotifyStep(incremental, db);
   await indexVectorDbStep(incremental, db, { integration: "spotify" });
+  await agentExploreContextStep(incremental, db, { integration: "spotify" });
 };
 
 export const spotifyIntegration: Integration = {

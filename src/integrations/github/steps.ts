@@ -1,5 +1,6 @@
 import type { IntegrationSteps } from "@/core/models/models";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
+import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
 import { parseGithubStep } from "./sync-steps/parse-steps";
 import { syncGithubCodeStep } from "./sync-steps/sync-code-step";
 import { syncGithubDiscussionsStep } from "./sync-steps/sync-discussions-step";
@@ -15,4 +16,5 @@ export const steps: IntegrationSteps = {
   "github-sync-code": syncGithubCodeStep,
   "parse": parseGithubStep,
   "index-vector": indexVectorDbStep,
+  "agent-explore": agentExploreContextStep,
 };
