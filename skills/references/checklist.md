@@ -17,7 +17,7 @@ everywhere".
 - [ ] `src/integrations/<name>/sync-steps/sync-*-step.ts` — fetch + insert; paginated; `retry()`-wrapped; logs `syncTask` with resume state in `inputs`. Signature `(incremental, db, inputs?, syncTaskId?)` — pass `id: syncTaskId` to `upsertSyncTask`.
 - [ ] `src/integrations/<name>/sync-steps/parse-step.ts` — raw rows → `upsertMdArtifact`; LLM via `aiGatewayBottleneck.schedule(...)`. Signature `(incremental, db, inputs?, syncTaskId?)`.
 - [ ] `src/integrations/<name>/integration.ts` — `syncPipeline(incremental, db)` + the `Integration` object (incl. `deleteSync(db)`).
-- [ ] `src/integrations/<name>/steps.ts` — export `steps: IntegrationSteps` map (step name → step fn) for retry lookup.
+- [ ] `src/integrations/<name>/steps.ts` — export `steps: IntegrationSteps` map (step name → step fn) for retry lookup. Include shared steps: `"index-vector": indexVectorDbStep` and `"agent-explore": agentExploreContextStep`.
 - [ ] OAuth only: `handleRedirect(req, db)` + `refreshAccessTokens(db)` (see `auth.md`).
 
 ## Files to edit

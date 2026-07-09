@@ -121,8 +121,9 @@ import { syncGongCallsStep } from "./sync-steps/sync-calls-step";
 import { syncGongTranscriptsStep } from "./sync-steps/sync-transcripts-step";
 import { parseGongStep } from "./sync-steps/parse-step";
 import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
+import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
 import { gongConfig } from "./config";
-import { deleteMdArtifactsByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
+import { deleteMdArtifactsByIntegration, deleteSourceContextByIntegration, deleteSyncTasksByIntegration } from "@/core/db/queries/queries";
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { deleteAllGongData } from "./db/queries";
 import type { SqliteDb } from "@/core/models/db-models";
@@ -134,6 +135,7 @@ export const syncGongPipeline = async (incremental: boolean = false, db: SqliteD
   ]);                                       // parallel fetches
   await parseGongStep(incremental, db);                  // raw rows → mdArtifact
   await indexVectorDbStep(incremental, db, { integration: "gong" });  // shared embed + upsert
+  await agentExploreContextStep(incremental, db, { integration: "gong" });  // shared explore agent
 };
 
 export const gongIntegration: Integration = {
@@ -144,14 +146,15 @@ export const gongIntegration: Integration = {
     await deleteSyncTasksByIntegration("Gong", db);
     await deleteMdArtifactsByIntegration("Gong", db);
     await deleteEmbeddingByIntegration("Gong", db);
+    await deleteSourceContextByIntegration("Gong", db);
     await deleteAllGongData(db);             // your own raw tables
   },
 };
 ```
 
-Note the four delete calls in `deleteSync`: syncTasks, mdArtifacts, embeddings,
-and the integration's own tables. The first three helpers are shared; the last
-one you write in your `db/queries.ts`.
+Note the five delete calls in `deleteSync`: syncTasks, mdArtifacts, embeddings,
+sourceContext, and the integration's own tables. The first four helpers are
+shared; the last one you write in your `db/queries.ts`.
 
 ## Raw-data schema (`db/schema.ts`)
 
@@ -232,7 +235,7 @@ Three registries, all in `src/integrations/`:
 // config-registry.ts  (drives the frontend UI)
 export const configRegistry: IntegrationConfig[] = [gongConfig, /* ... */ myConfig];
 
-// sync-registry.ts  (drives sync dispatch)
+// integration-registry.ts  (drives sync dispatch)
 export const supportedIntegrations: Integration[] = [gongIntegration, /* ... */ myIntegration];
 
 // step-registry.ts  (drives retry of failed sync steps)
@@ -248,12 +251,14 @@ import { syncGongCallsStep } from "./sync-steps/sync-calls-step";
 import { syncGongTranscriptsStep } from "./sync-steps/sync-transcripts-step";
 import { parseGongStep } from "./sync-steps/parse-step";
 import { indexVectorDbStep } from "@/core/services/index-vector-db-step";
+import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
 
 export const steps: IntegrationSteps = {
   "gong-sync-call": syncGongCallsStep,
   "gong-sync-transcript": syncGongTranscriptsStep,
   "parse": parseGongStep,
   "index-vector": indexVectorDbStep,
+  "agent-explore": agentExploreContextStep,
 };
 ```
 
@@ -285,3 +290,6 @@ supportedIntegrations[index]!.sync(db);   // fire-and-forget, NOT awaited
 | `/api/sync/updates/:integration` | POST | `syncUpdates(db)` |
 | `/api/sync/:integration` | DELETE | `deleteSync(db)` |
 | `/api/oauth/:integration` | GET | `handleRedirect(req, db)` |
+| `/api/sync-pipeline` | GET / POST | list / configure scheduled sync frequency |
+| `/api/sync-pipeline/:integration` | GET / DELETE | get / remove schedule for one integration |
+| `/api/syncTasks/retry` | POST | manually trigger retry of FAILED tasks |
