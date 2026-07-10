@@ -8,6 +8,7 @@ import { steps as plaudSteps } from "./plaud/steps";
 import { steps as slackSteps } from "./slack/steps";
 import { steps as spotifySteps } from "./spotify/steps";
 import { steps as twitterSteps } from "./twitter/steps";
+import { steps as hubspotSteps } from "./hubspot/steps";
 
 export const stepRegistry: StepMapping = {
   gong: gongSteps,
@@ -19,6 +20,7 @@ export const stepRegistry: StepMapping = {
   spotify: spotifySteps,
   slack: slackSteps,
   twitter: twitterSteps,
+  hubspot: hubspotSteps,
 };
 
 export const getStepFn = (integration: string, step: string) => stepRegistry[integration.toLowerCase()]?.[step];

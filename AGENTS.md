@@ -35,7 +35,7 @@ Standard commands and architecture are documented in `CLAUDE.md` and `README.md`
 
 ## `.env` footgun
 - Frontend inlines `BUN_PUBLIC_*` at bundle time. Any referenced var missing from `.env` becomes raw `process.env.…` in the browser → `ReferenceError: process is not defined`.
-- All frontend-referenced vars **must** be present (empty value is fine): `BUN_PUBLIC_BACKEND_BASE_URL`, `BUN_PUBLIC_DEV_MODE`, `BUN_PUBLIC_DISCORD_CLIENT_ID`, `BUN_PUBLIC_GITHUB_CLIENT_ID`, `BUN_PUBLIC_NOTION_CLIENT_ID`, `BUN_PUBLIC_PLAUD_CLIENT_ID`, `BUN_PUBLIC_SLACK_CLIENT_ID`, `BUN_PUBLIC_SPOTIFY_CLIENT_ID`, `BUN_PUBLIC_TWITTER_CLIENT_ID`.
+- All frontend-referenced vars **must** be present (empty value is fine): `BUN_PUBLIC_BACKEND_BASE_URL`, `BUN_PUBLIC_DEV_MODE`, `BUN_PUBLIC_DISCORD_CLIENT_ID`, `BUN_PUBLIC_GITHUB_CLIENT_ID`, `BUN_PUBLIC_HUBSPOT_CLIENT_ID`, `BUN_PUBLIC_NOTION_CLIENT_ID`, `BUN_PUBLIC_PLAUD_CLIENT_ID`, `BUN_PUBLIC_SLACK_CLIENT_ID`, `BUN_PUBLIC_SPOTIFY_CLIENT_ID`, `BUN_PUBLIC_TWITTER_CLIENT_ID`.
 - After editing `.env`, restart `bun dev` — HMR does not re-inline env values.
 - `AI_GATEWAY_API_KEY` is only needed for sync→parse→embed. The server starts and serves UI/MCP without it.
 

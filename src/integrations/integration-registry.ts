@@ -8,6 +8,7 @@ import { githubIntegration } from "./github/integration";
 import { spotifyIntegration } from "./spotify/integration";
 import { slackIntegration } from "./slack/integration";
 import { twitterIntegration } from "./twitter/integration";
+import { hubspotIntegration } from "./hubspot/integration";
 
 export const supportedIntegrations: Integration[] = [
   gongIntegration,
@@ -19,4 +20,5 @@ export const supportedIntegrations: Integration[] = [
   spotifyIntegration,
   slackIntegration,
   twitterIntegration,
+  hubspotIntegration,
 ];
