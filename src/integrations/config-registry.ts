@@ -9,6 +9,7 @@ import { spotifyConfig } from "./spotify/config";
 import { slackConfig } from "./slack/config";
 import { twitterConfig } from "./twitter/config";
 import { hubspotConfig } from "./hubspot/config";
+import { linearConfig } from "./linear/config";
 
 export const configRegistry: IntegrationConfig[] = [
   gongConfig,
@@ -21,4 +22,5 @@ export const configRegistry: IntegrationConfig[] = [
   slackConfig,
   twitterConfig,
   hubspotConfig,
+  linearConfig,
 ];

@@ -13,6 +13,7 @@ export default defineConfig({
     './src/integrations/slack/db/schema.ts',
     './src/integrations/twitter/db/schema.ts',
     './src/integrations/hubspot/db/schema.ts',
+    './src/integrations/linear/db/schema.ts',
   ],
   out: './migrations',
   dialect: 'turso',
