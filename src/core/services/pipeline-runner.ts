@@ -1,11 +1,7 @@
 import type { SqliteDb } from "../models/db-models";
 import type { IntegrationStepFn, SyncStepPipeline } from "../models/models";
 
-export const getStepFn = (
-  pipeline: SyncStepPipeline,
-  _integration: string,
-  step: string,
-): IntegrationStepFn | undefined => {
+export const getStepFn = (pipeline: SyncStepPipeline, step: string): IntegrationStepFn | undefined => {
   let stepNum = 0;
   let subStep = 0;
 
@@ -24,12 +20,7 @@ export const getStepFn = (
   }
 };
 
-export const runSyncPipeline = async (
-  pipeline: SyncStepPipeline,
-  incremental: boolean = true,
-  db: SqliteDb,
-  stepStart?: string,
-) => {
+export const runSyncPipeline = async (pipeline: SyncStepPipeline, incremental: boolean = true, db: SqliteDb, stepStart?: string,) => {
   let curStep = 0;
   if (stepStart) curStep = findPipelineStartStep(pipeline, stepStart) + 1;
 
@@ -41,7 +32,7 @@ export const runSyncPipeline = async (
   }
 };
 
-const findPipelineStartStep = (pipeline: SyncStepPipeline, stepName: string): number => {
+export const findPipelineStartStep = (pipeline: SyncStepPipeline, stepName: string): number => {
   let stepNum = 0;
   let subStep = 0;
 
