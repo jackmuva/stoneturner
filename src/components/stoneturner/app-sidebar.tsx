@@ -5,7 +5,7 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ChevronDown, SquareLibraryIcon, ActivityIcon, Sun, Moon, Monitor, type LucideProps } from "lucide-react";
+import { ChevronDown, SquareLibraryIcon, ActivityIcon, Sun, Moon, Monitor, type LucideProps, RegexIcon } from "lucide-react";
 import { useState, type ForwardRefExoticComponent, type RefAttributes } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import stoneturnerLogo from "@/assets/stoneturner.png";
@@ -51,20 +51,27 @@ export function AppSidebar() {
         </Badge>}
       </SidebarHeader>
       <SidebarContent className="gap-2">
-          <div className={`flex items-center justify-between px-2
-            ${pathname.startsWith("/knowledge") ? "border-r-4 border-foreground" : "border-r-4 border-background"}`}>
-            <NavLink to={"/knowledge"} end className="flex items-center gap-1">
-              <SquareLibraryIcon size={16} />
-              <label>Knowledge Base</label>
-            </NavLink>
-          </div>
-          <div className={`flex items-center justify-between px-2
+        <div className={`flex items-center justify-between px-2
+            ${(pathname.startsWith("/knowledge") || pathname === "/") ? "border-r-4 border-foreground" : "border-r-4 border-background"}`}>
+          <NavLink to={"/knowledge"} end className="flex items-center gap-1">
+            <SquareLibraryIcon size={16} />
+            <label>Knowledge Base</label>
+          </NavLink>
+        </div>
+        <div className={`flex items-center justify-between px-2
           ${pathname.startsWith("/monitoring") ? "border-r-4 border-foreground" : "border-r-4 border-background"}`}>
-            <NavLink to={"/monitoring"} className="flex items-center gap-1">
-              <ActivityIcon size={16} />
-              <label>Sync Monitoring</label>
-            </NavLink>
-          </div>
+          <NavLink to={"/monitoring"} className="flex items-center gap-1">
+            <ActivityIcon size={16} />
+            <label>Sync Monitoring</label>
+          </NavLink>
+        </div>
+        <div className={`flex items-center justify-between px-2
+          ${pathname.startsWith("/agent") ? "border-r-4 border-foreground" : "border-r-4 border-background"}`}>
+          <NavLink to={"/agent"} className="flex items-center gap-1">
+            <RegexIcon size={16} />
+            <label>Search Agent</label>
+          </NavLink>
+        </div>
       </SidebarContent >
       <SidebarFooter className="pb-4">
       </SidebarFooter>
