@@ -21,7 +21,7 @@ export const syncNewCron = async (db: SqliteDb) => {
       const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === sched.integration);
       if (index === -1) continue;
       await updateSyncPipelineStatus(sched.integration, "SYNCING", db);
-      Promise.resolve(runSyncPipeline(supportedIntegrations[index]!.syncPipeline, true, db))
+      Promise.resolve(runSyncPipeline(supportedIntegrations[index]!.syncPipeline, true, db, undefined, sched.integration))
         .finally(() => updateSyncPipelineStatus(sched.integration, "IDLE", db));
       await upsertSyncPipeline({
         integration: sched.integration,
