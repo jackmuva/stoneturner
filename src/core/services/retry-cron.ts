@@ -2,7 +2,9 @@ import { PAGE_SIZE } from "@/lib/constants";
 import { getSyncTasksByStatus, incrementSyncTaskRetries } from "../db/queries/queries";
 import type { SyncTaskSelect } from "../db/schema/schema";
 import type { SqliteDb } from "../models/db-models";
-import { getStepFn } from "@/integrations/step-registry";
+import { pipelineRegistry } from "@/integrations/sync-registry";
+import type { IntegrationStepFn, SyncStepPipeline } from "../models/models";
+import { runSyncPipeline } from "./pipeline-runner";
 
 const MAX_RETRIES = 3;
 
@@ -23,7 +25,10 @@ export const retryFailedTasks = async (db: SqliteDb) => {
       retriedTaskIds.push(task.id);
 
       try {
-        await stepFunc(false, db, task.inputs, task.id);
+        if (stepFunc && pipelineRegistry[task.integration]) {
+          await stepFunc(true, db, task.inputs, task.id);
+          await runSyncPipeline(pipelineRegistry[task.integration]!, true, db, task.step!);
+        }
       } catch (e) {
         console.error(`retry failed for ${task.integration}/${task.step} (${task.id}):`, e);
       }
@@ -36,3 +41,24 @@ export const retryFailedTasks = async (db: SqliteDb) => {
   }
 };
 
+
+export const getStepFn = (integration: string, step: string): IntegrationStepFn | undefined => {
+  const pipeline: SyncStepPipeline | undefined = pipelineRegistry[integration.toLowerCase()];
+  if (!pipeline) return;
+
+  let stepNum = 0;
+  let subStep = 0;
+
+  while (pipeline[stepNum]) {
+    if (!pipeline[stepNum]![subStep]) {
+      stepNum += 1;
+    } else if (Object.keys(pipeline[stepNum]![subStep]!)[0] === step) {
+      return Object.values(pipeline[stepNum]![subStep]!)[0];
+    } else if (pipeline[stepNum]![subStep + 1]) {
+      subStep += 1;
+    } else {
+      stepNum += 1;
+      subStep = 0;
+    }
+  }
+}

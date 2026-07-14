@@ -34,7 +34,6 @@ const server = serve({
           const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
           if (index === -1) return Response.json(null, { status: 400 });
           await updateSyncPipelineStatus(target, "SYNCING", db);
-
           Promise.resolve(runSyncPipeline(supportedIntegrations[index]!.syncPipeline, true, db))
             .finally(() => updateSyncPipelineStatus(target, "IDLE", db));
           return Response.json(null, { status: 200 });

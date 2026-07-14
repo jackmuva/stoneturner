@@ -4,7 +4,7 @@ import { deleteMdArtifactsByIntegration, deleteSourceContextByIntegration, delet
 import { deleteEmbeddingByIntegration } from "@/core/db/queries/vector-queries";
 import { deleteAllGongData } from "./db/queries";
 import type { SqliteDb } from "@/core/models/db-models";
-import { gongPipeline } from "./steps";
+import { gongPipeline } from "./pipeline";
 
 export const gongIntegration: Integration = {
   config: gongConfig,
