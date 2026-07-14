@@ -2,9 +2,9 @@ import { PAGE_SIZE } from "@/lib/constants";
 import { getSyncTasksByStatus, incrementSyncTaskRetries } from "../db/queries/queries";
 import type { SyncTaskSelect } from "../db/schema/schema";
 import type { SqliteDb } from "../models/db-models";
-import { pipelineRegistry } from "@/integrations/sync-registry";
 import type { IntegrationStepFn, SyncStepPipeline } from "../models/models";
 import { runSyncPipeline } from "./pipeline-runner";
+import { supportedIntegrations } from "@/integrations/integration-registry";
 
 const MAX_RETRIES = 3;
 
@@ -20,14 +20,17 @@ export const retryFailedTasks = async (db: SqliteDb) => {
 
     await Promise.allSettled(failedTasks.map(async (task) => {
       if (!isRetriable(task)) return;
+      const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === task.integration);
+      if (index === -1) return;
+      const pipeline: SyncStepPipeline | undefined = supportedIntegrations[index]?.syncPipeline;
 
       const stepFunc = getStepFn(task.integration, task.step!)!;
       retriedTaskIds.push(task.id);
 
       try {
-        if (stepFunc && pipelineRegistry[task.integration]) {
+        if (stepFunc && pipeline) {
           await stepFunc(true, db, task.inputs, task.id);
-          await runSyncPipeline(pipelineRegistry[task.integration]!, true, db, task.step!);
+          await runSyncPipeline(pipeline, true, db, task.step!);
         }
       } catch (e) {
         console.error(`retry failed for ${task.integration}/${task.step} (${task.id}):`, e);
@@ -43,7 +46,9 @@ export const retryFailedTasks = async (db: SqliteDb) => {
 
 
 export const getStepFn = (integration: string, step: string): IntegrationStepFn | undefined => {
-  const pipeline: SyncStepPipeline | undefined = pipelineRegistry[integration.toLowerCase()];
+  const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === integration);
+  if (index === -1) return;
+  const pipeline: SyncStepPipeline | undefined = supportedIntegrations[index]?.syncPipeline;
   if (!pipeline) return;
 
   let stepNum = 0;
