@@ -111,7 +111,7 @@ For each source, include:
 6. **Pagination resume state** — name the cursor/next-page field; the corresponding
    sync step must accept an optional `inputs` object (e.g. `{ cursor }`) and
    persist it in `syncTask.inputs` so syncs can resume after failure (see
-   `sync-pipeline.md`). Register the step in `steps.ts` for automatic retry.
+   `sync-pipeline.md`). Include the step in `pipeline.ts` for automatic retry.
 
 ### Artifact mapping
 

@@ -1,7 +1,20 @@
 # The sync pipeline
 
+Pipelines are `SyncStepPipeline` — an **array of arrays of step mappings**:
+
+```ts
+type StepMapping = { [stepName: string]: IntegrationStepFn };
+type SyncStepPipeline = Array<Array<StepMapping>>;
 ```
-sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector (embed + upsert) → agent-explore (lay-of-the-land context)
+
+Each inner array is one **stage**; steps within a stage run in parallel
+(`Promise.allSettled`). Stages run sequentially via `runSyncPipeline`
+(`src/core/services/pipeline-runner.ts`).
+
+Typical shape:
+
+```
+[ sync-data (parallel fetches) ] → [ parse ] → [ index-vector ] → [ agent-explore ]
 ```
 
 Each step writes `syncTask` rows so the web UI can show progress. Syncs are
@@ -180,8 +193,50 @@ const cred = await getIntegrationCredentialByIntegration("Gong", db);
 const basicToken = btoa(cred?.accessKey + ":" + cred?.secretKey);
 ```
 
-Independent fetches run in parallel from the pipeline via `Promise.all([...])`
-(see Gong: calls + transcripts).
+Independent fetches run in parallel within the same pipeline stage (see Gong:
+calls + transcripts in stage 0 of `src/integrations/gong/pipeline.ts`).
+
+## Declaring the pipeline (`pipeline.ts`)
+
+Condensed from `src/integrations/gong/pipeline.ts`:
+
+```ts
+import type { StepMapping, SyncStepPipeline } from "@/core/models/models";
+import { bindAgentExplore, bindIndexVector } from "@/core/services/pipeline-helpers";
+import { parseGongStep } from "./sync-steps/parse-step";
+import { syncGongCallsStep } from "./sync-steps/sync-calls-step";
+import { syncGongTranscriptsStep } from "./sync-steps/sync-transcripts-step";
+
+const gongSyncCall: StepMapping = { "gong-sync-call": syncGongCallsStep };
+const gongSyncTranscript: StepMapping = { "gong-sync-transcript": syncGongTranscriptsStep };
+const parse: StepMapping = { parse: parseGongStep };
+const indexVector: StepMapping = { "index-vector": bindIndexVector("gong") };
+const agentExplore: StepMapping = { "agent-explore": bindAgentExplore("gong") };
+
+export const gongPipeline: SyncStepPipeline = [
+  [gongSyncCall, gongSyncTranscript],   // stage 0: parallel sync
+  [parse],                               // stage 1: parse
+  [indexVector],                         // stage 2: embed
+  [agentExplore],                        // stage 3: explore agent
+];
+```
+
+Attach it to the `Integration` in `integration.ts`:
+
+```ts
+export const gongIntegration: Integration = {
+  config: gongConfig,
+  syncPipeline: gongPipeline,
+  deleteSync: async (db) => { /* ... */ },
+};
+```
+
+`runSyncPipeline(gongPipeline, incremental, db)` runs all stages.
+`runSyncPipeline(gongPipeline, incremental, db, "parse")` resumes from the stage
+**after** `"parse"` — used by the retry cron to continue a partially failed sync.
+
+Step names (the keys in each `StepMapping`) must match the `step` strings your
+steps write to `syncTask`.
 
 ## Step 2 — parse
 
@@ -279,11 +334,12 @@ This is the only output the vector step reads. Shape
 
 ## Step 3 — index-vector (shared, do not rewrite)
 
-Call the shared step from your pipeline:
+Bind the shared step in your pipeline:
 
 ```ts
-import { indexVectorDbStep } from "../../core/services/index-vector-db-step";
-await indexVectorDbStep(incremental, db, { integration: "gong" });
+import { bindIndexVector } from "@/core/services/pipeline-helpers";
+
+const indexVector: StepMapping = { "index-vector": bindIndexVector("gong") };
 ```
 
 `indexVectorDbStep` (`src/core/services/index-vector-db-step.ts`) pages through
@@ -292,16 +348,16 @@ words/chunk), embeds content + key points + questions via `embedTexts` (each
 scheduled through `aiGatewayBottleneck` and wrapped in `retry`), and upserts
 `contentEmbedding` / `keyPointsEmbedding` / `questionsAnsweredEmbedding`. When
 `incremental` is `false` it skips artifacts that already have embeddings. It
-writes its own `index-vector` syncTask rows. Register it in your
-`steps.ts` as `"index-vector": indexVectorDbStep`.
+writes its own `index-vector` syncTask rows. Use the step name `"index-vector"`.
 
 ## Step 4 — agent-explore (shared, do not rewrite)
 
-Call the shared step at the end of your pipeline:
+Bind the shared step as the last pipeline stage:
 
 ```ts
-import { agentExploreContextStep } from "@/core/services/agent-explore-context-step";
-await agentExploreContextStep(incremental, db, { integration: "gong" });
+import { bindAgentExplore } from "@/core/services/pipeline-helpers";
+
+const agentExplore: StepMapping = { "agent-explore": bindAgentExplore("gong") };
 ```
 
 `agentExploreContextStep` (`src/core/services/agent-explore-context-step.ts`) runs
@@ -310,9 +366,9 @@ from `src/core/services/tools/explore-tools.ts` (`search_semantically`,
 `get_artifact_by_id`, `execute_sqlite_query`, `get_tables`,
 `get_most_recent_records`). The agent explores the integration's data and writes
 a concise markdown overview to the `sourceContext` table. MCP clients load this
-via `get_data_source_context`. It writes `agent-explore` syncTask rows. Register
-it in your `steps.ts` as `"agent-explore": agentExploreContextStep`. Purge with
-`deleteSourceContextByIntegration` in `deleteSync`.
+via `get_data_source_context`. It writes `agent-explore` syncTask rows. Use the
+step name `"agent-explore"`. Purge with `deleteSourceContextByIntegration` in
+`deleteSync`.
 
 ## Rate limiting & retries — the rules
 
@@ -327,17 +383,19 @@ it in your `steps.ts` as `"agent-explore": agentExploreContextStep`. Purge with
 ## Automatic retry of failed steps
 
 `src/core/services/retry-cron.ts` (`retryFailedTasks`) scans FAILED `syncTask`
-rows and re-invokes the matching step via `getStepFn` from
-`src/integrations/step-registry.ts`. It calls:
+rows. For each retriable task it looks up the step via `getStepFn(pipeline, step)`
+from `src/core/services/pipeline-runner.ts` (using the integration's
+`syncPipeline` from `integration-registry.ts`). The retry flow:
 
-```ts
-await stepFunc(false, db, task.inputs, task.id);
-```
+1. Re-invoke the failed step: `stepFunc(true, db, task.inputs, task.id)`.
+2. After all failed steps for an integration are retried, resume the **pipeline
+   continuation** from the stage after the earliest failed step:
+   `runSyncPipeline(pipeline, true, db, findLowestStep(pipeline, failedStepNames))`.
 
 Tasks are retried up to 3 times (`syncTask.retries`). Retries run on a daily
 cron in `src/index.ts` (disable with `CRON_ENABLED=false`) and manually via
-`POST /api/syncTasks/retry`. Every step must be registered in
-`steps.ts` + `step-registry.ts` for this to work.
+`POST /api/syncTasks/retry`. Every step must appear in `pipeline.ts` with a
+`step` key matching the `syncTask.step` string.
 
 ## Scheduled syncs
 
@@ -345,5 +403,6 @@ Per-integration sync frequency lives in the `syncPipeline` table
 (`DAILY` / `WEEKLY` / `MONTHLY` / `NO SCHEDULE`). Users configure it via
 `POST /api/sync-pipeline` (body: `{ integration, frequency }`). The daily cron in
 `src/core/services/sync-new-cron.ts` (`syncNewCron`) checks each pipeline's
-`updateDate` + `frequency` and fire-and-forgets `syncUpdates(db)` for
-integrations that are due.
+`updateDate` + `frequency` and fire-and-forgets
+`runSyncPipeline(integration.syncPipeline, true, db)` for integrations that are
+due.

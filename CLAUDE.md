@@ -24,32 +24,51 @@ Stoneturner is a data sync & search layer for agents: it syncs external integrat
 
 ### Adding an integration
 
-Create `src/integrations/<name>/` with `config.ts`, `integration.ts`, `db/`, `models/`, `sync-steps/`. Export an `IntegrationConfig` and an `Integration` (`src/core/models/models.ts`). The `Integration` interface:
+Create `src/integrations/<name>/` with `config.ts`, `integration.ts`, `pipeline.ts`, `db/`, `models/`, `sync-steps/`. Export an `IntegrationConfig` and an `Integration` (`src/core/models/models.ts`). The `Integration` interface:
 
-- `sync()` — full sync, `syncUpdates()` — incremental sync (both usually call one pipeline fn with an `incremental` flag), `deleteSync()` — purge syncTasks + artifacts + embeddings + integration tables.
+- `syncPipeline` — a `SyncStepPipeline` (`Array<Array<StepMapping>>`) that defines the sync stages; each inner array runs in parallel, outer array runs sequentially.
+- `deleteSync()` — purge syncTasks + artifacts + embeddings + integration tables.
 - optional `handleRedirect(req)` — OAuth callback, `refreshAccessTokens()`.
 
-Then register in `src/integrations/integration-registry.ts` (sync dispatch), `src/integrations/config-registry.ts` (frontend UI), `src/integrations/step-registry.ts` (retry lookup), and add the integration's `db/schema.ts` to the `schema` array in `drizzle.config.ts` so migrations pick it up. Routes in `src/index.ts` dispatch by matching the `:integration` path param against `config.integration` (case-insensitive): `POST /api/sync/:integration` → `sync()`, `DELETE` → `deleteSync()`, `POST /api/sync/updates/:integration` → `syncUpdates()`, `GET /api/oauth/:integration` → `handleRedirect()`.
-
-Each integration also exports an `IntegrationSteps` map from `steps.ts` keyed by the `step` string written to `syncTask`. Register it in `step-registry.ts` so failed steps can be retried.
+Then register in `src/integrations/integration-registry.ts` (sync dispatch), `src/integrations/config-registry.ts` (frontend UI), and add the integration's `db/schema.ts` to the `schema` array in `drizzle.config.ts` so migrations pick it up. Routes in `src/index.ts` dispatch by matching the `:integration` path param against `config.integration` (case-insensitive): `POST /api/sync/:integration` → `runSyncPipeline(syncPipeline, false, db)`, `DELETE` → `deleteSync()`, `POST /api/sync/updates/:integration` → `runSyncPipeline(syncPipeline, true, db)`, `GET /api/oauth/:integration` → `handleRedirect()`.
 
 There is a `build-stoneturner-integration` skill (`skills/`) that scaffolds a new integration end-to-end; `integration-specs/` holds per-integration spec docs (e.g. `firecrawl-spec.md`, `github-spec.md`, `plaud-spec.md`) used as input when building one.
 
 ## Sync pipeline
 
-```
-sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector (embed + upsert) → agent-explore (lay-of-the-land context)
+Pipelines are declared as `SyncStepPipeline` — an **array of arrays of step mappings**:
+
+```ts
+type StepMapping = { [stepName: string]: IntegrationStepFn };
+type SyncStepPipeline = Array<Array<StepMapping>>;
 ```
 
-e.g. Gong: `sync-calls + sync-transcripts (parallel) → parse → index-vector → agent-explore`. GitHub: `sync-issues + sync-pulls + sync-docs + sync-discussions + sync-code (parallel) → parse → index-vector → agent-explore`. Fire-and-forget from the HTTP handler (no `await`). Each step writes `syncTask` rows.
+Each inner array is one **stage**; steps within a stage run in parallel (`Promise.allSettled`). Stages run sequentially. Define the pipeline in `src/integrations/<name>/pipeline.ts` and attach it to the `Integration` as `syncPipeline`. `runSyncPipeline` (`src/core/services/pipeline-runner.ts`) executes it.
+
+Typical shape:
+
+```
+[ sync-data (parallel fetches) ] → [ parse (LLM-extracted insights) ] → [ index-vector ] → [ agent-explore ]
+```
+
+e.g. Gong (`src/integrations/gong/pipeline.ts`):
+
+```ts
+export const gongPipeline: SyncStepPipeline = [
+  [{ "gong-sync-call": syncGongCallsStep }, { "gong-sync-transcript": syncGongTranscriptsStep }],
+  [{ parse: parseGongStep }],
+  [{ "index-vector": bindIndexVector("gong") }],
+  [{ "agent-explore": bindAgentExplore("gong") }],
+];
+```
+
+GitHub runs five parallel sync steps, then five parallel parse steps, then index-vector, then agent-explore. Fire-and-forget from the HTTP handler (no `await`). Each step writes `syncTask` rows. Use `bindIndexVector` / `bindAgentExplore` from `src/core/services/pipeline-helpers.ts` for the shared tail steps.
 
 ### Explore agent (`agent-explore`)
 
-After indexing, every integration runs the shared `agentExploreContextStep` (`src/core/services/agent-explore-context-step.ts`). It spins up a `ToolLoopAgent` (`EXPLORE_MODEL` in `src/lib/constants.ts` — `deepseek/deepseek-v4-flash`) with tools from `src/core/services/tools/explore-tools.ts` (`search_semantically`, `get_artifact_by_id`, `execute_sqlite_query`, `get_tables`, `get_most_recent_records`). The agent explores the integration's data and writes a concise markdown overview to the `sourceContext` table. MCP clients load this via `get_data_source_context`. Register the step in `steps.ts` as `"agent-explore": agentExploreContextStep` and call it at the end of your pipeline. Purge it in `deleteSync` via `deleteSourceContextByIntegration`.
+After indexing, every integration runs the shared `agentExploreContextStep` (`src/core/services/agent-explore-context-step.ts`). It spins up a `ToolLoopAgent` (`EXPLORE_MODEL` in `src/lib/constants.ts` — `deepseek/deepseek-v4-flash`) with tools from `src/core/services/tools/explore-tools.ts` (`search_semantically`, `get_artifact_by_id`, `execute_sqlite_query`, `get_tables`, `get_most_recent_records`). The agent explores the integration's data and writes a concise markdown overview to the `sourceContext` table. MCP clients load this via `get_data_source_context`. Add it as the last stage in `pipeline.ts` via `bindAgentExplore("<name>")`. Purge it in `deleteSync` via `deleteSourceContextByIntegration`.
 
-### Step registry & retrying failed steps
-
-Each integration exports an `IntegrationSteps` map from `src/integrations/<name>/steps.ts` — keys are the `step` strings written to `syncTask`, values are the step functions. These are collected in `src/integrations/step-registry.ts` (`stepRegistry` / `getStepFn`).
+### Pipeline runner & retrying failed steps
 
 Step functions share a uniform signature (`IntegrationStepFn` in `src/core/models/models.ts`):
 
@@ -60,11 +79,18 @@ Step functions share a uniform signature (`IntegrationStepFn` in `src/core/model
 - `inputs` — resume state from a failed `syncTask` (cursor, offset, etc.). When provided, paginated steps process one batch and stop (retry mode).
 - `syncTaskId` — pass as `id` to `upsertSyncTask` so retries update the same row.
 
-`src/core/services/retry-cron.ts` (`retryFailedTasks`) scans FAILED `syncTask` rows and re-invokes the matching step via `getStepFn`, passing `task.inputs` and `task.id`. Tasks with `retries >= 3` or no registered step are skipped. Retries are triggered by a daily cron (`Bun.cron`, disable with `CRON_ENABLED=false`) and manually via `POST /api/syncTasks/retry`.
+`getStepFn(pipeline, step)` (`src/core/services/pipeline-runner.ts`) looks up a step function by name within the integration's `syncPipeline`. Step names are the keys in each `StepMapping` object and must match the `step` strings written to `syncTask`.
+
+`src/core/services/retry-cron.ts` (`retryFailedTasks`) scans FAILED `syncTask` rows. For each retriable task (`retries < 3`, step found in pipeline):
+
+1. Re-invokes the failed step: `stepFunc(true, db, task.inputs, task.id)`.
+2. After all failed steps for an integration are retried, resumes the **pipeline continuation** from the stage after the earliest failed step: `runSyncPipeline(pipeline, true, db, findLowestStep(pipeline, failedStepNames))`.
+
+`runSyncPipeline` accepts an optional `stepStart` — it finds that step's stage index and begins at the **next** stage, running remaining stages sequentially. Retries are triggered by a daily cron (`Bun.cron`, disable with `CRON_ENABLED=false`) and manually via `POST /api/syncTasks/retry`.
 
 ### Scheduled syncs
 
-Users configure per-integration sync frequency via the `syncPipeline` table (`DAILY` / `WEEKLY` / `MONTHLY` / `NO SCHEDULE`). API routes: `GET /api/sync-pipeline`, `POST /api/sync-pipeline` (body: `{ integration, frequency }`), `GET /api/sync-pipeline/:integration`, `DELETE /api/sync-pipeline/:integration`. `src/core/services/sync-new-cron.ts` (`syncNewCron`) runs daily at midnight UTC (when `CRON_ENABLED` is not `false`), checks each scheduled pipeline's `updateDate` + `frequency`, and fire-and-forgets `syncUpdates(db)` for integrations that are due. Manual incremental syncs (`POST /api/sync/updates/:integration`) and scheduled runs both update `syncPipeline.status` (`IDLE` / `SYNCING`).
+Users configure per-integration sync frequency via the `syncPipeline` table (`DAILY` / `WEEKLY` / `MONTHLY` / `NO SCHEDULE`). API routes: `GET /api/sync-pipeline`, `POST /api/sync-pipeline` (body: `{ integration, frequency }`), `GET /api/sync-pipeline/:integration`, `DELETE /api/sync-pipeline/:integration`. `src/core/services/sync-new-cron.ts` (`syncNewCron`) runs daily at midnight UTC (when `CRON_ENABLED` is not `false`), checks each scheduled pipeline's `updateDate` + `frequency`, and fire-and-forgets `runSyncPipeline(integration.syncPipeline, true, db)` for integrations that are due. Manual incremental syncs (`POST /api/sync/updates/:integration`) and scheduled runs both update `syncPipeline.status` (`IDLE` / `SYNCING`).
 
 ### Cron jobs
 
@@ -72,7 +98,7 @@ Three `Bun.cron("0 0 * * *")` jobs in `src/index.ts`, all gated by `CRON_ENABLED
 
 | Job | Service | What it does |
 |---|---|---|
-| `retryJob` | `retry-cron.ts` | Re-run FAILED `syncTask` steps (up to 3 retries each) |
+| `retryJob` | `retry-cron.ts` | Re-run FAILED steps, then resume pipeline from the next stage (up to 3 retries each) |
 | `deleteStaleJob` | inline in `index.ts` | Delete `syncTask` rows older than 14 days |
 | `syncPipelineJob` | `sync-new-cron.ts` | Run due scheduled incremental syncs |
 
@@ -89,7 +115,7 @@ Trigger retry manually with `POST /api/syncTasks/retry`.
 - Summarization/parsing: `SUMMARIZATION_MODEL` constant (`google/gemini-3-flash`) in `src/lib/constants.ts`.
 - Explore agent: `EXPLORE_MODEL` constant (`deepseek/deepseek-v4-flash`) in `src/lib/constants.ts`.
 - Both route through Vercel AI Gateway, authenticated by `AI_GATEWAY_API_KEY`.
-- Step types (`src/core/models/models.ts`): `IntegrationStepFn`, `IntegrationSteps` (`{ [step: string]: IntegrationStepFn }`), `StepMapping` (`{ [integration: string]: IntegrationSteps }`).
+- Step types (`src/core/models/models.ts`): `IntegrationStepFn`, `StepMapping` (`{ [stepName: string]: IntegrationStepFn }`), `SyncStepPipeline` (`Array<Array<StepMapping>>`).
 
 ## MCP server
 

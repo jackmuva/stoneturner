@@ -17,29 +17,32 @@ detail and copy-paste-ready patterns drawn from the existing Gong, Notion, and
 Discord integrations.
 
 - `references/integration-specs.md` — how to write an integration spec (the input document for this skill). Includes a template, section guide, and example specs in `references/integration-spec-examples/`.
-- `references/anatomy.md` — the two core types, the folder layout, and the registries (config, sync, step).
-- `references/sync-pipeline.md` — how to write sync / parse / index steps, including rate limiting, retries, sync-task logging, step-registry registration, the explore agent, and the markdown-artifact contract.
+- `references/anatomy.md` — the two core types, the folder layout, and the registries (config, integration).
+- `references/sync-pipeline.md` — how to write sync / parse / index steps, including rate limiting, retries, sync-task logging, pipeline declaration, the explore agent, and the markdown-artifact contract.
 - `references/auth.md` — `BASIC_TOKEN`, `API_KEY`, and `OAUTH` credential patterns (including `handleRedirect` and `refreshAccessTokens`).
 - `references/checklist.md` — a copy-pasteable end-to-end checklist plus the commands to run.
 
 ## The mental model
 
+Pipelines are `SyncStepPipeline` — an array of arrays of step mappings. Each
+inner array is one **stage** (steps run in parallel); stages run sequentially.
+
 ```
-sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector (embed + upsert) → agent-explore (lay-of-the-land context)
+[ sync-data (parallel fetches) ] → [ parse ] → [ index-vector ] → [ agent-explore ]
 ```
 
 1. **sync-data** — fetch from the external API, write rows into your
-   integration's own SQLite tables. Steps can run in parallel.
+   integration's own SQLite tables. Steps in the same stage run in parallel.
 2. **parse** — read those rows, render markdown, call the summarization LLM to
    extract `keyPoints` / `questionsAnswered` / `entities`, and upsert one
    `mdArtifact` per logical item.
-3. **index-vector** — `indexVectorDbStep(incremental, db, { integration })` from
-   `src/core/services/index-vector-db-step.ts`. **This step is shared — you do
+3. **index-vector** — `bindIndexVector("<name>")` from
+   `src/core/services/pipeline-helpers.ts`. **This step is shared — you do
    not write it.** It chunks each artifact's markdown, embeds content / key
    points / questions, and upserts the vector rows.
-4. **agent-explore** — `agentExploreContextStep(incremental, db, { integration })`
-   from `src/core/services/agent-explore-context-step.ts`. **This step is shared
-   — you do not write it.** An LLM agent explores the integration's data (via
+4. **agent-explore** — `bindAgentExplore("<name>")` from
+   `src/core/services/pipeline-helpers.ts`. **This step is shared — you do
+   not write it.** An LLM agent explores the integration's data (via
    tools in `explore-tools.ts`) and writes a lay-of-the-land overview to
    `sourceContext`. MCP clients load it with `get_data_source_context`.
 
@@ -82,8 +85,8 @@ Plaud) as references for depth and format.
 ```
 src/integrations/<name>/
   config.ts                 # exports IntegrationConfig
-  integration.ts            # exports Integration (pipeline + hooks)
-  steps.ts            # exports IntegrationSteps map for retry lookup
+  integration.ts            # exports Integration (syncPipeline + hooks)
+  pipeline.ts               # exports SyncStepPipeline (array of step-mapping stages)
   db/
     schema.ts               # drizzle tables for the raw source data
     queries.ts              # typed insert/select/delete helpers
@@ -134,24 +137,29 @@ All step functions share the `IntegrationStepFn` signature:
 
 See `references/sync-pipeline.md`.
 
-### 5. Assemble the pipeline + `Integration` (`integration.ts`)
+### 5. Define the pipeline (`pipeline.ts`) + `Integration` (`integration.ts`)
 
-Compose your steps into one `syncPipeline(incremental, db)` function, then export
-an `Integration` whose `sync(db)` calls it with `false`, `syncUpdates(db)` with
-`true`, and `deleteSync(db)` purges syncTasks + artifacts + embeddings +
+Declare your pipeline as a `SyncStepPipeline` — an array of arrays of
+`StepMapping` objects. Each `StepMapping` is a single-key object
+(`{ "step-name": stepFn }`). Steps in the same inner array run in parallel;
+stages run sequentially. See `references/sync-pipeline.md` and
+`src/integrations/gong/pipeline.ts` for a minimal example.
+
+Export an `Integration` with `syncPipeline` set to your pipeline array and
+`deleteSync(db)` that purges syncTasks + artifacts + embeddings +
 sourceContext + your own tables. Add `handleRedirect(req, db)` /
 `refreshAccessTokens(db)` only for OAuth. End the pipeline with
-`agentExploreContextStep` (see `references/sync-pipeline.md`).
+`bindAgentExplore("<name>")` and `bindIndexVector("<name>")`.
 
 ### 6. Register it
 
 Add the config to `src/integrations/config-registry.ts` and the integration to
-`src/integrations/integration-registry.ts`. Export an `IntegrationSteps` map from
-`steps.ts` and register it in `src/integrations/step-registry.ts` so
-failed steps can be retried. Include `"agent-explore": agentExploreContextStep`
-in your steps map. Routes in `src/index.ts` dispatch by
-matching the `:integration` path param against `config.integration`
-(case-insensitive) — no route changes needed.
+`src/integrations/integration-registry.ts`. The `syncPipeline` on the
+`Integration` object is all the retry cron needs — no separate step registry.
+Routes in `src/index.ts` dispatch by matching the `:integration` path param
+against `config.integration` (case-insensitive) and call
+`runSyncPipeline(integration.syncPipeline, incremental, db)` — no route
+changes needed.
 
 ### 7. Migrate and test
 
@@ -168,11 +176,9 @@ UI. See `references/checklist.md`.
 ## Conventions to respect
 
 - `@/*` is the alias for `src/*`.
-- The shared vector step is `index-vector-db-step.ts` — reuse it, don't fork it.
+- The shared vector step is `index-vector-db-step.ts` — bind it via `bindIndexVector("<name>")`, don't fork it.
 - Thread `db: SqliteDb` through every method/step/query; never `import { db }`.
-- Every step function must match `IntegrationStepFn` and be registered in
-  `step-registry.ts` for automatic retry of FAILED tasks (including shared steps
-  like `index-vector` and `agent-explore`).
-- Keep the integration string passed to `indexVectorDbStep(..., { integration })`
+- Every step function must match `IntegrationStepFn` and be included in `pipeline.ts` so the retry cron can look it up via `getStepFn` and resume the pipeline after failure.
+- Keep the integration string passed to `bindIndexVector` / `bindAgentExplore`
   identical to `config.integration` and to the integration string you write on
   every `mdArtifact` / `syncTask` — they're matched as plain strings.
