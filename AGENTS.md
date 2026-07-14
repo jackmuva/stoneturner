@@ -15,9 +15,9 @@ Standard commands and architecture are documented in `CLAUDE.md` and `README.md`
 - The dev server inlines `BUN_PUBLIC_*` at bundle time. After editing `.env` (or these config files), restart `bun dev` for changes to take effect in the browser — HMR alone does not re-inline env values reliably.
 
 ### Failed sync step retries
-- Failed `syncTask` rows are retried via `src/core/services/retry-cron.ts`, which looks up step functions in `src/integrations/step-registry.ts`.
+- Failed `syncTask` rows are retried via `src/core/services/retry-cron.ts`, which looks up step functions in the integration's `syncPipeline` via `getStepFn` (`src/core/services/pipeline-runner.ts`).
 - Retries run on a daily cron (midnight UTC) unless `CRON_ENABLED=false`. Trigger manually with `POST /api/syncTasks/retry`.
-- Each task retries up to 3 times (`syncTask.retries`). Steps resume from `syncTask.inputs` (cursor/offset) and update the same row via `syncTaskId`.
+- Each task retries up to 3 times (`syncTask.retries`). The retry cron first re-invokes the failed step (resuming from `syncTask.inputs`), then runs the **pipeline continuation** from the stage after the failed step via `runSyncPipeline`.
 
 ### Scheduled syncs
 - Per-integration sync frequency is stored in the `syncPipeline` table (`DAILY` / `WEEKLY` / `MONTHLY` / `NO SCHEDULE`).
@@ -26,7 +26,7 @@ Standard commands and architecture are documented in `CLAUDE.md` and `README.md`
 
 ### Explore agent
 - After each sync pipeline completes, `agentExploreContextStep` (`src/core/services/agent-explore-context-step.ts`) runs an LLM agent that explores the integration's data and writes a lay-of-the-land markdown overview to `sourceContext`.
-- MCP clients load this via `get_data_source_context`. New integrations must call `agentExploreContextStep` at the end of their pipeline, register `"agent-explore"` in `steps.ts`, and purge with `deleteSourceContextByIntegration` in `deleteSync`.
+- MCP clients load this via `get_data_source_context`. New integrations must add `bindAgentExplore("<name>")` as the last stage in `pipeline.ts` and purge with `deleteSourceContextByIntegration` in `deleteSync`.
 
 ## Runtime & commands (general)
 - **Bun** is the runtime (not Node/npm). All commands use `bun`.
@@ -43,11 +43,12 @@ Standard commands and architecture are documented in `CLAUDE.md` and `README.md`
 CLAUDE.md may reference `src/integrations/sync-registry.ts`. The actual file is `src/integrations/integration-registry.ts`. When adding an integration, register in `integration-registry.ts` (not `sync-registry.ts`).
 
 ## Adding an integration
-Register an integration in **four** places:
+Register an integration in **three** places:
 1. `src/integrations/config-registry.ts` — frontend UI config
-2. `src/integrations/integration-registry.ts` — sync dispatch
-3. `src/integrations/step-registry.ts` — retry step lookup
-4. `drizzle.config.ts` schema array — so `drizzle-kit` picks up new tables
+2. `src/integrations/integration-registry.ts` — sync dispatch (exports `syncPipeline` on the `Integration` object)
+3. `drizzle.config.ts` schema array — so `drizzle-kit` picks up new tables
+
+Define the sync pipeline in `src/integrations/<name>/pipeline.ts` as a `SyncStepPipeline` (`Array<Array<StepMapping>>`). Each inner array is a parallel stage; outer array runs sequentially.
 
 There is an integration scaffold skill at `skills/SKILL.md`.
 

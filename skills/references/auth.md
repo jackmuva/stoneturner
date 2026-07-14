@@ -113,8 +113,7 @@ const handleOauthRedirect = async (req: BunRequest, db: SqliteDb) => {
 ```ts
 export const notionIntegration: Integration = {
   config: notionConfig,
-  sync: async (db: SqliteDb) => await syncNotionPipeline(false, db),
-  syncUpdates: async (db: SqliteDb) => await syncNotionPipeline(true, db),
+  syncPipeline: notionPipeline,   // defined in pipeline.ts
   deleteSync: async (db: SqliteDb) => { /* purge data + syncTasks + artifacts + embeddings */ },
   handleRedirect: handleOauthRedirect,        // (req, db) — implement in <name>-utils.ts
   refreshAccessTokens: handleNotionRefresh,   // (db)      — implement in <name>-utils.ts
