@@ -143,7 +143,7 @@ export const IntegrationDataPage = () => {
                     Full Sync
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-96">
+                <TooltipContent side={"bottom"} className="max-w-96">
                   {"Re-indexes all synced data. Use this if synced records are changed (i.e. a google doc is changed)"}
                 </TooltipContent>
               </Tooltip>
@@ -156,7 +156,7 @@ export const IntegrationDataPage = () => {
                     Sync New Records
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-96">
+                <TooltipContent side={"bottom"} className="max-w-96">
                   Syncs new records from previous sync (does not sync updates from existing records).
                 </TooltipContent>
               </Tooltip>
@@ -169,11 +169,10 @@ export const IntegrationDataPage = () => {
                     Schedule Syncs
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-96">
+                <TooltipContent side={"bottom"} className="max-w-96">
                   Sync new records every month, week, or day.
                 </TooltipContent>
               </Tooltip>
-
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button variant={"outline"} size="sm" className="rounded-r-md rounded-l-none">
