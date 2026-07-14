@@ -62,7 +62,7 @@ export async function runSemanticSearch(args: unknown, db: SqliteDb): Promise<Mc
       ? artifact.keyPoints.map((kp: string) => `  - ${kp}`).join("\n")
       : "  (none)";
     return [
-      `### ${i + 1}. ${hit.integrationArtifactId}`,
+      `### id: ${hit.integrationArtifactId}`,
       `- similarity: ${similarity}`,
       `- key points:`,
       keyPointsList,
