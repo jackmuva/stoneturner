@@ -50,15 +50,20 @@ export const retryFailedTasks = async (db: SqliteDb) => {
 
       try {
         await stepFunc(true, db, task.inputs, task.id);
-        if (task.integration in integrationPipelines) {
-          integrationPipelines[task.integration]!.push(task.step);
-        } else {
-          integrationPipelines[task.integration] = [task.step];
-        }
+
       } catch (e) {
         console.error(`retry failed for ${task.integration}/${task.step} (${task.id}):`, e);
       }
     }));
+
+    for (const task of failedTasks) {
+      if(!task.step) continue;
+      if (task.integration in integrationPipelines) {
+        integrationPipelines[task.integration]!.push(task.step);
+      } else {
+        integrationPipelines[task.integration] = [task.step];
+      }
+    }
 
     await incrementSyncTaskRetries(retriedTaskIds, db);
 
