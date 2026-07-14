@@ -2,7 +2,7 @@ import type { SqliteDb } from "@/core/models/db-models";
 import { getGithubDiscussions, getGithubDocs, getGithubIssues, getGithubSourceFiles } from "../db/queries";
 import type { GithubDiscussionSelect, GithubDocSelect, GithubIssueSelect, GithubSourceFileSelect } from "../db/schema";
 import { parseTable, renderComments } from "./parse-utils";
-import type { GithubParseInputs, GithubParseTableInputs } from "./github-utils";
+import type { GithubParseTableInputs } from "./github-utils";
 import { getGithubPulls } from "../db/queries";
 import type { GithubPullSelect } from "../db/schema";
 import type { StoredPullFile, StoredReviewComment } from "../models/models";
@@ -102,20 +102,4 @@ ${row.body ?? ""}${renderPullFiles(row.files)}${renderReviewComments(row.reviewC
 export const parseGithubPullsStep = async (_incremental: boolean, db: SqliteDb, inputs?: GithubParseTableInputs, syncTaskId?: string) => {
   await parseTable("github-parse-pulls", (o) => getGithubPulls(o, db), renderPull,
     (r) => r.updatedAt ?? r.createdAt, db, inputs, syncTaskId);
-};
-
-type GithubParseStepFn = (_incremental: boolean, db: SqliteDb, inputs?: GithubParseTableInputs, syncTaskId?: string) => Promise<void>;
-
-const GITHUB_PARSE_BY_LABEL: Record<string, GithubParseStepFn> = {
-  "github-parse-code": parseGithubCodeStep,
-  "github-parse-discussions": parseGithubDiscussionsStep,
-  "github-parse-docs": parseGithubDocsStep,
-  "github-parse-issues": parseGithubIssuesStep,
-  "github-parse-pulls": parseGithubPullsStep,
-};
-
-export const parseGithubStep = async (_incremental: boolean, db: SqliteDb, inputs?: GithubParseInputs, syncTaskId?: string) => {
-  const fn = GITHUB_PARSE_BY_LABEL[String(inputs?.stepLabel ?? "")];
-  if (!fn) throw new Error(`Unknown github parse stepLabel: ${inputs?.stepLabel}`);
-  await fn(_incremental, db, inputs, syncTaskId);
 };

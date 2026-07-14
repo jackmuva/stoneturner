@@ -8,8 +8,6 @@ import { aiGatewayBottleneck } from "@/core/services/rate-limiter";
 import type { StoredComment } from "../models/models";
 import type { GithubParseTableInputs } from "./github-utils";
 
-export const PARSE_STEP = "parse";
-
 type Artifactable = { artifactId: string };
 
 export const renderComments = (comments: StoredComment[] | null): string => {
@@ -43,10 +41,10 @@ export const parseTable = async <T extends Artifactable>(
         id: syncTaskId,
         integration: "github",
         status: failures.length ? "FAILED" : "SUCCESS",
-        step: PARSE_STEP,
+        step: stepLabel,
         inputs: failures.length
-          ? { stepLabel, offset: curOffset }
-          : { stepLabel, offset: nextCursor.offset },
+          ? { offset: curOffset }
+          : { offset: nextCursor.offset },
         error: failures.length ? JSON.stringify(failures) : null,
       }, db);
     } catch (e) {
@@ -54,8 +52,8 @@ export const parseTable = async <T extends Artifactable>(
         id: syncTaskId,
         integration: "github",
         status: "FAILED",
-        step: PARSE_STEP,
-        inputs: { stepLabel, offset: curOffset },
+        step: stepLabel,
+        inputs: { offset: curOffset },
         error: String(e),
       }, db);
     }

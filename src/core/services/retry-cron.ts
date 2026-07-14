@@ -35,7 +35,7 @@ export const retryFailedTasks = async (db: SqliteDb) => {
 
       try {
         await stepFunc(true, db, task.inputs, task.id);
-        await runSyncPipeline(pipeline, true, db, task.step, task.integration);
+        await runSyncPipeline(pipeline, true, db, task.step);
       } catch (e) {
         console.error(`retry failed for ${task.integration}/${task.step} (${task.id}):`, e);
       }

@@ -1,21 +1,11 @@
 import type { SqliteDb } from "../models/db-models";
 import type { IntegrationStepFn, SyncStepPipeline } from "../models/models";
-import { parseGithubStep } from "@/integrations/github/sync-steps/parse-steps";
-
-const STEP_ALIASES: Record<string, Record<string, IntegrationStepFn>> = {
-  github: { parse: parseGithubStep },
-};
-
-const GITHUB_PARSE_STEP_PREFIX = "github-parse-";
 
 export const getStepFn = (
   pipeline: SyncStepPipeline,
-  integration: string,
+  _integration: string,
   step: string,
 ): IntegrationStepFn | undefined => {
-  const alias = STEP_ALIASES[integration.toLowerCase()]?.[step];
-  if (alias) return alias;
-
   let stepNum = 0;
   let subStep = 0;
 
@@ -39,10 +29,9 @@ export const runSyncPipeline = async (
   incremental: boolean = true,
   db: SqliteDb,
   stepStart?: string,
-  integration?: string,
 ) => {
   let curStep = 0;
-  if (stepStart) curStep = findPipelineStartStep(pipeline, stepStart, integration) + 1;
+  if (stepStart) curStep = findPipelineStartStep(pipeline, stepStart) + 1;
 
   while (curStep < pipeline.length) {
     if (pipeline[curStep]) {
@@ -52,14 +41,7 @@ export const runSyncPipeline = async (
   }
 };
 
-const findPipelineStartStep = (pipeline: SyncStepPipeline, stepName: string, integration?: string): number => {
-  if (stepName === "parse" && integration?.toLowerCase() === "github") {
-    const githubParseStage = pipeline.findIndex((stage) =>
-      stage?.some((stepMap) => Object.keys(stepMap)[0]?.startsWith(GITHUB_PARSE_STEP_PREFIX)),
-    );
-    if (githubParseStage !== -1) return githubParseStage;
-  }
-
+const findPipelineStartStep = (pipeline: SyncStepPipeline, stepName: string): number => {
   let stepNum = 0;
   let subStep = 0;
 
