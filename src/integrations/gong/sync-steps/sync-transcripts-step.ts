@@ -56,7 +56,7 @@ const fetchGongTranscripts = async (db: SqliteDb, basicToken: string, baseUrl: s
         status: "FAILED",
         inputs: { cursor: curCursor },
         error: `HTTP ${gongReq.status}`,
-        step: "sync-transcript"
+        step: "gong-sync-transcript"
       }, db);
       return null;
     }
@@ -76,7 +76,7 @@ const fetchGongTranscripts = async (db: SqliteDb, basicToken: string, baseUrl: s
       status: "SUCCESS",
       error: null,
       inputs: { cursor: curCursor },
-      step: "sync-transcript"
+      step: "gong-sync-transcript"
     }, db);
 
     return gongResponse.records.cursor ?? null;

@@ -1,6 +1,7 @@
 import { supportedIntegrations } from "@/integrations/integration-registry";
 import { getAllSyncPipelines, updateSyncPipelineStatus, upsertSyncPipeline } from "../db/queries/queries"
 import type { SqliteDb } from "../models/db-models"
+import { runSyncPipeline } from "./pipeline-runner";
 
 export const syncNewCron = async (db: SqliteDb) => {
   const pipelines = await getAllSyncPipelines(db);
@@ -20,7 +21,7 @@ export const syncNewCron = async (db: SqliteDb) => {
       const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === sched.integration);
       if (index === -1) continue;
       await updateSyncPipelineStatus(sched.integration, "SYNCING", db);
-      Promise.resolve(supportedIntegrations[index]!.syncUpdates(db))
+      Promise.resolve(runSyncPipeline(supportedIntegrations[index]!.syncPipeline, true, db))
         .finally(() => updateSyncPipelineStatus(sched.integration, "IDLE", db));
       await upsertSyncPipeline({
         integration: sched.integration,

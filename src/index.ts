@@ -8,6 +8,7 @@ import { db } from "./core/db/db";
 import { retryFailedTasks } from "./core/services/retry-cron";
 import { deleteSyncTasksPriorToDate, updateSyncPipelineStatus } from "./core/db/queries/queries";
 import { syncNewCron } from "./core/services/sync-new-cron";
+import { runSyncPipeline } from "./core/services/pipeline-runner";
 
 const server = serve({
   routes: {
@@ -33,7 +34,7 @@ const server = serve({
           const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
           if (index === -1) return Response.json(null, { status: 400 });
           await updateSyncPipelineStatus(target, "SYNCING", db);
-          Promise.resolve(supportedIntegrations[index]!.syncUpdates(db))
+          Promise.resolve(runSyncPipeline(supportedIntegrations[index]!.syncPipeline, true, db))
             .finally(() => updateSyncPipelineStatus(target, "IDLE", db));
           return Response.json(null, { status: 200 });
         }
@@ -47,7 +48,7 @@ const server = serve({
           const index = supportedIntegrations.findIndex((integ) => integ.config.integration.toLowerCase() === target);
           if (index === -1) return Response.json(null, { status: 400 });
           await updateSyncPipelineStatus(target, "SYNCING", db);
-          Promise.resolve(supportedIntegrations[index]!.sync(db))
+          Promise.resolve(runSyncPipeline(supportedIntegrations[index]!.syncPipeline, false, db))
             .finally(() => updateSyncPipelineStatus(target, "IDLE", db));
           return Response.json(null, { status: 200 });
         }

@@ -60,7 +60,6 @@ export type GithubPaginatedSyncInputs = { repo?: string; cursor?: GithubPaginate
 export type GithubDocsSyncInputs = { repo?: string; path?: string; cursor?: GithubDocsCursor };
 export type GithubCodeSyncInputs = { repo?: string; cursor?: GithubCodeCursor };
 export type GithubDiscussionsSyncInputs = { repo?: string; cursor?: GithubDiscussionsCursor };
-export type GithubParseInputs = { stepLabel: string; offset?: number };
 export type GithubParseTableInputs = { offset?: number };
 // When resuming, only process repos at or after the cursor repo.
 export const reposFromCursor = (repos: GithubRepoRef[], cursorRepo?: string): GithubRepoRef[] => {

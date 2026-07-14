@@ -9,6 +9,7 @@ import {
 import type { McpToolResult } from "@/core/models/mcp-models";
 import type { SqliteDb } from "@/core/models/db-models";
 import { supportedIntegrations } from "@/integrations/integration-registry";
+import { runSyncPipeline } from "@/core/services/pipeline-runner";
 import { textResult } from "@/lib/utils";
 
 export const getIntegrationSourcesSchema = z.object({});
@@ -85,7 +86,7 @@ export async function runSyncSource(args: unknown, db: SqliteDb): Promise<McpToo
 
   const isIncremental = (await getMdArtifactsByIntegration(db, integration, undefined, undefined)).length > 0;
 
-  isIncremental ? cfg.syncUpdates(db) : cfg.sync(db);
+  void runSyncPipeline(cfg.syncPipeline, isIncremental, db);
 
   return textResult(
     isIncremental

@@ -22,13 +22,12 @@ export type IntegrationConfig = {
 
 export type Integration = {
   config: IntegrationConfig,
-  sync: (db: SqliteDb) => Promise<void> | void,
-  syncUpdates: (db: SqliteDb) => Promise<void> | void,
+  syncPipeline: SyncStepPipeline,
   deleteSync: (db: SqliteDb) => Promise<void> | void,
   handleRedirect?: (req: BunRequest, db: SqliteDb) => Promise<Response> | Response,
   refreshAccessTokens?: (db: SqliteDb) => Promise<void> | void,
 }
 
 export type IntegrationStepFn = (incremental: boolean, db: SqliteDb, inputs?: any, syncTaskId?: string) => Promise<void> | void;
-export type IntegrationSteps = { [step: string]: IntegrationStepFn };
-export type StepMapping = { [integration: string]: IntegrationSteps };
+export type StepMapping = { [stepName: string]: IntegrationStepFn };
+export type SyncStepPipeline = Array<Array<StepMapping>>;
