@@ -41,16 +41,13 @@ export const retryFailedTasks = async (db: SqliteDb) => {
 
     await Promise.allSettled(failedTasks.map(async (task) => {
       if (!isRetriable(task)) return;
-
       const pipeline = getIntegrationPipeline(task.integration);
       if (!pipeline || !task.step) return;
-
       const stepFunc = getStepFn(pipeline, task.step)!;
       retriedTaskIds.push(task.id);
 
       try {
         await stepFunc(true, db, task.inputs, task.id);
-
       } catch (e) {
         console.error(`retry failed for ${task.integration}/${task.step} (${task.id}):`, e);
       }
